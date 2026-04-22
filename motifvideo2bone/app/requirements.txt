@@ -1,0 +1,11 @@
+accelerate
+diffusers>=0.35.2
+einops
+ftfy
+gradio>=5.0.0
+imageio
+imageio-ffmpeg
+Pillow
+regex
+sentencepiece
+transformers>=5.5.4

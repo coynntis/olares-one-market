@@ -1,0 +1,61 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: qwen3ttstone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen3ttstone.png
+  description: "Qwen3-TTS 1.7B — text-to-speech with voice cloning, optimized for Olares One"
+  appid: qwen3ttstone
+  title: Qwen3-TTS 1.7B (Olares One)
+  version: '1.0.9'
+  categories:
+    - AI
+entrances:
+  - name: qwen3ttstone
+    port: 8000
+    host: qwen3ttstone
+    title: Qwen3-TTS One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen3ttstone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.7'
+  fullDescription: |
+    Qwen3-TTS 1.7B CustomVoice served via Gradio — optimized for Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    9 built-in premium voices with instruction control.
+    Zero-shot voice cloning from 3 seconds of reference audio.
+    10 languages: French, English, Chinese, Japanese, Korean, German, Russian, Portuguese, Spanish, Italian.
+    Downloads the model on first launch (~4.5GB) and caches it.
+    Exposes a Gradio web UI on port 8000.
+
+  developer: aamsellem
+  website: https://github.com/QwenLM/Qwen3-TTS
+  sourceCode: https://github.com/QwenLM/Qwen3-TTS
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/QwenLM/Qwen3-TTS/blob/main/LICENSE
+
+  limitedCpu: 8
+  requiredCpu: 4
+  requiredDisk: 15Gi
+  limitedDisk: 30Gi
+  limitedMemory: 16Gi
+  requiredMemory: 8Gi
+  requiredGpu: 1Gi
+  limitedGpu: 8Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

@@ -1,0 +1,104 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: sglangernieimageone
+  name: sglangernieimageone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: sglangernieimageone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: sglangernieimageone
+    spec:
+      containers:
+        - name: sglang-server
+          image: "lmsysorg/sglang:dev-cu13"
+          command:
+            - "zsh"
+            - "-c"
+          args:
+            - |
+              set -e
+              if [ ! -d /workspace/sglang ]; then
+                git clone https://github.com/sgl-project/sglang.git /workspace/sglang
+              fi
+              cd /workspace/sglang
+              pip install -e "python[diffusion]"
+              sglang serve --model-path baidu/ERNIE-Image --dit-layerwise-offload --vae-tiling --vae-cpu-offload --text-encoder-cpu-offload --trust-remote-code --host 0.0.0.0 --port 30000
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+          ports:
+            - containerPort: 30000
+          startupProbe:
+            tcpSocket:
+              port: 30000
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 15
+            failureThreshold: 1200
+          livenessProbe:
+            tcpSocket:
+              port: 30000
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "16"
+              memory: 64Gi
+            requests:
+              cpu: 4000m
+              memory: 24Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/dev/shm"
+              name: dshm
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sglangernieimageone
+  name: sglangernieimageone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sglang"
+      port: 30000
+      targetPort: 30000
+  selector:
+    io.kompose.service: sglangernieimageone

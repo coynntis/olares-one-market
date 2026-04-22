@@ -1,0 +1,2972 @@
+{
+  "hash": "493adfde264406eb5fa3f55adbb6bc45",
+  "summaries": {
+    "33102786": {
+      "id": "33102786",
+      "name": "llamacppqwen35iq4one",
+      "version": "1.0.7",
+      "category": "AI",
+      "description": "Qwen3.5 35B-A3B IQ4_XS via llama.cpp — long context, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen35iq4one.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.742Z"
+    },
+    "f9902972": {
+      "id": "f9902972",
+      "name": "cascade230a3bone",
+      "version": "1.0.6",
+      "category": "AI",
+      "description": "Nemotron Cascade 2 30B-A3B via llama.cpp — math and code, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppnemotron30a3bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.736Z"
+    },
+    "8a7e4366": {
+      "id": "8a7e4366",
+      "name": "devstralsmallone",
+      "version": "1.0.6",
+      "category": "AI",
+      "description": "Devstral Small 2507 via llama.cpp — coding agent optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/devstralsmallone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.737Z"
+    },
+    "9b45c250": {
+      "id": "9b45c250",
+      "name": "exl3qwen36a3bone",
+      "version": "1.0.15",
+      "category": "AI",
+      "description": "Qwen3.5 35B-A3B EXL3 4bpw via TabbyAPI + ExLlamaV3 — optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen36a3bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.738Z"
+    },
+    "a4f8515c": {
+      "id": "a4f8515c",
+      "name": "gemma426ba4bone",
+      "version": "1.0.8",
+      "category": "AI",
+      "description": "Gemma 4 26B-A4B (MoE + Vision) via llama.cpp — optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.739Z"
+    },
+    "65b82978": {
+      "id": "65b82978",
+      "name": "gemma4e2bone",
+      "version": "1.0.1",
+      "category": "AI",
+      "description": "Gemma 4 E2B (ultra-fast 2.3B) via llama.cpp — voice pipeline brain for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.739Z"
+    },
+    "a926b014": {
+      "id": "a926b014",
+      "name": "llamacppbonsai8bone",
+      "version": "1.0.0",
+      "category": "AI",
+      "description": "Bonsai-8B minimal CUDA dev pod on Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppbonsai8bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.739Z"
+    },
+    "c1ca229f": {
+      "id": "c1ca229f",
+      "name": "llamacppglm47flash",
+      "version": "1.0.11",
+      "category": "AI",
+      "description": "GLM-4.7-Flash 30B-A3B via llama.cpp — optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppglm47flash.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.740Z"
+    },
+    "491be3cd": {
+      "id": "491be3cd",
+      "name": "llamacppnemotron30a3bone",
+      "version": "1.0.10",
+      "category": "AI",
+      "description": "Nemotron 3 Nano 30B-A3B via llama.cpp — optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppnemotron30a3bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.740Z"
+    },
+    "059cd05d": {
+      "id": "059cd05d",
+      "name": "llamacppqwen36a3bone",
+      "version": "1.0.29",
+      "category": "AI",
+      "description": "Qwen3.5 35B-A3B via llama.cpp — optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen36a3bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.742Z"
+    },
+    "b6881a07": {
+      "id": "b6881a07",
+      "name": "motifvideo2bone",
+      "version": "1.0.0",
+      "category": "AI",
+      "description": "Motif Video 2B Gradio UI for text-to-video and image-to-video",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.743Z"
+    },
+    "fa4ef911": {
+      "id": "fa4ef911",
+      "name": "nemotron3nano4bone",
+      "version": "1.0.5",
+      "category": "AI",
+      "description": "Nemotron 3 Nano 4B Q8 via llama.cpp — fast edge AI, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/nemotron3nano4bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.743Z"
+    },
+    "e74eca98": {
+      "id": "e74eca98",
+      "name": "omnivoiceone",
+      "version": "1.0.2",
+      "category": "AI",
+      "description": "OmniVoice TTS (646 languages, voice cloning, 0.6B) — optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/omnivoiceone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.744Z"
+    },
+    "14fdab3c": {
+      "id": "14fdab3c",
+      "name": "qwen36a3bvisionone",
+      "version": "1.0.0",
+      "category": "AI",
+      "description": "Qwen3.5 35B-A3B Vision via llama.cpp — image + text, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen35a3bvisionone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.745Z"
+    },
+    "ed18683c": {
+      "id": "ed18683c",
+      "name": "qwen35iq4visionone",
+      "version": "1.0.7",
+      "category": "AI",
+      "description": "Qwen3.5 35B-A3B Vision IQ4_XS via llama.cpp — long context, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen35iq4visionone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.744Z"
+    },
+    "da30d532": {
+      "id": "da30d532",
+      "name": "qwen3coder30a3bone",
+      "version": "1.0.0",
+      "category": "AI",
+      "description": "Qwen3 Coder 30B-A3B via llama.cpp — coding agent optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen3coder30a3bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.745Z"
+    },
+    "49c5b493": {
+      "id": "49c5b493",
+      "name": "qwen3ttstone",
+      "version": "1.0.9",
+      "category": "AI",
+      "description": "Qwen3-TTS 1.7B — text-to-speech with voice cloning, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen3ttstone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.746Z"
+    },
+    "733271fb": {
+      "id": "733271fb",
+      "name": "sglangernieimageone",
+      "version": "1.0.0",
+      "category": "AI",
+      "description": "ERNIE-Image via SGLang — image generation optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.746Z"
+    },
+    "0353b785": {
+      "id": "0353b785",
+      "name": "sglangsanasprintone",
+      "version": "1.0.0",
+      "category": "AI",
+      "description": "Sana Sprint 1.6B 1024px via SGLang — image generation for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.746Z"
+    },
+    "64749fcb": {
+      "id": "64749fcb",
+      "name": "vllmgemma31bitnvfp4one",
+      "version": "1.0.0",
+      "category": "AI",
+      "description": "Gemma 4 31B IT NVFP4 via vLLM modelopt on Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma31bitnvfp4one.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.747Z"
+    },
+    "be32d4df": {
+      "id": "be32d4df",
+      "name": "vllmgemma4e4bone",
+      "version": "1.0.11",
+      "category": "AI",
+      "description": "Gemma 4 E4B (Vision + Audio) via vLLM — optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma4e4bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.747Z"
+    },
+    "285e9d99": {
+      "id": "285e9d99",
+      "name": "vllmqwen3527bone",
+      "version": "1.0.3",
+      "category": "AI",
+      "description": "Qwen3.5 27B NVFP4 via vLLM — optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmqwen3527bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.748Z"
+    },
+    "af406293": {
+      "id": "af406293",
+      "name": "vllmvoxtral3bone",
+      "version": "1.0.8",
+      "category": "AI",
+      "description": "Voxtral Mini 3B ASR via vLLM — audio transcription and understanding, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtral3bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.748Z"
+    },
+    "13db403f": {
+      "id": "13db403f",
+      "name": "vllmvoxtralrt4bone",
+      "version": "1.0.9",
+      "category": "AI",
+      "description": "Voxtral Realtime 4B streaming ASR via vLLM — real-time speech transcription, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtralrt4bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.748Z"
+    },
+    "efd72908": {
+      "id": "efd72908",
+      "name": "vllmvoxtraltts4bone",
+      "version": "1.0.13",
+      "category": "AI",
+      "description": "Voxtral 4B TTS via vLLM-Omni — text-to-speech with 20 voices, optimized for Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtraltts4bone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-20T12:29:26.749Z"
+    }
+  },
+  "details": {
+    "33102786": {
+      "id": "33102786",
+      "name": "llamacppqwen35iq4one",
+      "cfgType": "app",
+      "chartName": "llamacppqwen35iq4one-1.0.7.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen35iq4one.png",
+      "description": "Qwen3.5 35B-A3B IQ4_XS via llama.cpp — long context, optimized for Olares One",
+      "appID": "33102786",
+      "title": "Qwen3.5 35B IQ4 128K One",
+      "version": "1.0.7",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.3",
+      "fullDescription": "Qwen3.5 35B-A3B (MoE, 3B active) served via llama.cpp — long context optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic IQ4_XS quantization (17.5GB) — 6.5GB free for KV cache.\n128K context window (vs 32K for the Q4_K_XL variant).\nCompact 4-bit quant with imatrix optimization, slight quality tradeoff for much longer context.\nFlash attention, CUDA graph optimization, and op-offload enabled.\nllama.cpp b8369 with Gated Delta Net op.\nDownloads the GGUF model on first launch (~17.5GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "v1.0.3: llama.cpp b8667 → b8667 (Hadamard rotation). KV cache q4_0 (with Hadamard rotation) → q4_0 (2x compression).\n",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "llamacppqwen35iq4one",
+          "host": "llamacppqwen35iq4one",
+          "port": 8080,
+          "title": "Qwen 35B IQ4 128K One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen35iq4one.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "MIT",
+          "url": "https://github.com/ggerganov/llama.cpp/blob/master/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen3.5 35B IQ4 128K One",
+            "description": "Qwen3.5 35B-A3B IQ4_XS via llama.cpp — long context, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3.5 35B-A3B (MoE, 3B active) served via llama.cpp — long context optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic IQ4_XS quantization (17.5GB) — 6.5GB free for KV cache.\n128K context window (vs 32K for the Q4_K_XL variant).\nCompact 4-bit quant with imatrix optimization, slight quality tradeoff for much longer context.\nFlash attention, CUDA graph optimization, and op-offload enabled.\nllama.cpp b8369 with Gated Delta Net op.\nDownloads the GGUF model on first launch (~17.5GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "llamacppqwen35iq4one",
+          "version": "1.0.7",
+          "versionName": "1.0.6",
+          "mergedAt": "2026-04-20T12:29:26.742Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.742Z"
+    },
+    "f9902972": {
+      "id": "f9902972",
+      "name": "cascade230a3bone",
+      "cfgType": "app",
+      "chartName": "cascade230a3bone-1.0.6.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppnemotron30a3bone.png",
+      "description": "Nemotron Cascade 2 30B-A3B via llama.cpp — math and code, optimized for Olares One",
+      "appID": "f9902972",
+      "title": "Cascade 2 30B-A3B One",
+      "version": "1.0.6",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.2",
+      "fullDescription": "Nemotron Cascade 2 30B-A3B (Hybrid Mamba-Transformer MoE, 3B active) served via llama.cpp — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nQ4_K_S quantization (22.5GB model, bartowski imatrix). 64K context (only 6 attention layers = tiny KV cache).\nGold medal IMO 2025, IOI 2025, ICPC World Finals 2025.\nDominates in math, code reasoning, and instruction following.\nHybrid architecture: 23 Mamba-2 layers + 6 GQA attention layers + MoE FFN.\nDownloads the GGUF model on first launch (~22.5GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "v1.0.2: llama.cpp b8667 → b8667 (Hadamard rotation). KV cache q4_0 (with Hadamard rotation) → q4_0 (2x compression).\n",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "cascade230a3bone",
+          "host": "cascade230a3bone",
+          "port": 8080,
+          "title": "Cascade 2 30B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppnemotron30a3bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "NVIDIA Open Model License",
+          "url": "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Cascade 2 30B-A3B One",
+            "description": "Nemotron Cascade 2 30B-A3B via llama.cpp — math and code, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Nemotron Cascade 2 30B-A3B (Hybrid Mamba-Transformer MoE, 3B active) served via llama.cpp — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nIQ4_XS imatrix quantization (18.1GB model, ~6GB free for KV cache).\nGold medal IMO 2025, IOI 2025, ICPC World Finals 2025.\nDominates in math, code reasoning, and instruction following.\nDownloads the GGUF model on first launch (~18GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "cascade230a3bone",
+          "version": "1.0.6",
+          "versionName": "1.0.5",
+          "mergedAt": "2026-04-20T12:29:26.736Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.736Z"
+    },
+    "8a7e4366": {
+      "id": "8a7e4366",
+      "name": "devstralsmallone",
+      "cfgType": "app",
+      "chartName": "devstralsmallone-1.0.6.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/devstralsmallone.png",
+      "description": "Devstral Small 2507 via llama.cpp — coding agent optimized for Olares One",
+      "appID": "8a7e4366",
+      "title": "Devstral Small Code One",
+      "version": "1.0.6",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.1",
+      "fullDescription": "Devstral Small 2507 (24B dense) served via llama.cpp — coding agent optimized for Olares One.\n#1 open-source on SWE-Bench Verified (53.6%) — outperforms models 10x larger.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q5_K_XL quantization (16.8GB) — room for 32K+ context.\nBased on Mistral-Small-3.1, fine-tuned for agentic software engineering.\nTool calling support with Mistral format.\nllama.cpp b8334 with flash attention and CUDA graph optimization.\nDownloads the GGUF model on first launch (~17GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "devstralsmallone",
+          "host": "devstralsmallone",
+          "port": 8080,
+          "title": "Devstral Code One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/devstralsmallone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache-2.0",
+          "url": "https://huggingface.co/mistralai/Devstral-Small-2507/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Devstral Small Code One",
+            "description": "Devstral Small 2507 via llama.cpp — coding agent optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Devstral Small 2507 (24B dense) served via llama.cpp — coding agent optimized for Olares One.\n#1 open-source on SWE-Bench Verified (53.6%) — outperforms models 10x larger.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q5_K_XL quantization (16.8GB) — room for 32K+ context.\nBased on Mistral-Small-3.1, fine-tuned for agentic software engineering.\nTool calling support with Mistral format.\nllama.cpp b8334 with flash attention and CUDA graph optimization.\nDownloads the GGUF model on first launch (~17GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "devstralsmallone",
+          "version": "1.0.6",
+          "versionName": "1.0.4",
+          "mergedAt": "2026-04-20T12:29:26.737Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.737Z"
+    },
+    "9b45c250": {
+      "id": "9b45c250",
+      "name": "exl3qwen36a3bone",
+      "cfgType": "app",
+      "chartName": "exl3qwen36a3bone-1.0.15.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen36a3bone.png",
+      "description": "Qwen3.5 35B-A3B EXL3 4bpw via TabbyAPI + ExLlamaV3 — optimized for Olares One",
+      "appID": "9b45c250",
+      "title": "Qwen3.5 35B EXL3 One",
+      "version": "1.0.15",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.13",
+      "fullDescription": "Qwen3.5 35B-A3B (MoE, 3B active) served via TabbyAPI + ExLlamaV3 — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nEXL3 4.09bpw quantization by turboderp (18.24GB model, ~5.7GB free for KV cache).\nExLlamaV3 custom Marlin-inspired GEMM kernels, native sm_120 Blackwell support.\nDownloads the EXL3 model on first launch (~18GB) and caches it.\nExposes an OpenAI-compatible API (v1/chat/completions).\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "exl3qwen36a3bone",
+          "host": "exl3qwen36a3bone",
+          "port": 8080,
+          "title": "Qwen 35B EXL3 One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen36a3bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "MIT",
+          "url": "https://github.com/turboderp-org/exllamav3/blob/master/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen3.5 35B EXL3 One",
+            "description": "Qwen3.5 35B-A3B EXL3 4bpw via TabbyAPI + ExLlamaV3 — optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3.5 35B-A3B (MoE, 3B active) served via TabbyAPI + ExLlamaV3 — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nEXL3 4.09bpw quantization by turboderp (18.24GB model, ~5.7GB free for KV cache).\nExLlamaV3 custom Marlin-inspired GEMM kernels, native sm_120 Blackwell support.\nDownloads the EXL3 model on first launch (~18GB) and caches it.\nExposes an OpenAI-compatible API (v1/chat/completions).\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "exl3qwen36a3bone",
+          "version": "1.0.15",
+          "versionName": "1.0.15",
+          "mergedAt": "2026-04-20T12:29:26.738Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.738Z"
+    },
+    "a4f8515c": {
+      "id": "a4f8515c",
+      "name": "gemma426ba4bone",
+      "cfgType": "app",
+      "chartName": "gemma426ba4bone-1.0.8.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png",
+      "description": "Gemma 4 26B-A4B (MoE + Vision) via llama.cpp — optimized for Olares One",
+      "appID": "a4f8515c",
+      "title": "Gemma 4 26B-A4B One",
+      "version": "1.0.8",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Google Gemma 4 26B-A4B (MoE, 3.8B active, 128 experts) with native vision — served via llama.cpp, optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (16GB model + 1.1GB vision projector = ~17GB, ~7GB free for KV cache).\n64K context with q4_0 KV cache and Hadamard rotation.\nNative multimodal: text + image + video understanding (no separate mmproj download needed by user).\nLMArena 1441 (vs Qwen3.5-35B-A3B 1400). AIME 2026 88.3%. LiveCodeBench 77.1%.\nApache 2.0 license. Thinking mode with tool calling support.\nllama.cpp b8667 with flash attention, CUDA graph optimization, and op-offload.\nDownloads model on first launch (~17GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "4294967296",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "gemma426ba4bone",
+          "host": "gemma426ba4bone",
+          "port": 8080,
+          "title": "Gemma 4 26B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Gemma 4 26B-A4B One",
+            "description": "Gemma 4 26B-A4B (MoE + Vision) via llama.cpp — optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Google Gemma 4 26B-A4B (MoE, 3.8B active, 128 experts) with native vision — served via llama.cpp, optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (16GB model + 1.1GB vision projector = ~17GB, ~7GB free for KV cache).\n64K context with q4_0 KV cache and Hadamard rotation.\nNative multimodal: text + image + video understanding.\nLMArena 1441 (vs Qwen3.5-35B-A3B 1400). AIME 2026 88.3%. LiveCodeBench 77.1%.\nApache 2.0 license. Thinking mode with tool calling support.\nllama.cpp b8667 with flash attention, CUDA graph optimization, and op-offload.\nDownloads model on first launch (~17GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "gemma426ba4bone",
+          "version": "1.0.8",
+          "versionName": "1.0.7",
+          "mergedAt": "2026-04-20T12:29:26.739Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.739Z"
+    },
+    "65b82978": {
+      "id": "65b82978",
+      "name": "gemma4e2bone",
+      "cfgType": "app",
+      "chartName": "gemma4e2bone-1.0.1.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png",
+      "description": "Gemma 4 E2B (ultra-fast 2.3B) via llama.cpp — voice pipeline brain for Olares One",
+      "appID": "65b82978",
+      "title": "Gemma 4 E2B Voice Brain One",
+      "version": "1.0.1",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Google Gemma 4 E2B (5.1B params, 2.3B effective) served via llama.cpp — ultra-fast voice pipeline brain for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nQ8_0 quantization (4.7GB model, near-lossless quality). 8K context.\nDesigned to run alongside Kyutai STT + TTS for a complete French voice pipeline (~12GB total).\nq4_0 KV cache with Hadamard rotation. llama.cpp b8720.\nApache 2.0 license.\nDownloads model on first launch (~4.7GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "4294967296",
+      "requiredDisk": "16106127360",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "gemma4e2bone",
+          "host": "gemma4e2bone",
+          "port": 8080,
+          "title": "Gemma 4 E2B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Gemma 4 E2B Voice Brain One",
+            "description": "Gemma 4 E2B (ultra-fast 2.3B) via llama.cpp — voice pipeline brain for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Google Gemma 4 E2B (5.1B params, 2.3B effective) — ultra-fast voice pipeline brain.\nQ8_0 quantization (4.7GB, near-lossless). Designed for Kyutai STT+TTS voice pipeline.\n~12GB total with STT+TTS, leaving 12GB free on 24GB GPU.\nOpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "gemma4e2bone",
+          "version": "1.0.1",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-20T12:29:26.739Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.739Z"
+    },
+    "a926b014": {
+      "id": "a926b014",
+      "name": "llamacppbonsai8bone",
+      "cfgType": "app",
+      "chartName": "llamacppbonsai8bone-1.0.0.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppbonsai8bone.png",
+      "description": "Bonsai-8B minimal CUDA dev pod on Olares One",
+      "appID": "a926b014",
+      "title": "Bonsai 8B One",
+      "version": "1.0.0",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Minimal Bonsai-8B workspace on Olares One.\nOn first launch, downloads Bonsai-8B.gguf from Hugging Face (prism-ml/Bonsai-8B-gguf) into the app models directory.\nBuild workspace is persisted on disk so PrismML llama.cpp is only cloned once (subsequent starts skip clone if the git checkout already exists).\nThe main container is CUDA 13.2 devel and stays running with sleep infinity after printing a short readiness banner (intended for kubectl exec / debugging workflows).\nGPU is requested on the main container (nvidia.com/gpu=1).\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "8589934592",
+      "requiredDisk": "21474836480",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "MIT",
+          "url": "https://github.com/ggerganov/llama.cpp/blob/master/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Bonsai 8B One",
+            "description": "Bonsai-8B minimal CUDA dev pod on Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Minimal Bonsai-8B workspace on Olares One.\nOn first launch, downloads Bonsai-8B.gguf from Hugging Face into /models.\nBuild workspace is persisted so the PrismML llama.cpp checkout is reused across restarts when possible.\nThe CUDA devel container prints a short readiness banner and then sleeps (intended for kubectl exec / debugging workflows).\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "llamacppbonsai8bone",
+          "version": "1.0.0",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-20T12:29:26.739Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.739Z"
+    },
+    "c1ca229f": {
+      "id": "c1ca229f",
+      "name": "llamacppglm47flash",
+      "cfgType": "app",
+      "chartName": "llamacppglm47flash-1.0.11.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppglm47flash.png",
+      "description": "GLM-4.7-Flash 30B-A3B via llama.cpp — optimized for Olares One",
+      "appID": "c1ca229f",
+      "title": "GLM-4.7-Flash (Olares One)",
+      "version": "1.0.11",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.7",
+      "fullDescription": "GLM-4.7-Flash (MoE, 30B total / 3B active) served via llama.cpp — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (17.5GB, important layers upcasted to 8/16-bit).\nAll layers on GPU, flash attention, CUDA graph optimization, and Jinja chat templates.\nllama.cpp b8234 with DeepSeek-V2 MLA attention support.\nDownloads the GGUF model on first launch (~17.5GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "v1.0.7: llama.cpp b8234 → b8667 (compute graph rework +30-40%, Hadamard rotation). KV cache q4_0 (with Hadamard rotation) → q4_0 (2x compression).\n",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "21474836480",
+      "requiredDisk": "26843545600",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "llamacppglm47flash",
+          "host": "llamacppglm47flash",
+          "port": 8080,
+          "title": "GLM-47-Flash One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppglm47flash.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "MIT",
+          "url": "https://github.com/THUDM/GLM-4/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "GLM-4.7-Flash (Olares One)",
+            "description": "GLM-4.7-Flash 30B-A3B via llama.cpp — optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "GLM-4.7-Flash (MoE, 30B total / 3B active) served via llama.cpp — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (17.5GB, important layers upcasted to 8/16-bit).\nAll layers on GPU, flash attention, CUDA graph optimization, and Jinja chat templates.\nllama.cpp b8234 with DeepSeek-V2 MLA attention support.\nDownloads the GGUF model on first launch (~17.5GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "llamacppglm47flash",
+          "version": "1.0.11",
+          "versionName": "1.0.10",
+          "mergedAt": "2026-04-20T12:29:26.740Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.740Z"
+    },
+    "491be3cd": {
+      "id": "491be3cd",
+      "name": "llamacppnemotron30a3bone",
+      "cfgType": "app",
+      "chartName": "llamacppnemotron30a3bone-1.0.10.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppnemotron30a3bone.png",
+      "description": "Nemotron 3 Nano 30B-A3B via llama.cpp — optimized for Olares One",
+      "appID": "491be3cd",
+      "title": "Nemotron 30B-A3B Olares One",
+      "version": "1.0.10",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.6",
+      "fullDescription": "Nemotron 3 Nano 30B-A3B (Hybrid Mamba-Transformer MoE, 3.5B active) served via llama.cpp — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (important layers upcasted to 8/16-bit).\n64K context (only 6 attention layers = tiny KV cache, Mamba-2 SSM handles the rest).\nHybrid architecture: 23 Mamba-2 layers + 6 GQA attention layers + MoE FFN.\nFlash attention, CUDA graph optimization, and op-offload enabled.\nBuilt-in reasoning mode with think/no-think toggle via chat template.\nDownloads the GGUF model on first launch (~23GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "v1.0.6: llama.cpp b8667 → b8667 (Hadamard rotation). KV cache q4_0 (with Hadamard rotation) → q4_0. Context 64K → 128K (Mamba-2 hybrid = tiny KV cache).\n",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "llamacppnemotron30a3bone",
+          "host": "llamacppnemotron30a3bone",
+          "port": 8080,
+          "title": "Nemotron 30B-A3B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppnemotron30a3bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "NVIDIA Nemotron Open Model License",
+          "url": "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-nemotron-open-model-license/"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Nemotron 30B-A3B Olares One",
+            "description": "Nemotron 3 Nano 30B-A3B via llama.cpp — optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Nemotron 3 Nano 30B-A3B (Hybrid Mamba-Transformer MoE, 3.5B active) served via llama.cpp — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (important layers upcasted to 8/16-bit).\nHybrid architecture: 23 Mamba-2 layers + 6 GQA attention layers + MoE FFN.\nFlash attention, CUDA graph optimization, and op-offload enabled.\nBuilt-in reasoning mode with think/no-think toggle via chat template.\nDownloads the GGUF model on first launch (~23GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "llamacppnemotron30a3bone",
+          "version": "1.0.10",
+          "versionName": "1.0.9",
+          "mergedAt": "2026-04-20T12:29:26.740Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.740Z"
+    },
+    "059cd05d": {
+      "id": "059cd05d",
+      "name": "llamacppqwen36a3bone",
+      "cfgType": "app",
+      "chartName": "llamacppqwen36a3bone-1.0.29.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen36a3bone.png",
+      "description": "Qwen3.5 35B-A3B via llama.cpp — optimized for Olares One",
+      "appID": "059cd05d",
+      "title": "Qwen3.5 35B-A3B (Olares One)",
+      "version": "1.0.29",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.25",
+      "fullDescription": "Qwen3.5 35B-A3B (MoE, 3B active) served via llama.cpp — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (important layers upcasted to 8/16-bit).\nllama.cpp b8667 with Hadamard rotation for better KV cache quantization.\nKV cache q4_0 (2x smaller than q8_0, same quality via rotation).\nFlash attention, CUDA graph optimization, and op-offload enabled.\nDownloads the GGUF model on first launch (~22GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "v1.0.25: llama.cpp b8496 → b8667 (Hadamard rotation for KV cache, NVFP4 MMQ kernel, Gemma 4 support). KV cache q8_0 → q4_0 (2x compression, same quality via rotation). Test build.\n",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "llamacppqwen36a3bone",
+          "host": "llamacppqwen36a3bone",
+          "port": 8080,
+          "title": "Qwen 35B-A3B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen36a3bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "MIT",
+          "url": "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen3.5 35B-A3B (Olares One)",
+            "description": "Qwen3.5 35B-A3B via llama.cpp — optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3.5 35B-A3B (MoE, 3B active) served via llama.cpp — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (important layers upcasted to 8/16-bit).\nMoE experts offloaded to CPU RAM, attention on GPU.\nFlash attention, CUDA graph optimization, and op-offload enabled.\nllama.cpp b8234 with GATED_DELTA_NET fused op for Qwen MoE.\nDownloads the GGUF model on first launch (~22GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "llamacppqwen36a3bone",
+          "version": "1.0.29",
+          "versionName": "1.0.28",
+          "mergedAt": "2026-04-20T12:29:26.742Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.742Z"
+    },
+    "b6881a07": {
+      "id": "b6881a07",
+      "name": "motifvideo2bone",
+      "cfgType": "app",
+      "chartName": "motifvideo2bone-1.0.0.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+      "description": "Motif Video 2B Gradio UI for text-to-video and image-to-video",
+      "appID": "b6881a07",
+      "title": "Motif Video 2B One",
+      "version": "1.0.0",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Gradio interface for Motif-Technologies/Motif-Video-2B using diffusers.\nSupports both text-to-video and image-to-video generation.\n\nOptimized for 24GB GPUs (RTX 4090 / 3090 style memory budget) with:\n  - enable_model_cpu_offload()\n  - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True\n\nRuntime base image:\n  pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel\n\nService:\n  - Gradio on port 7860\n  - CUDA required\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "Motif Technologies",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "85899345920",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "motifvideo2bone",
+          "host": "motifvideo2bone",
+          "port": 7860,
+          "title": "Motif Video 2B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://huggingface.co/Motif-Technologies/Motif-Video-2B",
+      "featuredImage": "",
+      "sourceCode": "https://huggingface.co/Motif-Technologies/Motif-Video-2B",
+      "license": [
+        {
+          "text": "Apache-2.0",
+          "url": "https://huggingface.co/Motif-Technologies/Motif-Video-2B/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Motif Video 2B One",
+            "description": "Motif Video 2B Gradio UI for text-to-video and image-to-video"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Gradio interface for Motif-Technologies/Motif-Video-2B using diffusers.\nSupports both text-to-video and image-to-video generation.\n\nOptimized for 24GB GPUs (RTX 4090 / 3090 style memory budget) with:\n  - enable_model_cpu_offload()\n  - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True\n\nRuntime base image:\n  pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "motifvideo2bone",
+          "version": "1.0.0",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-20T12:29:26.743Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.743Z"
+    },
+    "fa4ef911": {
+      "id": "fa4ef911",
+      "name": "nemotron3nano4bone",
+      "cfgType": "app",
+      "chartName": "nemotron3nano4bone-1.0.5.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/nemotron3nano4bone.png",
+      "description": "Nemotron 3 Nano 4B Q8 via llama.cpp — fast edge AI, optimized for Olares One",
+      "appID": "fa4ef911",
+      "title": "Nemotron 3 Nano 4B One",
+      "version": "1.0.5",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "NVIDIA Nemotron 3 Nano 4B (hybrid Mamba-2 + Transformer) served via llama.cpp — optimized for Olares One.\nUltra-fast 4B parameter model with reasoning support (think tokens).\nQ8_0 quantization (4.2GB) — fits entirely in GPU with 20GB free for 128K+ context.\nHybrid architecture: Mamba-2 layers + 4 attention layers for efficient long-context inference.\nCompressed from Nemotron-Nano-9B-v2, designed for edge/agentic AI.\nllama.cpp b8369 with flash attention and CUDA graph optimization.\nDownloads the GGUF model on first launch (~4.2GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "8589934592",
+      "requiredDisk": "10737418240",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "2",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "nemotron3nano4bone",
+          "host": "nemotron3nano4bone",
+          "port": 8080,
+          "title": "Nemotron Nano 4B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/nemotron3nano4bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "NVIDIA Open Model License",
+          "url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-4B-BF16/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Nemotron 3 Nano 4B One",
+            "description": "Nemotron 3 Nano 4B Q8 via llama.cpp — fast edge AI, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "NVIDIA Nemotron 3 Nano 4B (hybrid Mamba-2 + Transformer) served via llama.cpp — optimized for Olares One.\nUltra-fast 4B parameter model with reasoning support (think tokens).\nQ8_0 quantization (4.2GB) — fits entirely in GPU with 20GB free for 128K+ context.\nHybrid architecture: Mamba-2 layers + 4 attention layers for efficient long-context inference.\nCompressed from Nemotron-Nano-9B-v2, designed for edge/agentic AI.\nllama.cpp b8369 with flash attention and CUDA graph optimization.\nDownloads the GGUF model on first launch (~4.2GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "nemotron3nano4bone",
+          "version": "1.0.5",
+          "versionName": "1.0.3",
+          "mergedAt": "2026-04-20T12:29:26.743Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.743Z"
+    },
+    "e74eca98": {
+      "id": "e74eca98",
+      "name": "omnivoiceone",
+      "cfgType": "app",
+      "chartName": "omnivoiceone-1.0.2.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/omnivoiceone.png",
+      "description": "OmniVoice TTS (646 languages, voice cloning, 0.6B) — optimized for Olares One",
+      "appID": "e74eca98",
+      "title": "OmniVoice TTS One",
+      "version": "1.0.2",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "OmniVoice TTS by k2-fsa — 646 languages, zero-shot voice cloning, 0.6B params.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nOnly ~2-4 GB VRAM — can run alongside LLM and STT for voice pipeline.\n40x faster than real-time. Apache 2.0 license.\nOpenAI-compatible /v1/audio/speech API endpoint.\nFrench, English, German, Spanish, Italian, + 641 more languages.\nVoice cloning from reference audio. Voice design (gender, age, pitch, accent).\nDownloads model on first launch (~2GB) and caches it.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "4294967296",
+      "requiredDisk": "10737418240",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "omnivoiceone",
+          "host": "omnivoiceone",
+          "port": 8000,
+          "title": "OmniVoice TTS One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/omnivoiceone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "OmniVoice TTS One",
+            "description": "OmniVoice TTS (646 languages, voice cloning, 0.6B) — optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "OmniVoice TTS — 646 languages, voice cloning, only 2-4GB VRAM.\nOpenAI-compatible /v1/audio/speech API. Apache 2.0.\nDesigned to run alongside LLM + STT for a complete voice pipeline.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "omnivoiceone",
+          "version": "1.0.2",
+          "versionName": "1.0.2",
+          "mergedAt": "2026-04-20T12:29:26.744Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.744Z"
+    },
+    "14fdab3c": {
+      "id": "14fdab3c",
+      "name": "qwen36a3bvisionone",
+      "cfgType": "app",
+      "chartName": "qwen36a3bvisionone-1.0.0.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen35a3bvisionone.png",
+      "description": "Qwen3.5 35B-A3B Vision via llama.cpp — image + text, optimized for Olares One",
+      "appID": "14fdab3c",
+      "title": "Qwen3.6 Vision (Olares One)",
+      "version": "1.0.0",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.5",
+      "fullDescription": "Qwen3.5 35B-A3B Vision (MoE, 3B active) served via llama.cpp — optimized for Olares One.\nMultimodal: accepts images via OpenAI-compatible vision API (image_url format).\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (22.2GB) + mmproj F16 (0.9GB).\nFlash attention, CUDA graph optimization, and op-offload enabled.\nllama.cpp b8667 with multimodal projector support.\nDownloads the GGUF model (~22GB) and mmproj (~0.9GB) on first launch.\nContext reduced to 16K to fit model + mmproj in 24GB VRAM.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "v1.0.5: llama.cpp b8667 → b8667 (Hadamard rotation). KV cache q4_0 (with Hadamard rotation) → q4_0 (2x compression). Context 16K → 32K.\n",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "37580963840",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "qwen36a3bvisionone",
+          "host": "qwen36a3bvisionone",
+          "port": 8080,
+          "title": "Qwen 35B Vision One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen35a3bvisionone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "MIT",
+          "url": "https://github.com/ggerganov/llama.cpp/blob/master/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen3.6 Vision (Olares One)",
+            "description": "Qwen3.6 35B-A3B Vision via llama.cpp — image + text, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3.6 35B-A3B Vision (MoE, 3B active) served via llama.cpp — optimized for Olares One.\nMultimodal: accepts images via OpenAI-compatible vision API (image_url format).\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (22.2GB) + mmproj F16 (0.9GB).\nFlash attention, CUDA graph optimization, and op-offload enabled.\nllama.cpp b8334 with multimodal projector support.\nDownloads the GGUF model (~22GB) and mmproj (~0.9GB) on first launch.\nContext reduced to 16K to fit model + mmproj in 24GB VRAM.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "qwen36a3bvisionone",
+          "version": "1.0.0",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-20T12:29:26.745Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.745Z"
+    },
+    "ed18683c": {
+      "id": "ed18683c",
+      "name": "qwen35iq4visionone",
+      "cfgType": "app",
+      "chartName": "qwen35iq4visionone-1.0.7.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen35iq4visionone.png",
+      "description": "Qwen3.5 35B-A3B Vision IQ4_XS via llama.cpp — long context, optimized for Olares One",
+      "appID": "ed18683c",
+      "title": "Qwen3.5 Vision IQ4 64K One",
+      "version": "1.0.7",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.3",
+      "fullDescription": "Qwen3.5 35B-A3B Vision (MoE, 3B active) served via llama.cpp — long context optimized for Olares One.\nMultimodal: accepts images via OpenAI-compatible vision API (image_url format).\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic IQ4_XS quantization (17.5GB) + mmproj F16 (0.9GB) = 18.4GB total.\n64K context window (vs 16K for the Q4_K_XL vision variant).\nFlash attention, CUDA graph optimization, and op-offload enabled.\nllama.cpp b8369 with Gated Delta Net op.\nDownloads the GGUF model (~17.5GB) and mmproj (~0.9GB) on first launch.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "v1.0.3: llama.cpp b8667 → b8667 (Hadamard rotation). KV cache q4_0 (with Hadamard rotation) → q4_0 (2x compression). Context 16K → 32K.\n",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "qwen35iq4visionone",
+          "host": "qwen35iq4visionone",
+          "port": 8080,
+          "title": "Qwen Vision IQ4 64K One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen35iq4visionone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "MIT",
+          "url": "https://github.com/ggerganov/llama.cpp/blob/master/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen3.5 Vision IQ4 64K One",
+            "description": "Qwen3.5 35B-A3B Vision IQ4_XS via llama.cpp — long context, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3.5 35B-A3B Vision (MoE, 3B active) served via llama.cpp — long context optimized for Olares One.\nMultimodal: accepts images via OpenAI-compatible vision API (image_url format).\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic IQ4_XS quantization (17.5GB) + mmproj F16 (0.9GB) = 18.4GB total.\n64K context window (vs 16K for the Q4_K_XL vision variant).\nFlash attention, CUDA graph optimization, and op-offload enabled.\nllama.cpp b8369 with Gated Delta Net op.\nDownloads the GGUF model (~17.5GB) and mmproj (~0.9GB) on first launch.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "qwen35iq4visionone",
+          "version": "1.0.7",
+          "versionName": "1.0.6",
+          "mergedAt": "2026-04-20T12:29:26.744Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.744Z"
+    },
+    "da30d532": {
+      "id": "da30d532",
+      "name": "qwen3coder30a3bone",
+      "cfgType": "app",
+      "chartName": "qwen3coder30a3bone-1.0.0.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen3coder30a3bone.png",
+      "description": "Qwen3 Coder 30B-A3B via llama.cpp — coding agent optimized for Olares One",
+      "appID": "da30d532",
+      "title": "Qwen3 Coder 30B-A3B One",
+      "version": "1.0.0",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Qwen3 Coder 30B-A3B-Instruct (MoE, 3.3B active) served via llama.cpp — coding agent optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (16.45GB, important layers upcasted to 8/16-bit).\nKV cache q8_0 — 7GB free VRAM allows high-quality cache with 64K context.\n50.3% SWE-bench Verified. Full tool calling support. 256K native context.\nllama.cpp b8740 with CUDA fused multiply for MoE.\nDownloads the GGUF model on first launch (~16.5GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "qwen3coder30a3bone",
+          "host": "qwen3coder30a3bone",
+          "port": 8080,
+          "title": "Qwen3 Coder 30B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen3coder30a3bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache-2.0",
+          "url": "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen3 Coder 30B-A3B One",
+            "description": "Qwen3 Coder 30B-A3B via llama.cpp — coding agent optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3 Coder 30B-A3B-Instruct (MoE, 3.3B active) served via llama.cpp — coding agent optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUnsloth Dynamic Q4_K_XL quantization (16.45GB, important layers upcasted to 8/16-bit).\nKV cache q8_0 — 7GB free VRAM allows high-quality cache with 64K context.\n50.3% SWE-bench Verified. Full tool calling support. 256K native context.\nllama.cpp b8740 with CUDA fused multiply for MoE.\nDownloads the GGUF model on first launch (~16.5GB) and caches it.\nExposes an OpenAI-compatible API on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "qwen3coder30a3bone",
+          "version": "1.0.0",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-20T12:29:26.745Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.745Z"
+    },
+    "49c5b493": {
+      "id": "49c5b493",
+      "name": "qwen3ttstone",
+      "cfgType": "app",
+      "chartName": "qwen3ttstone-1.0.9.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen3ttstone.png",
+      "description": "Qwen3-TTS 1.7B — text-to-speech with voice cloning, optimized for Olares One",
+      "appID": "49c5b493",
+      "title": "Qwen3-TTS 1.7B (Olares One)",
+      "version": "1.0.9",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.7",
+      "fullDescription": "Qwen3-TTS 1.7B CustomVoice served via Gradio — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\n9 built-in premium voices with instruction control.\nZero-shot voice cloning from 3 seconds of reference audio.\n10 languages: French, English, Chinese, Japanese, Korean, German, Russian, Portuguese, Spanish, Italian.\nDownloads the model on first launch (~4.5GB) and caches it.\nExposes a Gradio web UI on port 8000.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "8589934592",
+      "requiredDisk": "16106127360",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "qwen3ttstone",
+          "host": "qwen3ttstone",
+          "port": 8000,
+          "title": "Qwen3-TTS One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen3ttstone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/QwenLM/Qwen3-TTS",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/QwenLM/Qwen3-TTS",
+      "license": [
+        {
+          "text": "Apache-2.0",
+          "url": "https://github.com/QwenLM/Qwen3-TTS/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen3-TTS 1.7B (Olares One)",
+            "description": "Qwen3-TTS 1.7B — text-to-speech with voice cloning, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3-TTS 1.7B CustomVoice served via Gradio — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\n9 built-in premium voices with instruction control.\nZero-shot voice cloning from 3 seconds of reference audio.\n10 languages: French, English, Chinese, Japanese, Korean, German, Russian, Portuguese, Spanish, Italian.\nDownloads the model on first launch (~4.5GB) and caches it.\nExposes a Gradio web UI on port 8000.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "qwen3ttstone",
+          "version": "1.0.9",
+          "versionName": "1.0.9",
+          "mergedAt": "2026-04-20T12:29:26.746Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.746Z"
+    },
+    "733271fb": {
+      "id": "733271fb",
+      "name": "sglangernieimageone",
+      "cfgType": "app",
+      "chartName": "sglangernieimageone-1.0.0.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+      "description": "ERNIE-Image via SGLang — image generation optimized for Olares One",
+      "appID": "733271fb",
+      "title": "SGLang ERNIE-Image One",
+      "version": "1.0.0",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "SGLang server running baidu/ERNIE-Image for OpenAI-compatible image generation on Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUses official diffusion-ready container image: lmsysorg/sglang:dev-cu13.\nBootstraps SGLang source by cloning https://github.com/sgl-project/sglang.git in the container.\nInstalls diffusion dependencies at startup with:\n  pip install -e \"python[diffusion]\"\nServes on port 30000 using:\n  sglang serve --model-path baidu/ERNIE-Image --trust-remote-code --host 0.0.0.0 --port 30000\nGeneration endpoint:\n  POST /v1/images/generations\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "sgl-project",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "53687091200",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "sglangernieimageone",
+          "host": "sglangernieimageone",
+          "port": 30000,
+          "title": "SGLang ERNIE Image One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "coynntis",
+      "doc": "",
+      "website": "https://github.com/sgl-project/sglang",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/sgl-project/sglang",
+      "license": [
+        {
+          "text": "Apache-2.0",
+          "url": "https://github.com/sgl-project/sglang/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "SGLang ERNIE-Image One",
+            "description": "ERNIE-Image via SGLang — image generation optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "SGLang server running baidu/ERNIE-Image for OpenAI-compatible image generation on Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUses official diffusion-ready container image: lmsysorg/sglang:dev-cu13.\nBootstraps SGLang source by cloning https://github.com/sgl-project/sglang.git in the container.\nInstalls diffusion dependencies at startup with:\n  pip install -e \"python[diffusion]\"\nServes on port 30000 using:\n  sglang serve --model-path baidu/ERNIE-Image --trust-remote-code --host 0.0.0.0 --port 30000\nGeneration endpoint:\n  POST /v1/images/generations\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "sglangernieimageone",
+          "version": "1.0.0",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-20T12:29:26.746Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.746Z"
+    },
+    "0353b785": {
+      "id": "0353b785",
+      "name": "sglangsanasprintone",
+      "cfgType": "app",
+      "chartName": "sglangsanasprintone-1.0.0.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+      "description": "Sana Sprint 1.6B 1024px via SGLang — image generation for Olares One",
+      "appID": "0353b785",
+      "title": "SGLang Sana Sprint One",
+      "version": "1.0.0",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "SGLang server running Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers for OpenAI-compatible image generation on Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUses official diffusion-ready container image: lmsysorg/sglang:dev-cu13.\nBootstraps SGLang source by cloning https://github.com/sgl-project/sglang.git in the container.\nInstalls diffusion dependencies at startup with:\n  pip install -e \"python[diffusion]\"\nServes on port 30000 using:\n  sglang serve --model-path Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers --trust-remote-code --host 0.0.0.0 --port 30000\nGeneration endpoint:\n  POST /v1/images/generations\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "sgl-project",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "53687091200",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "sglangsanasprintone",
+          "host": "sglangsanasprintone",
+          "port": 30000,
+          "title": "SGLang Sana Sprint One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/sgl-project/sglang",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/sgl-project/sglang",
+      "license": [
+        {
+          "text": "Apache-2.0",
+          "url": "https://github.com/sgl-project/sglang/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "SGLang Sana Sprint One",
+            "description": "Sana Sprint 1.6B 1024px via SGLang — image generation for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "SGLang server running Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers for OpenAI-compatible image generation on Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nUses official diffusion-ready container image: lmsysorg/sglang:dev-cu13.\nBootstraps SGLang source by cloning https://github.com/sgl-project/sglang.git in the container.\nInstalls diffusion dependencies at startup with:\n  pip install -e \"python[diffusion]\"\nServes on port 30000 using:\n  sglang serve --model-path Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers --trust-remote-code --host 0.0.0.0 --port 30000\nGeneration endpoint:\n  POST /v1/images/generations\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "sglangsanasprintone",
+          "version": "1.0.0",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-20T12:29:26.746Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.746Z"
+    },
+    "64749fcb": {
+      "id": "64749fcb",
+      "name": "vllmgemma31bitnvfp4one",
+      "cfgType": "app",
+      "chartName": "vllmgemma31bitnvfp4one-1.0.0.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma31bitnvfp4one.png",
+      "description": "Gemma 4 31B IT NVFP4 via vLLM modelopt on Olares One",
+      "appID": "64749fcb",
+      "title": "Gemma 4 31B NVFP4 One",
+      "version": "1.0.0",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "NVIDIA optimized Gemma 4 31B IT NVFP4 checkpoint served via vLLM on Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nStartup command: vllm serve /models/gemma-4-31b-it-nvfp4 --quantization modelopt\nThis model supports long context and multimodal understanding with text output.\nApache 2.0 license.\nEnsure model files are available at /models/gemma-4-31b-it-nvfp4 before startup.\nExposes an OpenAI-compatible API on port 8000.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "37580963840",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "vllmgemma31bitnvfp4one",
+          "host": "vllmgemma31bitnvfp4one",
+          "port": 8000,
+          "title": "Gemma 4 31B NVFP4 One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma31bitnvfp4one.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Gemma 4 31B NVFP4 One",
+            "description": "Gemma 4 31B IT NVFP4 via vLLM modelopt on Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "NVIDIA optimized Gemma 4 31B IT NVFP4 checkpoint served via vLLM on Olares One.\nStartup command: vllm serve /models/gemma-4-31b-it-nvfp4 --quantization modelopt\nEnsure model files are available at /models/gemma-4-31b-it-nvfp4 before startup.\nApache 2.0 license.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "vllmgemma31bitnvfp4one",
+          "version": "1.0.0",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-20T12:29:26.747Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.747Z"
+    },
+    "be32d4df": {
+      "id": "be32d4df",
+      "name": "vllmgemma4e4bone",
+      "cfgType": "app",
+      "chartName": "vllmgemma4e4bone-1.0.11.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma4e4bone.png",
+      "description": "Gemma 4 E4B (Vision + Audio) via vLLM — optimized for Olares One",
+      "appID": "be32d4df",
+      "title": "Gemma 4 E4B Voice One",
+      "version": "1.0.11",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Google Gemma 4 E4B (8B params, 4.5B effective) with native audio + vision input — served via vLLM, optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nNative audio understanding: ask questions about audio, transcribe speech, summarize conversations.\nNative vision: analyze images, read documents, understand screenshots.\nBF16 precision (~10GB VRAM with audio encoder). 8K context.\ngpu-memory-utilization 0.45 (~10GB) — leaves room for TTS alongside.\nOpenAI-compatible API with audio_url support in chat completions.\nApache 2.0 license. Thinking mode with tool calling.\nDownloads model on first launch (~10GB) and caches it.\nExposes an OpenAI-compatible API on port 8000.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "4294967296",
+      "requiredDisk": "21474836480",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "vllmgemma4e4bone",
+          "host": "vllmgemma4e4bone",
+          "port": 8000,
+          "title": "Gemma 4 E4B Voice One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma4e4bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Gemma 4 E4B Voice One",
+            "description": "Gemma 4 E4B (Vision + Audio) via vLLM — optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Google Gemma 4 E4B (8B params, 4.5B effective) with native audio + vision input — served via vLLM, optimized for Olares One.\nNative audio understanding and vision. OpenAI-compatible API with audio_url support.\n~10GB VRAM — designed to run alongside Voxtral TTS for a complete voice pipeline.\nApache 2.0 license.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "vllmgemma4e4bone",
+          "version": "1.0.11",
+          "versionName": "1.0.11",
+          "mergedAt": "2026-04-20T12:29:26.747Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.747Z"
+    },
+    "285e9d99": {
+      "id": "285e9d99",
+      "name": "vllmqwen3527bone",
+      "cfgType": "app",
+      "chartName": "vllmqwen3527bone-1.0.3.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmqwen3527bone.png",
+      "description": "Qwen3.5 27B NVFP4 via vLLM — optimized for Olares One",
+      "appID": "285e9d99",
+      "title": "Qwen3.5 27B NVFP4 vLLM One",
+      "version": "1.0.3",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.1",
+      "fullDescription": "Qwen3.5 27B (dense, Mamba-hybrid) served via vLLM with NVFP4 quantization — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nNVFP4 (NVIDIA FP4) native Blackwell quantization — 19.7GB model weights.\nRequires SM 12.0 (Blackwell architecture) for FP4 tensor core instructions.\nUses vLLM cu130-nightly with native NVFP4 Marlin backend.\nDownloads the model from HuggingFace on first launch (~20GB) and caches it.\nExposes an OpenAI-compatible API on port 8000.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "25769803776",
+      "requiredDisk": "42949672960",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "vllmqwen3527bone",
+          "host": "vllmqwen3527bone",
+          "port": 8000,
+          "title": "Qwen 27B NVFP4 vLLM One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmqwen3527bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache-2.0",
+          "url": "https://github.com/vllm-project/vllm/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen3.5 27B NVFP4 vLLM One",
+            "description": "Qwen3.5 27B NVFP4 via vLLM — optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3.5 27B (dense, Mamba-hybrid) served via vLLM with NVFP4 quantization — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nNVFP4 (NVIDIA FP4) native Blackwell quantization — 19.7GB model weights.\nRequires SM 12.0 (Blackwell architecture) for FP4 tensor core instructions.\nUses vLLM cu130-nightly with native NVFP4 Marlin backend.\nDownloads the model from HuggingFace on first launch (~20GB) and caches it.\nExposes an OpenAI-compatible API on port 8000.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "vllmqwen3527bone",
+          "version": "1.0.3",
+          "versionName": "1.0.3",
+          "mergedAt": "2026-04-20T12:29:26.748Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.748Z"
+    },
+    "af406293": {
+      "id": "af406293",
+      "name": "vllmvoxtral3bone",
+      "cfgType": "app",
+      "chartName": "vllmvoxtral3bone-1.0.8.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtral3bone.png",
+      "description": "Voxtral Mini 3B ASR via vLLM — audio transcription and understanding, optimized for Olares One",
+      "appID": "af406293",
+      "title": "Voxtral Mini 3B ASR One",
+      "version": "1.0.8",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Mistral Voxtral Mini 3B (audio encoder + Ministral-3B LLM) served via vLLM — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nBF16 precision (~9.5GB VRAM). 32K context. Up to 30 min audio transcription.\n2.7x faster than Whisper Large V3. 3.2% WER English.\nOpenAI-compatible API: /v1/audio/transcriptions + /v1/chat/completions with audio input.\nApache 2.0 license.\nDownloads model on first launch (~9GB) and caches it.\nExposes an OpenAI-compatible API on port 8000.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "4294967296",
+      "requiredDisk": "21474836480",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "vllmvoxtral3bone",
+          "host": "vllmvoxtral3bone",
+          "port": 8000,
+          "title": "Voxtral 3B ASR One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtral3bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Voxtral Mini 3B ASR One",
+            "description": "Voxtral Mini 3B ASR via vLLM — audio transcription and understanding, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Mistral Voxtral Mini 3B (audio encoder + Ministral-3B LLM) served via vLLM — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nBF16 precision (~9.5GB VRAM). 32K context. Up to 30 min audio transcription.\n2.7x faster than Whisper Large V3. 3.2% WER English.\nOpenAI-compatible API: /v1/audio/transcriptions + /v1/chat/completions with audio input.\nApache 2.0 license.\nDownloads model on first launch (~9GB) and caches it.\nExposes an OpenAI-compatible API on port 8000.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "vllmvoxtral3bone",
+          "version": "1.0.8",
+          "versionName": "1.0.7",
+          "mergedAt": "2026-04-20T12:29:26.748Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.748Z"
+    },
+    "13db403f": {
+      "id": "13db403f",
+      "name": "vllmvoxtralrt4bone",
+      "cfgType": "app",
+      "chartName": "vllmvoxtralrt4bone-1.0.9.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtralrt4bone.png",
+      "description": "Voxtral Realtime 4B streaming ASR via vLLM — real-time speech transcription, optimized for Olares One",
+      "appID": "13db403f",
+      "title": "Voxtral Realtime 4B One",
+      "version": "1.0.9",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Mistral Voxtral Mini 4B Realtime (streaming ASR) served via vLLM — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nBF16 precision (~16GB VRAM). Streaming WebSocket endpoint /v1/realtime.\nCausal audio encoder for infinite-length real-time transcription.\nConfigurable latency (80ms-2400ms). 13 languages. 8.7% FLEURS WER.\nPIECEWISE cudagraph compilation for optimized inference.\nApache 2.0 license.\nDownloads model on first launch (~9GB) and caches it.\nExposes WebSocket /v1/realtime + OpenAI-compatible API on port 8000.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "4294967296",
+      "requiredDisk": "21474836480",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "vllmvoxtralrt4bone",
+          "host": "vllmvoxtralrt4bone",
+          "port": 8000,
+          "title": "Voxtral RT 4B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtralrt4bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Voxtral Realtime 4B One",
+            "description": "Voxtral Realtime 4B streaming ASR via vLLM — real-time speech transcription, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Mistral Voxtral Mini 4B Realtime (streaming ASR) served via vLLM — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nBF16 precision (~16GB VRAM). Streaming WebSocket endpoint /v1/realtime.\nCausal audio encoder for infinite-length real-time transcription.\nConfigurable latency (80ms-2400ms). 13 languages. 8.7% FLEURS WER.\nPIECEWISE cudagraph compilation for optimized inference.\nApache 2.0 license.\nDownloads model on first launch (~9GB) and caches it.\nExposes WebSocket /v1/realtime + OpenAI-compatible API on port 8000.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "vllmvoxtralrt4bone",
+          "version": "1.0.9",
+          "versionName": "1.0.8",
+          "mergedAt": "2026-04-20T12:29:26.748Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.748Z"
+    },
+    "efd72908": {
+      "id": "efd72908",
+      "name": "vllmvoxtraltts4bone",
+      "cfgType": "app",
+      "chartName": "vllmvoxtraltts4bone-1.0.13.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtraltts4bone.png",
+      "description": "Voxtral 4B TTS via vLLM-Omni — text-to-speech with 20 voices, optimized for Olares One",
+      "appID": "efd72908",
+      "title": "Voxtral 4B TTS One",
+      "version": "1.0.13",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Mistral Voxtral 4B TTS served via vLLM-Omni — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nBF16 precision (~8GB VRAM). 24 kHz audio output. 70ms latency.\n20 preset voices (10 languages: EN, FR, ES, DE, IT, PT, NL, AR, HI).\nOpenAI-compatible /v1/audio/speech endpoint.\n68.4% win rate vs ElevenLabs Flash v2.5 in human preference tests.\nCC BY-NC 4.0 license (non-commercial use).\nDownloads model on first launch (~8GB) and caches it.\nExposes an OpenAI-compatible API on port 8000.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "4294967296",
+      "requiredDisk": "21474836480",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "vllmvoxtraltts4bone",
+          "host": "vllmvoxtraltts4bone",
+          "port": 8000,
+          "title": "Voxtral TTS 4B One",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/vllmvoxtraltts4bone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "CC BY-NC 4.0",
+          "url": "https://creativecommons.org/licenses/by-nc/4.0/"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Voxtral 4B TTS One",
+            "description": "Voxtral 4B TTS via vLLM-Omni — text-to-speech with 20 voices, optimized for Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Mistral Voxtral 4B TTS served via vLLM-Omni — optimized for Olares One.\nRTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.\nBF16 precision (~8GB VRAM). 24 kHz audio output. 70ms latency.\n20 preset voices (10 languages: EN, FR, ES, DE, IT, PT, NL, AR, HI).\nOpenAI-compatible /v1/audio/speech endpoint.\n68.4% win rate vs ElevenLabs Flash v2.5 in human preference tests.\nCC BY-NC 4.0 license (non-commercial use).\nDownloads model on first launch (~8GB) and caches it.\nExposes an OpenAI-compatible API on port 8000.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "vllmvoxtraltts4bone",
+          "version": "1.0.13",
+          "versionName": "1.0.12",
+          "mergedAt": "2026-04-20T12:29:26.749Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-20T12:29:26.749Z"
+    }
+  },
+  "latest": [
+    "llamacppbonsai8bone",
+    "motifvideo2bone",
+    "qwen36a3bvisionone",
+    "qwen3coder30a3bone",
+    "sglangernieimageone",
+    "sglangsanasprintone",
+    "vllmgemma31bitnvfp4one",
+    "gemma4e2bone",
+    "omnivoiceone",
+    "vllmqwen3527bone",
+    "nemotron3nano4bone",
+    "cascade230a3bone",
+    "devstralsmallone",
+    "llamacppqwen35iq4one",
+    "qwen35iq4visionone",
+    "gemma426ba4bone",
+    "vllmvoxtral3bone",
+    "qwen3ttstone",
+    "vllmvoxtralrt4bone",
+    "llamacppnemotron30a3bone",
+    "llamacppglm47flash",
+    "vllmgemma4e4bone",
+    "vllmvoxtraltts4bone",
+    "exl3qwen36a3bone",
+    "llamacppqwen36a3bone"
+  ]
+}

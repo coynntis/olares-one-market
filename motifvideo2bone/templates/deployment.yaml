@@ -1,0 +1,130 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: motifvideo2bone
+  name: motifvideo2bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: motifvideo2bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: motifvideo2bone
+    spec:
+      containers:
+        - name: motif-video-gradio
+          image: "pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel"
+          command:
+            - "sh"
+            - "-c"
+          args:
+            - |
+              set -e
+              mkdir -p /workspace/motif_video_gradio
+              cp /app-src/app.py /workspace/motif_video_gradio/app.py
+              cp /app-src/requirements.txt /workspace/motif_video_gradio/requirements.txt
+              cd /workspace/motif_video_gradio
+              if python3 -m venv /workspace/motif_video_gradio/.venv; then
+                /workspace/motif_video_gradio/.venv/bin/python -m pip install --upgrade pip
+                /workspace/motif_video_gradio/.venv/bin/python -m pip install -r requirements.txt
+                /workspace/motif_video_gradio/.venv/bin/python app.py
+              else
+                python3 -m pip install --break-system-packages --upgrade pip
+                python3 -m pip install --break-system-packages -r requirements.txt
+                python3 app.py
+              fi
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: MOTIF_LOG_LEVEL
+              value: "DEBUG"
+            - name: MOTIF_HF_DEBUG
+              value: "1"
+            - name: HF_HUB_VERBOSITY
+              value: "debug"
+            - name: TRANSFORMERS_VERBOSITY
+              value: "debug"
+            - name: DIFFUSERS_VERBOSITY
+              value: "debug"
+            - name: TORCH_LOGS
+              value: "+dynamo"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 45
+            timeoutSeconds: 10
+            periodSeconds: 15
+            failureThreshold: 1200
+          livenessProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 180
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "16"
+              memory: 64Gi
+            requests:
+              cpu: 4000m
+              memory: 24Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+        - name: app-source
+          configMap:
+            name: motifvideo2bone-source
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: motifvideo2bone
+  name: motifvideo2bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "gradio"
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: motifvideo2bone

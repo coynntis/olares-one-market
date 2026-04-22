@@ -1,0 +1,75 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: sglangsanasprintone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+  description: "Sana Sprint 1.6B 1024px via SGLang — image generation for Olares One"
+  appid: sglangsanasprintone
+  title: SGLang Sana Sprint One
+  version: '1.0.0'
+  categories:
+    - AI
+entrances:
+  - name: sglangsanasprintone
+    port: 30000
+    host: sglangsanasprintone
+    title: SGLang Sana Sprint One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.0'
+  fullDescription: |
+    SGLang server running Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers for OpenAI-compatible image generation on Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Uses official diffusion-ready container image: lmsysorg/sglang:dev-cu13.
+    Bootstraps SGLang source by cloning https://github.com/sgl-project/sglang.git in the container.
+    Installs diffusion dependencies at startup with:
+      pip install -e "python[diffusion]"
+    Serves on port 30000 using:
+      sglang serve --model-path Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers --trust-remote-code --host 0.0.0.0 --port 30000
+    Generation endpoint:
+      POST /v1/images/generations
+
+  developer: sgl-project
+  website: https://github.com/sgl-project/sglang
+  sourceCode: https://github.com/sgl-project/sglang
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/sgl-project/sglang/blob/main/LICENSE
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 50Gi
+  limitedDisk: 100Gi
+  limitedMemory: 64Gi
+  requiredMemory: 24Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

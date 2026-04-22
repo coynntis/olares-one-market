@@ -1,0 +1,63 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: devstralsmallone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/devstralsmallone.png
+  description: "Devstral Small 2507 via llama.cpp — coding agent optimized for Olares One"
+  appid: devstralsmallone
+  title: Devstral Small Code One
+  version: '1.0.6'
+  categories:
+    - AI
+entrances:
+  - name: devstralsmallone
+    port: 8080
+    host: devstralsmallone
+    title: Devstral Code One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/devstralsmallone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.1'
+  fullDescription: |
+    Devstral Small 2507 (24B dense) served via llama.cpp — coding agent optimized for Olares One.
+    #1 open-source on SWE-Bench Verified (53.6%) — outperforms models 10x larger.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Unsloth Dynamic Q5_K_XL quantization (16.8GB) — room for 32K+ context.
+    Based on Mistral-Small-3.1, fine-tuned for agentic software engineering.
+    Tool calling support with Mistral format.
+    llama.cpp b8334 with flash attention and CUDA graph optimization.
+    Downloads the GGUF model on first launch (~17GB) and caches it.
+    Exposes an OpenAI-compatible API on port 8080.
+
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/mistralai/Devstral-Small-2507/blob/main/LICENSE
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 30Gi
+  limitedDisk: 50Gi
+  limitedMemory: 40Gi
+  requiredMemory: 24Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

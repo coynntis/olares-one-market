@@ -1,0 +1,13 @@
+metadata:
+  description: "Voxtral Mini 3B ASR via vLLM — audio transcription and understanding, optimized for Olares One"
+  title: Voxtral Mini 3B ASR One
+spec:
+  fullDescription: |
+    Mistral Voxtral Mini 3B (audio encoder + Ministral-3B LLM) served via vLLM — optimized for Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    BF16 precision (~9.5GB VRAM). 32K context. Up to 30 min audio transcription.
+    2.7x faster than Whisper Large V3. 3.2% WER English.
+    OpenAI-compatible API: /v1/audio/transcriptions + /v1/chat/completions with audio input.
+    Apache 2.0 license.
+    Downloads model on first launch (~9GB) and caches it.
+    Exposes an OpenAI-compatible API on port 8000.

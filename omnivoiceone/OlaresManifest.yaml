@@ -1,0 +1,62 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: omnivoiceone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/omnivoiceone.png
+  description: "OmniVoice TTS (646 languages, voice cloning, 0.6B) — optimized for Olares One"
+  appid: omnivoiceone
+  title: OmniVoice TTS One
+  version: '1.0.2'
+  categories:
+    - AI
+entrances:
+  - name: omnivoiceone
+    port: 8000
+    host: omnivoiceone
+    title: OmniVoice TTS One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/omnivoiceone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.0'
+  fullDescription: |
+    OmniVoice TTS by k2-fsa — 646 languages, zero-shot voice cloning, 0.6B params.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Only ~2-4 GB VRAM — can run alongside LLM and STT for voice pipeline.
+    40x faster than real-time. Apache 2.0 license.
+    OpenAI-compatible /v1/audio/speech API endpoint.
+    French, English, German, Spanish, Italian, + 641 more languages.
+    Voice cloning from reference audio. Voice design (gender, age, pitch, accent).
+    Downloads model on first launch (~2GB) and caches it.
+
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 10Gi
+  limitedDisk: 20Gi
+  limitedMemory: 16Gi
+  requiredMemory: 4Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

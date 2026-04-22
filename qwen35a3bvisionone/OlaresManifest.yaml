@@ -1,0 +1,65 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: qwen36a3bvisionone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+  description: "Qwen3.5 35B-A3B Vision via llama.cpp — image + text, optimized for Olares One"
+  appid: qwen36a3bvisionone
+  title: Qwen3.5 Vision (Olares One)
+  version: '1.0.9'
+  categories:
+    - AI
+entrances:
+  - name: qwen36a3bvisionone
+    port: 8080
+    host: qwen36a3bvisionone
+    title: Qwen 35B Vision One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.5'
+  upgradeDescription: |
+    v1.0.5: llama.cpp b8667 → b8667 (Hadamard rotation). KV cache q4_0 (with Hadamard rotation) → q4_0 (2x compression). Context 16K → 32K.
+  fullDescription: |
+    Qwen3.5 35B-A3B Vision (MoE, 3B active) served via llama.cpp — optimized for Olares One.
+    Multimodal: accepts images via OpenAI-compatible vision API (image_url format).
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Unsloth Dynamic Q4_K_XL quantization (22.2GB) + mmproj F16 (0.9GB).
+    Flash attention, CUDA graph optimization, and op-offload enabled.
+    llama.cpp b8667 with multimodal projector support.
+    Downloads the GGUF model (~22GB) and mmproj (~0.9GB) on first launch.
+    Context reduced to 16K to fit model + mmproj in 24GB VRAM.
+    Exposes an OpenAI-compatible API on port 8080.
+
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/ggerganov/llama.cpp/blob/master/LICENSE
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 35Gi
+  limitedDisk: 50Gi
+  limitedMemory: 40Gi
+  requiredMemory: 24Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

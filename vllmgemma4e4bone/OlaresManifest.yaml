@@ -1,0 +1,64 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: vllmgemma4e4bone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma4e4bone.png
+  description: "Gemma 4 E4B (Vision + Audio) via vLLM — optimized for Olares One"
+  appid: vllmgemma4e4bone
+  title: Gemma 4 E4B Voice One
+  version: '1.0.11'
+  categories:
+    - AI
+entrances:
+  - name: vllmgemma4e4bone
+    port: 8000
+    host: vllmgemma4e4bone
+    title: Gemma 4 E4B Voice One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma4e4bone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.0'
+  fullDescription: |
+    Google Gemma 4 E4B (8B params, 4.5B effective) with native audio + vision input — served via vLLM, optimized for Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Native audio understanding: ask questions about audio, transcribe speech, summarize conversations.
+    Native vision: analyze images, read documents, understand screenshots.
+    BF16 precision (~10GB VRAM with audio encoder). 8K context.
+    gpu-memory-utilization 0.45 (~10GB) — leaves room for TTS alongside.
+    OpenAI-compatible API with audio_url support in chat completions.
+    Apache 2.0 license. Thinking mode with tool calling.
+    Downloads model on first launch (~10GB) and caches it.
+    Exposes an OpenAI-compatible API on port 8000.
+
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 20Gi
+  limitedDisk: 30Gi
+  limitedMemory: 40Gi
+  requiredMemory: 4Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

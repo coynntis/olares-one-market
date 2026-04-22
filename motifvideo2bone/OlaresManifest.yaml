@@ -1,0 +1,78 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: motifvideo2bone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+  description: "Motif Video 2B Gradio UI for text-to-video and image-to-video"
+  appid: motifvideo2bone
+  title: Motif Video 2B One
+  version: '1.0.0'
+  categories:
+    - AI
+entrances:
+  - name: motifvideo2bone
+    port: 7860
+    host: motifvideo2bone
+    title: Motif Video 2B One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.0'
+  fullDescription: |
+    Gradio interface for Motif-Technologies/Motif-Video-2B using diffusers.
+    Supports both text-to-video and image-to-video generation.
+
+    Optimized for 24GB GPUs (RTX 4090 / 3090 style memory budget) with:
+      - enable_model_cpu_offload()
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+    Runtime base image:
+      pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel
+
+    Service:
+      - Gradio on port 7860
+      - CUDA required
+
+  developer: Motif Technologies
+  website: https://huggingface.co/Motif-Technologies/Motif-Video-2B
+  sourceCode: https://huggingface.co/Motif-Technologies/Motif-Video-2B
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/Motif-Technologies/Motif-Video-2B/blob/main/LICENSE
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 80Gi
+  limitedDisk: 150Gi
+  limitedMemory: 64Gi
+  requiredMemory: 24Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

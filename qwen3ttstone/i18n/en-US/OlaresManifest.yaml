@@ -1,0 +1,13 @@
+metadata:
+  title: Qwen3-TTS 1.7B (Olares One)
+  description: "Qwen3-TTS 1.7B — text-to-speech with voice cloning, optimized for Olares One"
+
+spec:
+  fullDescription: |
+    Qwen3-TTS 1.7B CustomVoice served via Gradio — optimized for Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    9 built-in premium voices with instruction control.
+    Zero-shot voice cloning from 3 seconds of reference audio.
+    10 languages: French, English, Chinese, Japanese, Korean, German, Russian, Portuguese, Spanish, Italian.
+    Downloads the model on first launch (~4.5GB) and caches it.
+    Exposes a Gradio web UI on port 8000.

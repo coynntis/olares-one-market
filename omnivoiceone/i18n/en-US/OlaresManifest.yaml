@@ -1,0 +1,8 @@
+metadata:
+  description: "OmniVoice TTS (646 languages, voice cloning, 0.6B) — optimized for Olares One"
+  title: OmniVoice TTS One
+spec:
+  fullDescription: |
+    OmniVoice TTS — 646 languages, voice cloning, only 2-4GB VRAM.
+    OpenAI-compatible /v1/audio/speech API. Apache 2.0.
+    Designed to run alongside LLM + STT for a complete voice pipeline.

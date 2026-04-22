@@ -1,0 +1,9 @@
+metadata:
+  description: "Gemma 4 31B IT NVFP4 via vLLM modelopt on Olares One"
+  title: Gemma 4 31B NVFP4 One
+spec:
+  fullDescription: |
+    NVIDIA optimized Gemma 4 31B IT NVFP4 checkpoint served via vLLM on Olares One.
+    Startup command: vllm serve /models/gemma-4-31b-it-nvfp4 --quantization modelopt
+    Ensure model files are available at /models/gemma-4-31b-it-nvfp4 before startup.
+    Apache 2.0 license.

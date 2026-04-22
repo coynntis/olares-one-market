@@ -1,0 +1,62 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: gemma4e2bone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png
+  description: "Gemma 4 E2B (ultra-fast 2.3B) via llama.cpp — voice pipeline brain for Olares One"
+  appid: gemma4e2bone
+  title: Gemma 4 E2B Voice Brain One
+  version: '1.0.1'
+  categories:
+    - AI
+entrances:
+  - name: gemma4e2bone
+    port: 8080
+    host: gemma4e2bone
+    title: Gemma 4 E2B One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.0'
+  fullDescription: |
+    Google Gemma 4 E2B (5.1B params, 2.3B effective) served via llama.cpp — ultra-fast voice pipeline brain for Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Q8_0 quantization (4.7GB model, near-lossless quality). 8K context.
+    Designed to run alongside Kyutai STT + TTS for a complete French voice pipeline (~12GB total).
+    q4_0 KV cache with Hadamard rotation. llama.cpp b8720.
+    Apache 2.0 license.
+    Downloads model on first launch (~4.7GB) and caches it.
+    Exposes an OpenAI-compatible API on port 8080.
+
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 15Gi
+  limitedDisk: 20Gi
+  limitedMemory: 40Gi
+  requiredMemory: 4Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

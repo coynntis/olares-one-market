@@ -1,0 +1,9 @@
+metadata:
+  description: "Gemma 4 E2B (ultra-fast 2.3B) via llama.cpp — voice pipeline brain for Olares One"
+  title: Gemma 4 E2B Voice Brain One
+spec:
+  fullDescription: |
+    Google Gemma 4 E2B (5.1B params, 2.3B effective) — ultra-fast voice pipeline brain.
+    Q8_0 quantization (4.7GB, near-lossless). Designed for Kyutai STT+TTS voice pipeline.
+    ~12GB total with STT+TTS, leaving 12GB free on 24GB GPU.
+    OpenAI-compatible API on port 8080.

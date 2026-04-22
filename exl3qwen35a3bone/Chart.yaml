@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: '1.0.15'
+description: Qwen3.5 35B-A3B EXL3 via TabbyAPI + ExLlamaV3 — optimized for Olares One
+name: exl3qwen36a3bone
+type: application
+version: '1.0.15'

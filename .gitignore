@@ -1,0 +1,9 @@
+node_modules/
+.wrangler/
+.env
+.env.*
+.DS_Store
+charts/*.tgz
+icons/
+*.zip
+__pycache__/

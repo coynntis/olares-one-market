@@ -1,0 +1,61 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: vllmgemma31bitnvfp4one
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma31bitnvfp4one.png
+  description: "Gemma 4 31B IT NVFP4 via vLLM modelopt on Olares One"
+  appid: vllmgemma31bitnvfp4one
+  title: Gemma 4 31B NVFP4 One
+  version: '1.0.0'
+  categories:
+    - AI
+entrances:
+  - name: vllmgemma31bitnvfp4one
+    port: 8000
+    host: vllmgemma31bitnvfp4one
+    title: Gemma 4 31B NVFP4 One
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma31bitnvfp4one.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.0'
+  fullDescription: |
+    NVIDIA optimized Gemma 4 31B IT NVFP4 checkpoint served via vLLM on Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Startup command: vllm serve /models/gemma-4-31b-it-nvfp4 --quantization modelopt
+    This model supports long context and multimodal understanding with text output.
+    Apache 2.0 license.
+    Ensure model files are available at /models/gemma-4-31b-it-nvfp4 before startup.
+    Exposes an OpenAI-compatible API on port 8000.
+
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 35Gi
+  limitedDisk: 50Gi
+  limitedMemory: 50Gi
+  requiredMemory: 24Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

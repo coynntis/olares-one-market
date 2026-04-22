@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.0"
+description: Bonsai-8B GGUF served via llama.cpp on Olares One
+name: llamacppbonsai8bone
+type: application
+version: "1.0.0"

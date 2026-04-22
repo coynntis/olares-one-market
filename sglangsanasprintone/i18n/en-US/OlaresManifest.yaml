@@ -1,0 +1,16 @@
+metadata:
+  title: SGLang Sana Sprint One
+  description: "Sana Sprint 1.6B 1024px via SGLang — image generation for Olares One"
+
+spec:
+  fullDescription: |
+    SGLang server running Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers for OpenAI-compatible image generation on Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Uses official diffusion-ready container image: lmsysorg/sglang:dev-cu13.
+    Bootstraps SGLang source by cloning https://github.com/sgl-project/sglang.git in the container.
+    Installs diffusion dependencies at startup with:
+      pip install -e "python[diffusion]"
+    Serves on port 30000 using:
+      sglang serve --model-path Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers --trust-remote-code --host 0.0.0.0 --port 30000
+    Generation endpoint:
+      POST /v1/images/generations

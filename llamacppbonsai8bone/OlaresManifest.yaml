@@ -1,0 +1,51 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: llamacppbonsai8bone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/llamacppbonsai8bone.png
+  description: "Bonsai-8B minimal CUDA dev pod on Olares One"
+  appid: llamacppbonsai8bone
+  title: Bonsai 8B One
+  version: '1.0.0'
+  categories:
+    - AI
+spec:
+  versionName: '1.0.0'
+  fullDescription: |
+    Minimal Bonsai-8B workspace on Olares One.
+    On first launch, downloads Bonsai-8B.gguf from Hugging Face (prism-ml/Bonsai-8B-gguf) into the app models directory.
+    Build workspace is persisted on disk so PrismML llama.cpp is only cloned once (subsequent starts skip clone if the git checkout already exists).
+    The main container is CUDA 13.2 devel and stays running with sleep infinity after printing a short readiness banner (intended for kubectl exec / debugging workflows).
+    GPU is requested on the main container (nvidia.com/gpu=1).
+
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/ggerganov/llama.cpp/blob/master/LICENSE
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 20Gi
+  limitedDisk: 40Gi
+  limitedMemory: 40Gi
+  requiredMemory: 8Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

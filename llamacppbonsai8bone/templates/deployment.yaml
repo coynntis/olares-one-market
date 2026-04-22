@@ -1,0 +1,176 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-bonsai8b-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_URL: "https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B.gguf"
+  MODEL_FILE: "Bonsai-8B.gguf"
+  MODEL_ALIAS: "bonsai-8b"
+  N_GPU_LAYERS: "99"
+  THREADS: "16"
+  BUILD_JOBS: "8"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppbonsai8bone
+  name: llamacppbonsai8bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppbonsai8bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppbonsai8bone
+      annotations:
+        dev.bytetrade.io/dev-containers: "1"
+    spec:
+      initContainers:
+        - name: model-downloader
+          image: "docker.io/alpine:3.20"
+          command:
+            - sh
+            - "-c"
+            - |
+              MODEL_PATH="/models/${MODEL_FILE}"
+              if [ -f "$MODEL_PATH" ]; then
+                echo "Model already present: $MODEL_PATH"
+                ls -lh "$MODEL_PATH"
+              else
+                echo "Downloading model from $MODEL_URL ..."
+                wget -O "$MODEL_PATH.tmp" "$MODEL_URL"
+                mv "$MODEL_PATH.tmp" "$MODEL_PATH"
+                echo "Download complete."
+                ls -lh "$MODEL_PATH"
+              fi
+          envFrom:
+            - configMapRef:
+                name: llamacpp-bonsai8b-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+      containers:
+        - name: llamacpp-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "sh"
+            - "-c"
+            - |
+              set -ux
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends git cmake build-essential ca-certificates
+              rm -rf /var/lib/apt/lists/*
+
+              mkdir -p /workspace
+              REPO_DIR="/workspace/llama.cpp"
+              REPO_URL="https://github.com/PrismML-Eng/llama.cpp"
+
+              if [ -d "$REPO_DIR/.git" ]; then
+                echo "Repo already exists at $REPO_DIR — skipping clone"
+                git -C "$REPO_DIR" remote set-url origin "$REPO_URL" || true
+                git -C "$REPO_DIR" fetch --tags --prune origin || true
+                git -C "$REPO_DIR" pull --ff-only || true
+              elif [ -e "$REPO_DIR" ]; then
+                echo "Path exists but is not a git repo: $REPO_DIR"
+                echo "Renaming aside and cloning fresh..."
+                ts="$(date +%Y%m%d%H%M%S)"
+                mv "$REPO_DIR" "${REPO_DIR}.bak.${ts}"
+                git clone "$REPO_URL" "$REPO_DIR"
+              else
+                echo "Cloning PrismML llama.cpp into $REPO_DIR ..."
+                git clone "$REPO_URL" "$REPO_DIR"
+              fi
+
+              cd "$REPO_DIR"
+              set -x
+              cmake --version
+              cmake -B build -DGGML_CUDA=ON
+              cmake --build build -j"${BUILD_JOBS}" --verbose
+
+              exec ./build/bin/llama-server \
+                --model "/models/${MODEL_FILE}" \
+                --host 0.0.0.0 \
+                --port 8000 \
+                --n-gpu-layers "${N_GPU_LAYERS}" \
+                --threads "${THREADS}" \
+                --alias "${MODEL_ALIAS}"
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+          envFrom:
+            - configMapRef:
+                name: llamacpp-bonsai8b-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3600
+          resources:
+            limits:
+              cpu: "16"
+              memory: 40Gi
+            requests:
+              cpu: 4000m
+              memory: 8Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/llamacppbonsai8bone-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppbonsai8bone
+  name: llamacppbonsai8bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppbonsai8bone

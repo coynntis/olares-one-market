@@ -1,0 +1,10 @@
+metadata:
+  title: Bonsai 8B One
+  description: "Bonsai-8B minimal CUDA dev pod on Olares One"
+
+spec:
+  fullDescription: |
+    Minimal Bonsai-8B workspace on Olares One.
+    On first launch, downloads Bonsai-8B.gguf from Hugging Face into /models.
+    Build workspace is persisted so the PrismML llama.cpp checkout is reused across restarts when possible.
+    The CUDA devel container prints a short readiness banner and then sleeps (intended for kubectl exec / debugging workflows).

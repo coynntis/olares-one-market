@@ -1,0 +1,15 @@
+metadata:
+  title: Motif Video 2B One
+  description: "Motif Video 2B Gradio UI for text-to-video and image-to-video"
+
+spec:
+  fullDescription: |
+    Gradio interface for Motif-Technologies/Motif-Video-2B using diffusers.
+    Supports both text-to-video and image-to-video generation.
+
+    Optimized for 24GB GPUs (RTX 4090 / 3090 style memory budget) with:
+      - enable_model_cpu_offload()
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+    Runtime base image:
+      pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel

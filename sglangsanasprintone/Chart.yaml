@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: '1.0.0'
+description: Sana Sprint 1.6B 1024px via SGLang on Olares One
+name: sglangsanasprintone
+type: application
+version: '1.0.0'
