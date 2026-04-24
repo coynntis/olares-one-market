@@ -1,5 +1,5 @@
 {
-  "hash": "493adfde264406eb5fa3f55adbb6bc45",
+  "hash": "da9bea2c2bcf2ffcb54916e3d520469d",
   "summaries": {
     "33102786": {
       "id": "33102786",
@@ -12,7 +12,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.742Z"
+      "updated_at": "2026-04-24T16:04:32.976Z"
     },
     "f9902972": {
       "id": "f9902972",
@@ -25,7 +25,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.736Z"
+      "updated_at": "2026-04-24T16:04:32.964Z"
     },
     "8a7e4366": {
       "id": "8a7e4366",
@@ -38,7 +38,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.737Z"
+      "updated_at": "2026-04-24T16:04:32.966Z"
     },
     "9b45c250": {
       "id": "9b45c250",
@@ -51,7 +51,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.738Z"
+      "updated_at": "2026-04-24T16:04:32.967Z"
     },
     "a4f8515c": {
       "id": "a4f8515c",
@@ -64,7 +64,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.739Z"
+      "updated_at": "2026-04-24T16:04:32.968Z"
     },
     "65b82978": {
       "id": "65b82978",
@@ -77,7 +77,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.739Z"
+      "updated_at": "2026-04-24T16:04:32.970Z"
     },
     "a926b014": {
       "id": "a926b014",
@@ -90,7 +90,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.739Z"
+      "updated_at": "2026-04-24T16:04:32.973Z"
     },
     "c1ca229f": {
       "id": "c1ca229f",
@@ -103,7 +103,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.740Z"
+      "updated_at": "2026-04-24T16:04:32.973Z"
     },
     "491be3cd": {
       "id": "491be3cd",
@@ -116,7 +116,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.740Z"
+      "updated_at": "2026-04-24T16:04:32.974Z"
     },
     "059cd05d": {
       "id": "059cd05d",
@@ -129,7 +129,20 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.742Z"
+      "updated_at": "2026-04-24T16:04:32.975Z"
+    },
+    "f2dc9643": {
+      "id": "f2dc9643",
+      "name": "llamacppqwen3627btq34sone",
+      "version": "1.0.0",
+      "category": "AI",
+      "description": "Qwen3.6-27B TQ3_4S via llama.cpp-tq3 on Olares One",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen3627btq34sone.png",
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "source": 1,
+      "updated_at": "2026-04-24T16:04:32.976Z"
     },
     "b6881a07": {
       "id": "b6881a07",
@@ -142,7 +155,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.743Z"
+      "updated_at": "2026-04-24T16:04:32.979Z"
     },
     "fa4ef911": {
       "id": "fa4ef911",
@@ -155,7 +168,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.743Z"
+      "updated_at": "2026-04-24T16:04:32.980Z"
     },
     "e74eca98": {
       "id": "e74eca98",
@@ -168,7 +181,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.744Z"
+      "updated_at": "2026-04-24T16:04:32.981Z"
     },
     "14fdab3c": {
       "id": "14fdab3c",
@@ -181,7 +194,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.745Z"
+      "updated_at": "2026-04-24T16:04:32.983Z"
     },
     "ed18683c": {
       "id": "ed18683c",
@@ -194,7 +207,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.744Z"
+      "updated_at": "2026-04-24T16:04:32.982Z"
     },
     "da30d532": {
       "id": "da30d532",
@@ -207,7 +220,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.745Z"
+      "updated_at": "2026-04-24T16:04:32.984Z"
     },
     "49c5b493": {
       "id": "49c5b493",
@@ -220,7 +233,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.746Z"
+      "updated_at": "2026-04-24T16:04:32.984Z"
     },
     "733271fb": {
       "id": "733271fb",
@@ -233,7 +246,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.746Z"
+      "updated_at": "2026-04-24T16:04:32.985Z"
     },
     "0353b785": {
       "id": "0353b785",
@@ -246,7 +259,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.746Z"
+      "updated_at": "2026-04-24T16:04:32.986Z"
     },
     "64749fcb": {
       "id": "64749fcb",
@@ -259,7 +272,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.747Z"
+      "updated_at": "2026-04-24T16:04:32.987Z"
     },
     "be32d4df": {
       "id": "be32d4df",
@@ -272,7 +285,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.747Z"
+      "updated_at": "2026-04-24T16:04:32.988Z"
     },
     "285e9d99": {
       "id": "285e9d99",
@@ -285,7 +298,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.748Z"
+      "updated_at": "2026-04-24T16:04:32.988Z"
     },
     "af406293": {
       "id": "af406293",
@@ -298,7 +311,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.748Z"
+      "updated_at": "2026-04-24T16:04:32.989Z"
     },
     "13db403f": {
       "id": "13db403f",
@@ -311,7 +324,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.748Z"
+      "updated_at": "2026-04-24T16:04:32.990Z"
     },
     "efd72908": {
       "id": "efd72908",
@@ -324,7 +337,7 @@
       "tags": null,
       "metadata": null,
       "source": 1,
-      "updated_at": "2026-04-20T12:29:26.749Z"
+      "updated_at": "2026-04-24T16:04:32.991Z"
     }
   },
   "details": {
@@ -424,14 +437,14 @@
           "appName": "llamacppqwen35iq4one",
           "version": "1.0.7",
           "versionName": "1.0.6",
-          "mergedAt": "2026-04-20T12:29:26.742Z",
+          "mergedAt": "2026-04-24T16:04:32.976Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.742Z"
+      "updated_at": "2026-04-24T16:04:32.976Z"
     },
     "f9902972": {
       "id": "f9902972",
@@ -529,14 +542,14 @@
           "appName": "cascade230a3bone",
           "version": "1.0.6",
           "versionName": "1.0.5",
-          "mergedAt": "2026-04-20T12:29:26.736Z",
+          "mergedAt": "2026-04-24T16:04:32.965Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.736Z"
+      "updated_at": "2026-04-24T16:04:32.965Z"
     },
     "8a7e4366": {
       "id": "8a7e4366",
@@ -634,14 +647,14 @@
           "appName": "devstralsmallone",
           "version": "1.0.6",
           "versionName": "1.0.4",
-          "mergedAt": "2026-04-20T12:29:26.737Z",
+          "mergedAt": "2026-04-24T16:04:32.966Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.737Z"
+      "updated_at": "2026-04-24T16:04:32.966Z"
     },
     "9b45c250": {
       "id": "9b45c250",
@@ -739,14 +752,14 @@
           "appName": "exl3qwen36a3bone",
           "version": "1.0.15",
           "versionName": "1.0.15",
-          "mergedAt": "2026-04-20T12:29:26.738Z",
+          "mergedAt": "2026-04-24T16:04:32.967Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.738Z"
+      "updated_at": "2026-04-24T16:04:32.967Z"
     },
     "a4f8515c": {
       "id": "a4f8515c",
@@ -844,14 +857,14 @@
           "appName": "gemma426ba4bone",
           "version": "1.0.8",
           "versionName": "1.0.7",
-          "mergedAt": "2026-04-20T12:29:26.739Z",
+          "mergedAt": "2026-04-24T16:04:32.968Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.739Z"
+      "updated_at": "2026-04-24T16:04:32.968Z"
     },
     "65b82978": {
       "id": "65b82978",
@@ -949,14 +962,14 @@
           "appName": "gemma4e2bone",
           "version": "1.0.1",
           "versionName": "1.0.0",
-          "mergedAt": "2026-04-20T12:29:26.739Z",
+          "mergedAt": "2026-04-24T16:04:32.970Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.739Z"
+      "updated_at": "2026-04-24T16:04:32.970Z"
     },
     "a926b014": {
       "id": "a926b014",
@@ -1042,14 +1055,14 @@
           "appName": "llamacppbonsai8bone",
           "version": "1.0.0",
           "versionName": "1.0.0",
-          "mergedAt": "2026-04-20T12:29:26.739Z",
+          "mergedAt": "2026-04-24T16:04:32.973Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.739Z"
+      "updated_at": "2026-04-24T16:04:32.973Z"
     },
     "c1ca229f": {
       "id": "c1ca229f",
@@ -1147,14 +1160,14 @@
           "appName": "llamacppglm47flash",
           "version": "1.0.11",
           "versionName": "1.0.10",
-          "mergedAt": "2026-04-20T12:29:26.740Z",
+          "mergedAt": "2026-04-24T16:04:32.973Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.740Z"
+      "updated_at": "2026-04-24T16:04:32.973Z"
     },
     "491be3cd": {
       "id": "491be3cd",
@@ -1252,14 +1265,14 @@
           "appName": "llamacppnemotron30a3bone",
           "version": "1.0.10",
           "versionName": "1.0.9",
-          "mergedAt": "2026-04-20T12:29:26.740Z",
+          "mergedAt": "2026-04-24T16:04:32.974Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.740Z"
+      "updated_at": "2026-04-24T16:04:32.974Z"
     },
     "059cd05d": {
       "id": "059cd05d",
@@ -1357,14 +1370,119 @@
           "appName": "llamacppqwen36a3bone",
           "version": "1.0.29",
           "versionName": "1.0.28",
-          "mergedAt": "2026-04-20T12:29:26.742Z",
+          "mergedAt": "2026-04-24T16:04:32.975Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.742Z"
+      "updated_at": "2026-04-24T16:04:32.975Z"
+    },
+    "f2dc9643": {
+      "id": "f2dc9643",
+      "name": "llamacppqwen3627btq34sone",
+      "cfgType": "app",
+      "chartName": "llamacppqwen3627btq34sone-1.0.0.tgz",
+      "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen3627btq34sone.png",
+      "description": "Qwen3.6-27B TQ3_4S via llama.cpp-tq3 on Olares One",
+      "appID": "f2dc9643",
+      "title": "Qwen36 27B TQ34S One",
+      "version": "1.0.0",
+      "categories": [
+        "AI"
+      ],
+      "versionName": "1.0.0",
+      "fullDescription": "Qwen3.6-27B-TQ3_4S served with turbo-tan/llama.cpp-tq3 on Olares One.\nOn first launch, downloads model files from Hugging Face:\n- Qwen3.6-27B-TQ3_4S.gguf\n- mmproj.gguf\n- chat_template.jinja\nThe server container builds turbo-tan/llama.cpp-tq3 with CUDA enabled and starts llama-server.\nBuild workspace is persisted under appData to avoid full re-clone each restart.\n",
+      "upgradeDescription": "",
+      "promoteImage": null,
+      "promoteVideo": "",
+      "subCategory": "",
+      "locale": [
+        "en-US"
+      ],
+      "developer": "aamsellem",
+      "requiredMemory": "12884901888",
+      "requiredDisk": "32212254720",
+      "supportClient": {},
+      "supportArch": [
+        "amd64"
+      ],
+      "requiredGPU": "1073741824",
+      "requiredCPU": "4",
+      "rating": 0,
+      "target": "",
+      "permission": {
+        "appData": true
+      },
+      "entrances": [
+        {
+          "name": "llamacppqwen3627btq34sone",
+          "host": "llamacppqwen3627btq34sone",
+          "port": 8080,
+          "title": "Qwen36 27B TQ34S",
+          "icon": "https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen3627btq34sone.png",
+          "authLevel": "internal",
+          "invisible": false,
+          "openMethod": "window",
+          "disablePreload": false
+        }
+      ],
+      "middleware": null,
+      "options": {
+        "apiTimeout": 0,
+        "dependencies": [
+          {
+            "name": "olares",
+            "version": ">=1.12.3-0",
+            "type": "system"
+          }
+        ]
+      },
+      "submitter": "aamsellem",
+      "doc": "",
+      "website": "https://github.com/aamsellem/olares-one-market",
+      "featuredImage": "",
+      "sourceCode": "https://github.com/aamsellem/olares-one-market",
+      "license": [
+        {
+          "text": "MIT",
+          "url": "https://github.com/turbo-tan/llama.cpp-tq3/blob/main/LICENSE"
+        }
+      ],
+      "legal": null,
+      "i18n": {
+        "en-US": {
+          "metadata": {
+            "title": "Qwen36 27B TQ34S One",
+            "description": "Qwen3.6-27B TQ3_4S via llama.cpp-tq3 on Olares One"
+          },
+          "entrances": null,
+          "spec": {
+            "fullDescription": "Qwen3.6-27B-TQ3_4S served with turbo-tan/llama.cpp-tq3 on Olares One.\nDownloads model GGUF, mmproj, and chat template on first launch.\nBuilds the turbo-tan llama.cpp-tq3 fork with CUDA and starts llama-server on port 8080.\n",
+            "upgradeDescription": ""
+          }
+        }
+      },
+      "namespace": "",
+      "onlyAdmin": false,
+      "lastCommitHash": "",
+      "createTime": 0,
+      "updateTime": 0,
+      "count": null,
+      "versionHistory": [
+        {
+          "appName": "llamacppqwen3627btq34sone",
+          "version": "1.0.0",
+          "versionName": "1.0.0",
+          "mergedAt": "2026-04-24T16:04:32.976Z",
+          "upgradeDescription": ""
+        }
+      ],
+      "screenshots": null,
+      "tags": null,
+      "metadata": null,
+      "updated_at": "2026-04-24T16:04:32.976Z"
     },
     "b6881a07": {
       "id": "b6881a07",
@@ -1462,14 +1580,14 @@
           "appName": "motifvideo2bone",
           "version": "1.0.0",
           "versionName": "1.0.0",
-          "mergedAt": "2026-04-20T12:29:26.743Z",
+          "mergedAt": "2026-04-24T16:04:32.979Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.743Z"
+      "updated_at": "2026-04-24T16:04:32.979Z"
     },
     "fa4ef911": {
       "id": "fa4ef911",
@@ -1567,14 +1685,14 @@
           "appName": "nemotron3nano4bone",
           "version": "1.0.5",
           "versionName": "1.0.3",
-          "mergedAt": "2026-04-20T12:29:26.743Z",
+          "mergedAt": "2026-04-24T16:04:32.980Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.743Z"
+      "updated_at": "2026-04-24T16:04:32.980Z"
     },
     "e74eca98": {
       "id": "e74eca98",
@@ -1672,14 +1790,14 @@
           "appName": "omnivoiceone",
           "version": "1.0.2",
           "versionName": "1.0.2",
-          "mergedAt": "2026-04-20T12:29:26.744Z",
+          "mergedAt": "2026-04-24T16:04:32.981Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.744Z"
+      "updated_at": "2026-04-24T16:04:32.981Z"
     },
     "14fdab3c": {
       "id": "14fdab3c",
@@ -1777,14 +1895,14 @@
           "appName": "qwen36a3bvisionone",
           "version": "1.0.0",
           "versionName": "1.0.0",
-          "mergedAt": "2026-04-20T12:29:26.745Z",
+          "mergedAt": "2026-04-24T16:04:32.983Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.745Z"
+      "updated_at": "2026-04-24T16:04:32.983Z"
     },
     "ed18683c": {
       "id": "ed18683c",
@@ -1882,14 +2000,14 @@
           "appName": "qwen35iq4visionone",
           "version": "1.0.7",
           "versionName": "1.0.6",
-          "mergedAt": "2026-04-20T12:29:26.744Z",
+          "mergedAt": "2026-04-24T16:04:32.982Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.744Z"
+      "updated_at": "2026-04-24T16:04:32.982Z"
     },
     "da30d532": {
       "id": "da30d532",
@@ -1987,14 +2105,14 @@
           "appName": "qwen3coder30a3bone",
           "version": "1.0.0",
           "versionName": "1.0.0",
-          "mergedAt": "2026-04-20T12:29:26.745Z",
+          "mergedAt": "2026-04-24T16:04:32.984Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.745Z"
+      "updated_at": "2026-04-24T16:04:32.984Z"
     },
     "49c5b493": {
       "id": "49c5b493",
@@ -2092,14 +2210,14 @@
           "appName": "qwen3ttstone",
           "version": "1.0.9",
           "versionName": "1.0.9",
-          "mergedAt": "2026-04-20T12:29:26.746Z",
+          "mergedAt": "2026-04-24T16:04:32.984Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.746Z"
+      "updated_at": "2026-04-24T16:04:32.984Z"
     },
     "733271fb": {
       "id": "733271fb",
@@ -2197,14 +2315,14 @@
           "appName": "sglangernieimageone",
           "version": "1.0.0",
           "versionName": "1.0.0",
-          "mergedAt": "2026-04-20T12:29:26.746Z",
+          "mergedAt": "2026-04-24T16:04:32.985Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.746Z"
+      "updated_at": "2026-04-24T16:04:32.985Z"
     },
     "0353b785": {
       "id": "0353b785",
@@ -2302,14 +2420,14 @@
           "appName": "sglangsanasprintone",
           "version": "1.0.0",
           "versionName": "1.0.0",
-          "mergedAt": "2026-04-20T12:29:26.746Z",
+          "mergedAt": "2026-04-24T16:04:32.986Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.746Z"
+      "updated_at": "2026-04-24T16:04:32.986Z"
     },
     "64749fcb": {
       "id": "64749fcb",
@@ -2407,14 +2525,14 @@
           "appName": "vllmgemma31bitnvfp4one",
           "version": "1.0.0",
           "versionName": "1.0.0",
-          "mergedAt": "2026-04-20T12:29:26.747Z",
+          "mergedAt": "2026-04-24T16:04:32.987Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.747Z"
+      "updated_at": "2026-04-24T16:04:32.987Z"
     },
     "be32d4df": {
       "id": "be32d4df",
@@ -2512,14 +2630,14 @@
           "appName": "vllmgemma4e4bone",
           "version": "1.0.11",
           "versionName": "1.0.11",
-          "mergedAt": "2026-04-20T12:29:26.747Z",
+          "mergedAt": "2026-04-24T16:04:32.988Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.747Z"
+      "updated_at": "2026-04-24T16:04:32.988Z"
     },
     "285e9d99": {
       "id": "285e9d99",
@@ -2617,14 +2735,14 @@
           "appName": "vllmqwen3527bone",
           "version": "1.0.3",
           "versionName": "1.0.3",
-          "mergedAt": "2026-04-20T12:29:26.748Z",
+          "mergedAt": "2026-04-24T16:04:32.988Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.748Z"
+      "updated_at": "2026-04-24T16:04:32.988Z"
     },
     "af406293": {
       "id": "af406293",
@@ -2722,14 +2840,14 @@
           "appName": "vllmvoxtral3bone",
           "version": "1.0.8",
           "versionName": "1.0.7",
-          "mergedAt": "2026-04-20T12:29:26.748Z",
+          "mergedAt": "2026-04-24T16:04:32.989Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.748Z"
+      "updated_at": "2026-04-24T16:04:32.989Z"
     },
     "13db403f": {
       "id": "13db403f",
@@ -2827,14 +2945,14 @@
           "appName": "vllmvoxtralrt4bone",
           "version": "1.0.9",
           "versionName": "1.0.8",
-          "mergedAt": "2026-04-20T12:29:26.748Z",
+          "mergedAt": "2026-04-24T16:04:32.990Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.748Z"
+      "updated_at": "2026-04-24T16:04:32.990Z"
     },
     "efd72908": {
       "id": "efd72908",
@@ -2932,18 +3050,19 @@
           "appName": "vllmvoxtraltts4bone",
           "version": "1.0.13",
           "versionName": "1.0.12",
-          "mergedAt": "2026-04-20T12:29:26.749Z",
+          "mergedAt": "2026-04-24T16:04:32.991Z",
           "upgradeDescription": ""
         }
       ],
       "screenshots": null,
       "tags": null,
       "metadata": null,
-      "updated_at": "2026-04-20T12:29:26.749Z"
+      "updated_at": "2026-04-24T16:04:32.991Z"
     }
   },
   "latest": [
     "llamacppbonsai8bone",
+    "llamacppqwen3627btq34sone",
     "motifvideo2bone",
     "qwen36a3bvisionone",
     "qwen3coder30a3bone",
