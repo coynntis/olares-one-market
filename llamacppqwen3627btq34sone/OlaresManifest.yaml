@@ -1,0 +1,61 @@
+---
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+apiVersion: 'v2'
+metadata:
+  name: llamacppqwen3627btq34sone
+  icon: https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen3627btq34sone.png
+  description: "Qwen3.6-27B TQ3_4S via llama.cpp-tq3 on Olares One"
+  appid: llamacppqwen3627btq34sone
+  title: Qwen36 27B TQ34S One
+  version: '1.0.0'
+  categories:
+    - AI
+entrances:
+  - name: llamacppqwen3627btq34sone
+    port: 8080
+    host: llamacppqwen3627btq34sone
+    title: Qwen36 27B TQ34S
+    icon: https://orales-one-market.aamsellem.workers.dev/icons/llamacppqwen3627btq34sone.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: '1.0.0'
+  fullDescription: |
+    Qwen3.6-27B-TQ3_4S served with turbo-tan/llama.cpp-tq3 on Olares One.
+    On first launch, downloads model files from Hugging Face:
+    - Qwen3.6-27B-TQ3_4S.gguf
+    - mmproj.gguf
+    - chat_template.jinja
+    The server container builds turbo-tan/llama.cpp-tq3 with CUDA enabled and starts llama-server.
+    Build workspace is persisted under appData to avoid full re-clone each restart.
+
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/turbo-tan/llama.cpp-tq3/blob/main/LICENSE
+
+  limitedCpu: 16
+  requiredCpu: 4
+  requiredDisk: 30Gi
+  limitedDisk: 60Gi
+  limitedMemory: 40Gi
+  requiredMemory: 12Gi
+  requiredGpu: 1Gi
+  limitedGpu: 24Gi
+
+  supportArch:
+    - amd64
+permission:
+  appData: true
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.3-0'
+      type: system

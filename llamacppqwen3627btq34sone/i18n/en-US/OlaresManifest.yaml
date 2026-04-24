@@ -1,0 +1,9 @@
+metadata:
+  title: Qwen36 27B TQ34S One
+  description: "Qwen3.6-27B TQ3_4S via llama.cpp-tq3 on Olares One"
+
+spec:
+  fullDescription: |
+    Qwen3.6-27B-TQ3_4S served with turbo-tan/llama.cpp-tq3 on Olares One.
+    Downloads model GGUF, mmproj, and chat template on first launch.
+    Builds the turbo-tan llama.cpp-tq3 fork with CUDA and starts llama-server on port 8080.

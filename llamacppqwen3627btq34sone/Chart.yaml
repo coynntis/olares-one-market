@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.0"
+description: Qwen3.6-27B TQ3_4S via llama.cpp-tq3 on Olares One
+name: llamacppqwen3627btq34sone
+type: application
+version: "1.0.0"
