@@ -11,5 +11,7 @@ featured/
 .venv-asgi/
 **/.venv*/
 .cursor/
+locateanything/
+gemma412bmtpone/
 *.zip
 __pycache__/
