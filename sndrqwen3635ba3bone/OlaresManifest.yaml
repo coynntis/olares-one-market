@@ -1,0 +1,138 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sndrqwen3635ba3bone: 1
+  sndrqwen3635ba3bonecli: 1
+metadata:
+  name: sndrqwen3635ba3bone
+  icon: https://cdn.olares.com/images/2026/08/44d4fd12cadd3242db0674df952ca588.png
+  description: EXPERIMENTAL — prefer llamacppqwen36a3bone. SNDR FP8 35B cannot do MTP K=5 on 1x24GB
+  title: SNDR Qwen36 35B One
+  version: 1.0.7
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: "35B-A3B"
+    badge: use GGUF
+    hero:
+      value: "GGUF"
+      label: "llamacppqwen36a3bone"
+    specs:
+      - label: context
+        value: 8K
+      - label: need
+        value: TP=2 ideal
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: false
+    stack: SNDR · FP8 · TQ · no MTP (24GB)
+sharedEntrances:
+  - name: sndrqwen3635ba3bone
+    host: sharedentrances-sndrqwen3635ba3bone
+    port: 0
+    title: SNDR Qwen36 35B API
+    icon: https://cdn.olares.com/images/2026/08/44d4fd12cadd3242db0674df952ca588.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sndrqwen3635ba3bonecli
+    port: 8080
+    host: sndrqwen3635ba3bonecli
+    title: SNDR Qwen36 35B One
+    icon: https://cdn.olares.com/images/2026/08/44d4fd12cadd3242db0674df952ca588.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.7
+  featuredImage: https://cdn.olares.com/images/2026/08/a9ebc2b270010fdd637c50475406545f.png
+  upgradeDescription: |
+    v1.0.7: product redirect — for MTP K=5 + turbo4 KV + vision + speed on 24GB use llamacppqwen36a3bone (GGUF). This chart stays experimental TQ-without-MTP.
+    v1.0.6: fix P65↔P67 conflict (P65 off, keep P67); 35B 1×24GB: drop MTP K=5 + 8K ctx (FP8 weights ~18GiB OOM with MTP); prefer sndrqwen3627bone for agents.
+    v1.0.5: MUST upgrade — your logs show old --target install. Boot stamps SNDR_CHART_BOOT=1.0.5; always purge site-packages/sndr; PYTHONPATH=repo first; editable -e only (never --target sndr).
+    v1.0.4: fix EngineAdapter ImportError — drop --target for sndr; uv --system --no-deps -e (upstream install.sh) + PYTHONPATH=repo; purge broken site-packages/sndr.
+    v1.0.3: bump accelerator requiredCpu/Memory to cover server+client request sums (4+10m CPU, 24Gi+64Mi).
+    v1.0.2: soft-ready /health+/v1/models during boot; uv → persistent site-packages + UV_CACHE; attempt log at bootstrap.log; retries on git/uv.
+    v1.0.1: drop aamsellem image — official SNDR pin vllm/vllm-openai@sha256:6a93ae43 (dev748) + runtime sndr_core_engine install + sndr.apply. Qwen27 MTP K=4 + PN521/522; add 35B-A3B MTP K=5; Gemma/Diffusion from upstream ModelDefs.
+    v1.0.0: initial.
+  fullDescription: |
+    SNDR Core Engine — Qwen3.6-35B-A3B-FP8 on Olares One (1×24GB adapt).
+    
+    Official prod preset (prod-qwen3.6-35b-balanced) is TP=2 + MTP K=5.
+    On RTX 5090M 24GB, FP8 weights alone peak ~18GiB — MTP K=5 OOMs during load.
+    Prefer **llamacppqwen36a3bone** (Unsloth MTP GGUF, ~243 t/s, vision, turbo4 KV, MTP n=5).
+    Prefer **sndrqwen3627bone** (INT4+MTP K=4) if you need SNDR/vLLM tooling stack on 24GB.
+    
+    This chart: TP=1, no MTP, 8K ctx — only if you insist on SNDR TQ without speed/MTP.
+    
+    Upstream: https://github.com/Sandermage/sndr_core_engine
+  developer: coynntis
+  website: https://github.com/Sandermage/sndr_core_engine
+  sourceCode: https://github.com/Sandermage/sndr_core_engine
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '5'
+      limitedCpu: '17'
+      requiredMemory: 25Gi
+      limitedMemory: 49Gi
+      requiredDisk: 40Gi
+      limitedDisk: 80Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCache: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: UV_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: PIP_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

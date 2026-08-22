@@ -1,0 +1,18 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  SGLANG_MODEL_PATH: 'Lightricks/LTX-2.3'
+workloads:
+  sglangltx23one:
+    replicaCount: 1
+  sglangltx23onecli:
+    replicaCount: 1

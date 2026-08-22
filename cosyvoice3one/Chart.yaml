@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.0"
+description: Fun-CosyVoice3-0.5B TTS (9 langs, 18 Chinese dialects incl. Cantonese) — Olares One
+name: cosyvoice3one
+type: application
+version: 1.0.0

@@ -1,0 +1,9 @@
+metadata:
+  description: "EXPERIMENTAL DeepSeek-V4-Flash-0731 — Colibri SSD expert stream"
+  title: DSV4 Flash Colibri
+spec:
+  fullDescription: |
+    Experimental Colibri deepseek-v4 on Olares One. Streams official
+    deepseek-ai/DeepSeek-V4-Flash-0731 (~155 GB) from NVMe with --ram planner budget
+    (default 48 GiB). Disk-bound TG; builds JustVugg/colibri. Knobs: COLIBRI_RAM_GB,
+    LLM_API_KEY. OpenAI-compatible API on port 8000; client proxies on 8080.

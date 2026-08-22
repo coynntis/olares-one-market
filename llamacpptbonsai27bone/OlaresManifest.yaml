@@ -1,0 +1,134 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacpptbonsai27bone: 1
+  llamacpptbonsai27bonecli: 1
+metadata:
+  name: llamacpptbonsai27bone
+  icon: https://cdn.olares.com/images/2026/08/20f4b9c1613cf30c6a45a44b752a5c65.png
+  description: Ternary-Bonsai-27B Q2_0 VLM — PrismML + Web UI (fix GET / 404)
+  title: Ternary Bonsai 27B One
+  version: 1.0.5
+  categories:
+    - LLM Chat
+    - Vision
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: 27B
+    badge: ternary VLM
+    hero:
+      value: ~8 GB
+      label: Q2_0 + mmproj
+    specs:
+      - label: context
+        value: 131K
+      - label: vram
+        value: ~8 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+    stack: PrismML llama.cpp 7529fda · Q2_0 · embedded UI
+sharedEntrances:
+  - name: llamacpptbonsai27bone
+    host: sharedentrances-llamacpptbonsai27bone
+    port: 0
+    title: Ternary Bonsai 27B API
+    icon: https://cdn.olares.com/images/2026/08/20f4b9c1613cf30c6a45a44b752a5c65.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacpptbonsai27bonecli
+    port: 8080
+    host: llamacpptbonsai27bonecli
+    title: Ternary Bonsai 27B One
+    icon: https://cdn.olares.com/images/2026/08/20f4b9c1613cf30c6a45a44b752a5c65.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.5
+  featuredImage: https://cdn.olares.com/images/2026/08/3bdcab4114ecebcfb16ab9f2435d6f9e.png
+  upgradeDescription: |
+    v1.0.5: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.3: fix entrance GET / JSON 404 File Not Found — source build had no embedded Web UI (no npm; cmake HF UI fetch failed). Prefetch ggml-org/llama-ui@b9596 flat assets into tools/ui/dist, --ui, rebuild stamp CHART_BOOT=1.0.3.
+    v1.0.2: sync PrismML Jul 2026 fixes — pin llama.cpp `prism` @ 7529fda (DSpark tap-capture #67, IGPU/GPU path #88); sampling top-k 20 + min-p 0; default ctx 32K→131K (q4 KV); robust HF .tmp promote; rebuild stamp per pin. Weights still Q2_0 + mmproj-Q8_0; optional DSpark via ENABLE_DSPARK=1.
+    v1.0.1: fix Blackwell CUDA build — CMAKE_CUDA_ARCHITECTURES=120a (mxfp4 block-scale MMA; sm_120 alone fails ptxas on 5090M).
+  fullDescription: |
+    Ternary-Bonsai-27B — dense 27B hybrid-attention VLM at ~7.2 GB language weights (+ ~0.63 GB mmproj).
+    Based on Qwen3.6-27B (ternary Q2_0_g128). Fits Olares One with large headroom vs Q4_K dense 27B.
+
+    Model: prism-ml/Ternary-Bonsai-27B-gguf (updated 2026-07-18)
+      - Ternary-Bonsai-27B-Q2_0.gguf (~7.17 GB) — official demo quant
+      - Ternary-Bonsai-27B-mmproj-Q8_0.gguf (~0.63 GB vision)
+    Optional DSpark speculative decode (off by default — ENABLE_DSPARK=1 downloads + enables
+    Ternary-Bonsai-27B-dspark-Q4_1.gguf, ~1.95 GB; ~1.3–2x decode on CUDA; disables prompt-cache reuse).
+
+    Runtime: nvidia/cuda:13.1.0-devel builds PrismML-Eng/llama.cpp @ 7529fda (branch `prism`)
+    with embedded Web UI (ggml-org/llama-ui@b9596). Stock ggml-org / buun cannot load Q2_0.
+    Default ctx 131072, KV q4_0/q4_0, -ngl 99, --ui --jinja, --flash-attn on, --op-offload.
+    Sampling (PrismML thinking-mode): temp 0.7 top_p 0.95 top_k 20 min_p 0.
+
+    Apache-2.0. HF token recommended for reliable downloads.
+  developer: Prism ML
+  website: https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf
+  sourceCode: https://github.com/PrismML-Eng/llama.cpp
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 25Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: ENABLE_DSPARK
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

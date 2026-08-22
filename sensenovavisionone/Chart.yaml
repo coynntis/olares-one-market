@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.2"
+description: SenseNova-Vision 7B MoT Gradio + REST (unified CV)
+name: sensenovavisionone
+type: application
+version: 1.0.2

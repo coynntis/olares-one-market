@@ -1,0 +1,25 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  HF_REPO_ID: 'cahlen/lingbot-world-base-cam-nf4'
+  UV_INDEX_URL: ''
+  PIP_INDEX_URL: ''
+  UV_CONCURRENT_DOWNLOADS: '32'
+  LINGBOT_WORLD_T5_CPU: '1'
+  LINGBOT_WORLD_LAYER_OFFLOAD: '1'
+  LINGBOT_WORLD_MAX_FRAMES: '49'
+image:
+  repository: pytorch/pytorch
+  tag: 2.12.0-cuda13.0-cudnn9-devel
+workloads:
+  lingbotworldone:
+    replicaCount: 1
+  lingbotworldonecli:
+    replicaCount: 1

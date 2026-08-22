@@ -1,0 +1,248 @@
+{{- $llmCtx := .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" }}
+{{- $llmMaxOut := .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" }}
+{{- $llmApiKey := .Values.olaresEnv.LLM_API_KEY | default "" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: vllm
+    llm-backend: vllm
+  name: vllm
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.vllm.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: vllm
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: vllm
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms/huggingface && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/curlimages/curl:8.11.0"
+          command:
+            - sh
+            - '-c'
+            - |
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              MODEL_PATH="$SHARED_DIR/${MODEL_FILE}"
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                link_from_comfy_llms "$MODEL_PATH" || true
+              fi
+              # migrate from old per-app path
+              if [ -f "$MODELS_DIR/${MODEL_FILE}" ] && [ ! -f "$MODEL_PATH" ]; then
+                echo "Migrating ${MODEL_FILE} per-app → shared"
+                mv "$MODELS_DIR/${MODEL_FILE}" "$MODEL_PATH"
+              fi
+              if [ -f "$MODEL_PATH" ]; then
+                echo "Model already downloaded: $MODEL_PATH"
+                ls -lh "$MODEL_PATH"
+              else
+                echo "Downloading model from $MODEL_URL ..."
+                curl -fL -C - --retry 10 --retry-delay 10 -o "$MODEL_PATH" "$MODEL_URL"
+                echo "Download complete."
+                ls -lh "$MODEL_PATH"
+              fi
+          env:
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: vllm-env
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: vllm-server
+          image: "vllm/vllm-openai:latest"
+          args:
+            - "--model"
+            - "/shared-models/llms/$(MODEL_FILE)"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+            - "--speculative-config"
+            - '{"model":"google/gemma-4-26B-A4B-it-assistant","method":"gemma4_mtp","num_speculative_tokens":3}'
+            - "--max-model-len"
+{{- if $llmCtx }}
+            - {{ $llmCtx | quote }}
+{{- else }}
+            - "$(CONTEXT_SIZE)"
+{{- end }}
+            - "--gpu-memory-utilization"
+            - "0.90"
+            - "--enable-prefix-caching"
+          envFrom:
+            - configMapRef:
+                name: vllm-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: litellm-register
+          image: "docker.io/curlimages/curl:8.11.0"
+          command:
+            - sh
+            - '-c'
+            - |
+              until curl -sf http://localhost:8000/health > /dev/null 2>&1; do
+                sleep 5
+              done
+              LITELLM_KEY="sk-olares-litellm-{{ .Release.Namespace }}"
+              LITELLM_URL="${LITELLM_SERVICE_URL}"
+              BACKEND_URL="http://vllm.vllmdiffusiongemma26a4boneserver-shared:8000/v1"
+              register_model() {
+                curl -sf -o /dev/null -w "%{http_code}" \
+                  -X POST "${LITELLM_URL}/model/new" \
+                  -H "Authorization: Bearer ${LITELLM_KEY}" \
+                  -H "Content-Type: application/json" \
+                  -d "{\"model_name\": \"${LITELLM_MODEL_NAME}\", \"litellm_params\": {\"model\": \"openai/${MODEL_ALIAS}\", \"api_base\": \"${BACKEND_URL}\"}}"
+              }
+              for i in $(seq 1 5); do register_model && break; sleep 30; done
+              while true; do sleep 3600; register_model; done
+          envFrom:
+            - configMapRef:
+                name: vllm-env
+          resources:
+            limits:
+              cpu: 50m
+              memory: 32Mi
+            requests:
+              cpu: 5m
+              memory: 16Mi
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: vllm
+  name: vllm
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "vllm"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: vllm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: vllm
+  name: sharedentrances-vllm
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "vllm"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: vllm

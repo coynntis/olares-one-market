@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.8"
+description: Video-Action world model (UMT5+VAE CPU offload)
+name: lingbotvaone
+type: application
+version: 1.0.8

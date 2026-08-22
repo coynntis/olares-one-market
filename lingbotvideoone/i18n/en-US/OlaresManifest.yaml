@@ -1,0 +1,114 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  lingbotvideoone: 1
+  lingbotvideoonecli: 1
+metadata:
+  name: lingbotvideoone
+  icon: https://cdn.olares.com/images/2026/07/bcd38b97b0fbb2367c6c173c3d2d4991.png
+  description: T2V / TI2V Gradio (Dense 1.3B single-GPU)
+  title: LingBot Video Dense One
+  version: 1.0.8
+  categories:
+    - AI
+sharedEntrances:
+  - name: lingbotvideoone
+    host: sharedentrances-lingbotvideoone
+    port: 0
+    title: LingBot Video Dense One API
+    icon: https://cdn.olares.com/images/2026/07/bcd38b97b0fbb2367c6c173c3d2d4991.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: lingbotvideoonecli
+    port: 8080
+    host: lingbotvideoonecli
+    title: LingBot Video Dense One
+    icon: https://cdn.olares.com/images/2026/07/bcd38b97b0fbb2367c6c173c3d2d4991.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.8
+  featuredImage: https://cdn.olares.com/images/2026/07/dbbf0d6808ee0f072f3672c6b8dde146.png
+  fullDescription: |
+    LingBot-Video Dense 1.3B — embodied video generation on 5090M.
+
+    Hardware: Olares One — RTX 5090M 24GB + 96GB DDR5.
+
+    Runtime image: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel (required for sm_120).
+
+    Weights: robbyant/lingbot-video-dense-1.3b
+    Source: https://github.com/Robbyant/lingbot-video
+    Project: https://technology.robbyant.com/lingbot-video
+
+    Boot lessons (Krea soft-ready):
+    - soft-ready HTTP on :7860 before uv/pip/HF download (pass ~30m install gate)
+    - uv pip --target /workspace/lingbotvideoone/site-packages (persist uv + cache)
+    - purge torch shadow from site-packages (image owns torch)
+    - bootstrap attempts + download progress → /workspace/lingbotvideoone/bootstrap.log
+    - GET /health shows phase / attempts_tail while installing
+
+    UI: / and /ui · REST under /api/v1 · health: GET /health
+  developer: Robbyant
+  website: https://technology.robbyant.com/lingbot-video
+  sourceCode: https://github.com/Robbyant/lingbot-video
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/Robbyant/lingbot-video
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '13'
+      requiredMemory: 4Gi
+      limitedMemory: 49Gi
+      requiredDisk: 40Gi
+      limitedDisk: 100Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    - **1.0.8**: Fix Gradio file URLs — import mount_gradio; redirect /gradio_api/* to /ui/gradio_api/* (query preserved).
+    v1.0.7: base image pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel (sm_120 / RTX 5090M); was 2.6+cu12.4 with no Blackwell kernels.
+    v1.0.4: vision loader API fix (repo_id_or_path dir).
+    v1.0.3: audit upstream inference deps; deps marker v3.
+    v1.0.2: omegaconf + reinstall after --no-deps.
+    v1.0.1: Helm-safe soft_ready / ConfigMap brace escape.
+    v1.0.0: initial chart — soft-ready + uv site-packages + Gradio/REST.
+
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: HF_REPO_ID
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'robbyant/lingbot-video-dense-1.3b'
+  - envName: UV_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+    value: ''
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

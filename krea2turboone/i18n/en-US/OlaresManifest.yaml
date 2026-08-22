@@ -1,0 +1,25 @@
+metadata:
+  title: Krea 2 Turbo One
+  description: "Krea-2-Turbo — fast T2I Gradio + REST for Olares One"
+
+spec:
+  fullDescription: |
+    Gradio UI + REST API for Krea-2-Turbo text-to-image on Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+
+    Model: krea/Krea-2-Turbo via diffusers Krea2Pipeline (bf16).
+    Raw checkpoint is for training only — this app ships Turbo for inference.
+    VRAM fit: bf16 + enable_model_cpu_offload when GPU < 25GB. Attention: SDPA
+    (not Sage). FP8 / bitsandbytes paths deferred.
+
+    Official style LoRAs (dropdown): neondrip, darkbrush, retroanime,
+    softwatercolor, kidsdrawing, vintagetarot, dotmatrix, rainywindow, sunsetblur.
+    Optional KREA_EXTRA_LORAS = comma-separated extra HF LoRA ids.
+
+    Defaults: 8 steps, guidance 0.0 (Turbo distilled recipe).
+    UI: /ui · REST: POST /api/v1/generate · health: GET /health · docs: /docs
+
+    License: Krea 2 Community License — commercial use allowed when the
+    organization's trailing-twelve-month revenue is under $1M USD (see HF model card).
+
+    Service: Gradio + FastAPI on port 7860

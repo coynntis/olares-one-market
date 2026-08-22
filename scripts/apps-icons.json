@@ -1,0 +1,1652 @@
+[
+  {
+    "id": "browserlessone",
+    "title": "Browserless One",
+    "backend": "Browserless",
+    "pipelines": [
+      "agent-tools"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/browserlessone.png",
+    "icon_hash": "9439e1c1e413fd3bfb8d58f4961da34bde4ce681b14cee1f95793adbea885125",
+    "featured": "featured/browserlessone.png",
+    "featured_hash": "2bd79f128afeb31b6893c77545bf207660f6dcad375214e3e4f21a9b97ceb648",
+    "icon_url": "https://cdn.olares.com/images/2026/08/35f932653c32b48e733e7b1dc5d227b8.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/68ffbe41a9629288a6aeea31aa1c7b1e.png"
+  },
+  {
+    "id": "colibridsv4flash0731one",
+    "title": "DSV4 Flash Colibri",
+    "backend": "SSD stream",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "engine",
+    "speed": "~155 GB",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/colibridsv4flash0731one.png",
+    "icon_hash": "974a3dc4c549404db987e60c4041cee9b9e0833f34c4b4adee0bf4ed157e852a",
+    "featured": "featured/colibridsv4flash0731one.png",
+    "featured_hash": "22ae3991f3f59bf6445f65084c026571f65c91501086ba64b7fdfbb2f66f98e5",
+    "icon_url": "https://cdn.olares.com/images/2026/08/eedb19340ea8619fdaf0887103335b7a.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/a76f15a2d1b0c1e0d2e387bf3be9d291.png"
+  },
+  {
+    "id": "consistcomposeone",
+    "title": "ConsistCompose BAGEL",
+    "backend": "BAGEL NF4",
+    "pipelines": [
+      "text-to-image"
+    ],
+    "context": "—",
+    "speed": "NF4 compose",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/consistcomposeone.png",
+    "icon_hash": "4fe1ed987c17e493d13f6710438617afd3ceadad6d2b78e5a375afb75efdc240",
+    "featured": "featured/consistcomposeone.png",
+    "featured_hash": "f4ef45dc95d5836478149beed2c2784dac11b0847e19a469718c2f48b53d8cab",
+    "icon_url": "https://cdn.olares.com/images/2026/08/cedce30bf28627551b5d5548a3cb828e.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/64f6ba4ab73bee22b40921b7cb849e85.png"
+  },
+  {
+    "id": "cosyvoice2yueone",
+    "title": "CosyVoice2 Yue TTS",
+    "backend": "CosyVoice2",
+    "pipelines": [
+      "text-to-speech"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/cosyvoice2yueone.png",
+    "icon_hash": "01da0df2fcca10607fa869e9712b114f4ef7c0f92f5274370dedd1cbec23420a",
+    "featured": "featured/cosyvoice2yueone.png",
+    "featured_hash": "3400f7be2f0eee97b776f7e21bc90db27c208b545eb107a8227cdcee0984de7c",
+    "icon_url": "https://cdn.olares.com/images/2026/08/ac5eecc84902c49aafc3e04ce594be58.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/a10c14348586bd1dc7b65503d28d5b71.png"
+  },
+  {
+    "id": "cosyvoice3one",
+    "title": "CosyVoice3 TTS One",
+    "backend": "Fun-CosyVoice3",
+    "pipelines": [
+      "text-to-speech"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/cosyvoice3one.png",
+    "icon_hash": "b102f98609abef591ab0e7ab8d535c8587c5b0cd8f1a6e9db8abe2381a0fd198",
+    "featured": "featured/cosyvoice3one.png",
+    "featured_hash": "0464625a5884ef7d247d4711f476de65a96406d163413bd3dd5999b8750bbd39",
+    "icon_url": "https://cdn.olares.com/images/2026/08/dad98643e695a9942d3724416ae33e99.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/6229687099c23fd6554d79746933b488.png"
+  },
+  {
+    "id": "dflashqwen3627bone",
+    "title": "Qwen36 27B DFlash",
+    "backend": "Lucebox DFlash",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "32K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/dflashqwen3627bone.png",
+    "icon_hash": "17d57684ae9dd28fdc1b5e3e8a2b24d39f4600b778174a57a101a49e11e2a269",
+    "featured": "featured/dflashqwen3627bone.png",
+    "featured_hash": "aa13327f60e4da602ad6a8ed5691a529b001d9ccedac3d8086ce1ff8555522f0",
+    "icon_url": "https://cdn.olares.com/images/2026/08/6a3e90f452a596563efe946a8d11ec83.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/834185ea602892ec68d5cf0622977e56.png"
+  },
+  {
+    "id": "dockerbuilderone",
+    "title": "Docker Builder",
+    "backend": "Kaniko",
+    "pipelines": [
+      "dev-tools"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/dockerbuilderone.png",
+    "icon_hash": "e8031ab9edd6f7ddedc32c573bffe9f788f149cd2b8e2ca82a4fbdcf5d70d8d4",
+    "featured": "featured/dockerbuilderone.png",
+    "featured_hash": "b56335b4eadef96852c903db9d77242303d7c39fa9e9d9b45cdaf32f3dfa750a",
+    "icon_url": "https://cdn.olares.com/images/2026/08/f8f3807f348764ce1884843bf3655511.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/3c2e168c63fb770562cff1e468bef8b3.png"
+  },
+  {
+    "id": "dshone",
+    "title": "DeepSeek Harness",
+    "backend": "dsh npm",
+    "pipelines": [
+      "agent-tools"
+    ],
+    "context": "—",
+    "speed": "npx pin",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/dshone.png",
+    "icon_hash": "21b1be6eb6f664e798118d4cd8f18c624c56a742429295ba55bd66477fcb40c0",
+    "featured": "featured/dshone.png",
+    "featured_hash": "9836951481352e507b9186443829952142a94bd94b263054f9ce26484e34cd15",
+    "icon_url": "https://cdn.olares.com/images/2026/08/3c3118834200a56873f1c486abedd7f2.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/7d5f9a9c26806c6e3452ed4318271485.png"
+  },
+  {
+    "id": "fastwanqad13bone",
+    "title": "FastWan QAD 1.3B",
+    "backend": "FastVideo NVFP4",
+    "pipelines": [
+      "text-to-video"
+    ],
+    "context": "—",
+    "speed": "~1.8s clip",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/fastwanqad13bone.png",
+    "icon_hash": "b599bde413a98ac5bf63919c6be009b4324f95c671e94495736de71fc3b8ae97",
+    "featured": "featured/fastwanqad13bone.png",
+    "featured_hash": "315fc89bec7147ab602f6be11e27860226729d4529395e95174e58aff96c76a2",
+    "icon_url": "https://cdn.olares.com/images/2026/08/fe0d2b9dc5cb8603366b090f981d43f7.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/19de2360a0834afe0fea15ab05220461.png"
+  },
+  {
+    "id": "fastwanqad13bsa2one",
+    "title": "FastWan QAD 1.3B SA2",
+    "backend": "FastVideo NVFP4",
+    "pipelines": [
+      "text-to-video"
+    ],
+    "context": "—",
+    "speed": "~2s clip",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/fastwanqad13bsa2one.png",
+    "icon_hash": "5d6a08935b96ae4f7d3501b8493ca2900666613d67d1cad525eefe445379e22a",
+    "featured": "featured/fastwanqad13bsa2one.png",
+    "featured_hash": "1e0fd5db0cdca0429cccd735eede0f0c528ac8ebc6388ae860d9d4120ab684a7",
+    "icon_url": "https://cdn.olares.com/images/2026/08/a58ffc8aa8e958dbbdf5959879a72dd5.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/e2d34042634075cd11df8cd847cc01d1.png"
+  },
+  {
+    "id": "fastwanqad13fp8one",
+    "title": "FastWan QAD 1.3B FP8",
+    "backend": "FastVideo FP8",
+    "pipelines": [
+      "text-to-video"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/fastwanqad13fp8one.png",
+    "icon_hash": "d1cf2b0dbe9f19bc61a6e9b63cf755fe46f36542fcc254b3c2a408cc1f7727a3",
+    "featured": "featured/fastwanqad13fp8one.png",
+    "featured_hash": "afecce5dd3678d89cae51eb4c4456038ac15b7d73962cd919fa986b94153d83c",
+    "icon_url": "https://cdn.olares.com/images/2026/08/e3253522578d43d8fb472994fcdf320d.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/83ea52a5819f0935b8e456d037937731.png"
+  },
+  {
+    "id": "gemma4e2bone",
+    "title": "Gemma 4 E2B",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "8K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/gemma4e2bone.png",
+    "icon_hash": "8fca33cc035e45847f76180888a9018d5e8a3fcb4c882bab6ba4b68ad9126b46",
+    "featured": "featured/gemma4e2bone.png",
+    "featured_hash": "461ec4a86e7f195959e98107c90a720dc5df2a68482ad25cd22913e732e4113f",
+    "icon_url": "https://cdn.olares.com/images/2026/08/2f109b0f26d221bc7b63a84d59e0dfce.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/dc49eba30c005ea6eca44e23dacca187.png"
+  },
+  {
+    "id": "ideogram4nf4one",
+    "title": "Ideogram 4 NF4",
+    "backend": "diffusers",
+    "pipelines": [
+      "text-to-image"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/ideogram4nf4one.png",
+    "icon_hash": "da27085c2de7aa1c46c63bb210e11442f33c81a81d10c41cbb66310f9a8a9c95",
+    "featured": "featured/ideogram4nf4one.png",
+    "featured_hash": "240ecdd11c677668f117a0d7fe6c613dbf01a0ee3908c4f827525d917985b2b7",
+    "icon_url": "https://cdn.olares.com/images/2026/08/eebbf77dba48420edd02199cc549a2c4.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/e66a817a31e9af4e93636aa6bc9f7a94.png"
+  },
+  {
+    "id": "krea2turboone",
+    "title": "Krea-2 Turbo",
+    "backend": "Diffusers LoRA",
+    "pipelines": [
+      "text-to-image"
+    ],
+    "context": "—",
+    "speed": "8-step Turbo",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/krea2turboone.png",
+    "icon_hash": "664babcd8e2081c94ee230cbacfc5bf5ba57fffc1a34d1d9c2d14dc815b4efe6",
+    "featured": "featured/krea2turboone.png",
+    "featured_hash": "bd9647ab662467fb9c6e2fffcf020c195b9642d0fc396bdcd48006d4b16c7772",
+    "icon_url": "https://cdn.olares.com/images/2026/08/7b49b96c0f6e947b29dea43b25e1f235.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/42094b0b721bafe30bc25692a88bdc8f.png"
+  },
+  {
+    "id": "lingbotdepthone",
+    "title": "LingBot Depth",
+    "backend": "Depth ViT-L",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/lingbotdepthone.png",
+    "icon_hash": "97b779a07e6ce7d26e7440eed3a10e99cd18f26f92cdc0b8cab682daf5966280",
+    "featured": "featured/lingbotdepthone.png",
+    "featured_hash": "84fb55f5722db8a47e9f04df23abd09d76a0a14554c5980584d386f91dcf9811",
+    "icon_url": "https://cdn.olares.com/images/2026/08/1cf1defd3fa914cef3ff2151c9d44e24.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/ae8956833b2a8fc5fb32313981eb11ac.png"
+  },
+  {
+    "id": "lingbotmapone",
+    "title": "LingBot Map",
+    "backend": "3D Map",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/lingbotmapone.png",
+    "icon_hash": "65ac96c05f812b4aed033e42dbdefc50b3e49f36a77a04d330d3779dd1e3fea3",
+    "featured": "featured/lingbotmapone.png",
+    "featured_hash": "98216ff435d3814e25202af66d88960a32566a3d78ce62de7b0bcc17760a9787",
+    "icon_url": "https://cdn.olares.com/images/2026/08/93ed8bbdced8d0d386843864f53158f4.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/a1583cc2feca244a60a4aa2c610853e0.png"
+  },
+  {
+    "id": "lingbotvaone",
+    "title": "LingBot VA",
+    "backend": "VA Offload",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/lingbotvaone.png",
+    "icon_hash": "679a80aabbe7e36171f0302ae171ea9a5ad247c19d176239550e987e60ed9b02",
+    "featured": "featured/lingbotvaone.png",
+    "featured_hash": "6d808b810d489cd8c2f77fcf0f0dd747aa0728f47465278773976478d1931f75",
+    "icon_url": "https://cdn.olares.com/images/2026/08/31a0f93fd0eccae820c1eb1d135f1903.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/48ff1c9b3a60c86b8654531d3fc137be.png"
+  },
+  {
+    "id": "lingbotvideoone",
+    "title": "LingBot Video Dense",
+    "backend": "T2V 1.3B",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/lingbotvideoone.png",
+    "icon_hash": "7072e0da3f3354f1df2252975b10371c09f0e10eaf6afe4e5703dc1d7e1f6066",
+    "featured": "featured/lingbotvideoone.png",
+    "featured_hash": "faafbc9a5a73df467be2cae70842180ae9d3aed8ced3431cddb536360373b9a8",
+    "icon_url": "https://cdn.olares.com/images/2026/08/bcd38b97b0fbb2367c6c173c3d2d4991.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/dbbf0d6808ee0f072f3672c6b8dde146.png"
+  },
+  {
+    "id": "lingbotvisionone",
+    "title": "LingBot Vision",
+    "backend": "Vision ViT-L",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/lingbotvisionone.png",
+    "icon_hash": "a564b3d951349b7af3e898e283f9fdf4728054a82ad154acd6ba87f33a9f4964",
+    "featured": "featured/lingbotvisionone.png",
+    "featured_hash": "cd9a86dca7c0bc9ab4b0e19401de2fbbd95423c9c0dbda64df92615803fb5146",
+    "icon_url": "https://cdn.olares.com/images/2026/08/bfc3a11c644ebfd89d0c0bf3db790f80.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/af6e687289a9eb0a0b56f4e220cbb322.png"
+  },
+  {
+    "id": "lingbotvlaone",
+    "title": "LingBot VLA 2.0",
+    "backend": "VLA 6B",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/lingbotvlaone.png",
+    "icon_hash": "e2c8327bdca5c6be28146476f52dc8fdaea564429b0b6c187bc06ce64931c0b2",
+    "featured": "featured/lingbotvlaone.png",
+    "featured_hash": "299f77c8d91b5767fc48c882ad46505f411cc711aae7ffaf963abd9b54872dc9",
+    "icon_url": "https://cdn.olares.com/images/2026/08/a7985e027835294a0da84b5072d2dceb.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/d4ff0fa4c80799499d36c60c25818958.png"
+  },
+  {
+    "id": "lingbotworldone",
+    "title": "LingBot World NF4",
+    "backend": "World NF4",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/lingbotworldone.png",
+    "icon_hash": "81aa00d23cec16df417ccd2cfb6422234eb8f0c3bef79abe2331de2a2e3e3993",
+    "featured": "featured/lingbotworldone.png",
+    "featured_hash": "8c7affb437947ec28d87a88ac2caa23d893e656973475ccdaa37d7164384bd28",
+    "icon_url": "https://cdn.olares.com/images/2026/08/7646bb3c563e51e394ef58df7fc48eba.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/2e341e74663488f71875a5e232bf9ae8.png"
+  },
+  {
+    "id": "llamacppagentsa1one",
+    "title": "Agents-A1 Vision",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "—",
+    "speed": "64K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppagentsa1one.png",
+    "icon_hash": "6573089357752123054aff0f040906dd70f5bedf4ed3a4697f4e770822b2c8fe",
+    "featured": "featured/llamacppagentsa1one.png",
+    "featured_hash": "c868766eb267cb2c871ba86426dc738c2760e658b05da1b15178e3f73a2e3e65",
+    "icon_url": "https://cdn.olares.com/images/2026/08/bc50817200b3d8619a706bc2f784b100.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/ef451bc7e2ef83e110ae7aa728cf9bc0.png"
+  },
+  {
+    "id": "llamacppagentworld35bone",
+    "title": "AgentWorld 35B",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "text-generation",
+      "agent-tools"
+    ],
+    "context": "64K",
+    "speed": "64K ctx",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppagentworld35bone.png",
+    "icon_hash": "34247daa331cdfa6778f45c18457e46767d925e39f515c400fe72dea367f562f",
+    "featured": "featured/llamacppagentworld35bone.png",
+    "featured_hash": "3dac0686d92d0fbd6144c947f2ca92beb2dcf4b59d620f86a30e977718617c49",
+    "icon_url": "https://cdn.olares.com/images/2026/08/8503bda451e5a6c4edc236b1c07da8b4.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/f88b2a8dceea1f0eb69b1673020be86e.png"
+  },
+  {
+    "id": "llamacppbonsai27bone",
+    "title": "Bonsai 27B",
+    "backend": "PrismML VLM",
+    "pipelines": [
+      "image-text-to-text",
+      "text-generation"
+    ],
+    "context": "32K",
+    "speed": "~4.5 GB",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppbonsai27bone.png",
+    "icon_hash": "dd4d3703d4f7d3b0350d9466290191598d688b3bc672dedcafc1c11365cb814a",
+    "featured": "featured/llamacppbonsai27bone.png",
+    "featured_hash": "aa47b2242b1456970f4b8b2444a6c3c3d7406c506d2f169e19047d2a3a6b8dd5",
+    "icon_url": "https://cdn.olares.com/images/2026/08/d74e6462a3245777e8a19f0cf32e3ba1.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/30e42ac35b22698211201b013a339c6c.png"
+  },
+  {
+    "id": "llamacppbonsai8bone",
+    "title": "Bonsai 8B",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": false,
+    "icon": "icons/llamacppbonsai8bone.png",
+    "icon_hash": "343fbe590573d52a6ac14c16cd27321fd3a2d01ecb25141959475b7c49f85e7c",
+    "featured": "featured/llamacppbonsai8bone.png",
+    "featured_hash": "2219ee68cf2329c69781f36c819aefb817d3243ec90954459c11c91c6ddf2f85",
+    "icon_url": "https://cdn.olares.com/images/2026/08/caf27fffd327ed5dda8205c2b4b11d92.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/3b590a9560e6c7d72c86f00947e3a2ba.png"
+  },
+  {
+    "id": "llamacppdiffusiongemma26a4bone",
+    "title": "DiffusionGemma 26B",
+    "backend": "vLLM",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppdiffusiongemma26a4bone.png",
+    "icon_hash": "512b5325c8ba0e6bf936c6a95113896f974bb865812c15f038f32673ba24492d",
+    "featured": "featured/llamacppdiffusiongemma26a4bone.png",
+    "featured_hash": "990eb59e2211e45f73393ad2e8107df28ad77b9c5a442ea7ada72e2f8aab939a",
+    "icon_url": "https://cdn.olares.com/images/2026/08/f06d52b3361a8a753c7c850ec88c693a.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/1c5b40b4fc0279419b257549bff8bee3.png"
+  },
+  {
+    "id": "llamacppdsv4flash0731one",
+    "title": "DSV4 Flash 0731",
+    "backend": "cpu-moe IQ2",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "128K",
+    "speed": "~91 GB",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppdsv4flash0731one.png",
+    "icon_hash": "d089cd261c7932aec0b12aa7fc36498230395ed6b03b8ca204e9716b83c8cb41",
+    "featured": "featured/llamacppdsv4flash0731one.png",
+    "featured_hash": "1f308529f0b9713e4caad1f8637296577c663e9a7b25674490d849b4f11c4dcc",
+    "icon_url": "https://cdn.olares.com/images/2026/08/7b7b777b8ab6bda55f238ba9a628f7d3.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/ae51b30d64b6ce4c6853cdcd40b9b86e.png"
+  },
+  {
+    "id": "llamacppgemma412agent1",
+    "title": "Gemma 4 12B Agentic",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "128K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppgemma412agent1.png",
+    "icon_hash": "6bfa3ab97dfbe462fd3ead9e838ac672f25639a2dd9cf624b820c14c3aa3e7a5",
+    "featured": "featured/llamacppgemma412agent1.png",
+    "featured_hash": "d97f50e68f853a36da2afd7568a64aa56501c0bfe22c6c738316ed1b7aceb6fb",
+    "icon_url": "https://cdn.olares.com/images/2026/08/c6a523fac72e8ab17cb6c5514e9aa4d0.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/7346feb42752127c66958afb4fc6ce22.png"
+  },
+  {
+    "id": "llamacppgrug27bone",
+    "title": "Grug 27B MTP",
+    "backend": "short-think + vision",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "128K",
+    "speed": "128K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppgrug27bone.png",
+    "icon_hash": "fdbb43fbcb629f44aaf23ddf5d9f6c8689ef44da53857aff8568a5cfe67467be",
+    "featured": "featured/llamacppgrug27bone.png",
+    "featured_hash": "1ca43e10ac57727e3d280137f56be3e6273e1b350aebce58dbde1468cd3cc9e0",
+    "icon_url": "https://cdn.olares.com/images/2026/08/1ddc1cc05726ec0026e4352ee8754422.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/d99efbb354d2f9a52f273e1a8e8c02c2.png"
+  },
+  {
+    "id": "llamacppkatcoderv25one",
+    "title": "KAT Coder V25",
+    "backend": "MoE coding MTP",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "192K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppkatcoderv25one.png",
+    "icon_hash": "6d3df581a0508af750d1b8f35129b9fd82526322f31338de3f4c51493e01f8d3",
+    "featured": "featured/llamacppkatcoderv25one.png",
+    "featured_hash": "e2fb737178f1f560af0452e31f36fa3e79d4ca9e1052c7987542d2ccaad09efb",
+    "icon_url": "https://cdn.olares.com/images/2026/08/59000692929ab24988a8d28482203c3b.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/bf1c5631f5811cda2475389c71433f00.png"
+  },
+  {
+    "id": "llamacpplagunas21one",
+    "title": "Laguna S 2.1",
+    "backend": "poolside cpu-moe",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "16K",
+    "speed": "~96 GB",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacpplagunas21one.png",
+    "icon_hash": "1df70eebe45b8542d8dff2ff23736c3cca763119b054c69e0fb662d94ce1bd80",
+    "featured": "featured/llamacpplagunas21one.png",
+    "featured_hash": "16ee953659596ddec7ba08ef6a2105cef7d7690d634bb19b6772d47e13950681",
+    "icon_url": "https://cdn.olares.com/images/2026/08/95a75879af027962e62025aa5256e880.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/433ac5f846d86ce5846bdb8a2a8b2c90.png"
+  },
+  {
+    "id": "llamacppnanbeige423bone",
+    "title": "Nanbeige 4.2 3B",
+    "backend": "Nanbeige llama.cpp",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "131K",
+    "speed": "~4.4 GB",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppnanbeige423bone.png",
+    "icon_hash": "7f76ed4cdbe5839566a028a67789ab9abac0c730117469f352c45396499049fd",
+    "featured": "featured/llamacppnanbeige423bone.png",
+    "featured_hash": "14b2fc8cddb208890bc309bd7b9aedb418c1715eb67a1114057ccd6280a27237",
+    "icon_url": "https://cdn.olares.com/images/2026/08/d67d13e867f7b98406fe0da9f82bf920.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/d4bba4a2cf8c91924b0a40fa597731d2.png"
+  },
+  {
+    "id": "llamacppnemotrondiffusion14b1",
+    "title": "Nemotron Diffusion 14B",
+    "backend": "buun self-spec",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "16K",
+    "speed": "50 t/s",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppnemotrondiffusion14b1.png",
+    "icon_hash": "13aa61839cc3d0f06407df471f3a4d36283a3c3b69d8707b3a49bff96dc8f7c7",
+    "featured": "featured/llamacppnemotrondiffusion14b1.png",
+    "featured_hash": "28b0c080ec9b29d771106766ba8cf64c7ce91ff698f4f30df53462f5f3d407be",
+    "icon_url": "https://cdn.olares.com/images/2026/08/7ac6d4e61efbe9ea730a492b3783e191.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/282ef5b951754d4fab853d008b4ababc.png"
+  },
+  {
+    "id": "llamacppornith35bone",
+    "title": "Ornith 35B One",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "64K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppornith35bone.png",
+    "icon_hash": "454b69ba35573b038c10d8fe009d18b9e39e1a688f00a181df317617599baf57",
+    "featured": "featured/llamacppornith35bone.png",
+    "featured_hash": "5eb8a16e3865976046bb24b9849b4153165f12bfe96e7df8bb67999d93edacf2",
+    "icon_url": "https://cdn.olares.com/images/2026/08/b1869182c2b57b22590d291f1034a00e.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/6f6fb714f4e637302b790db4633fcd45.png"
+  },
+  {
+    "id": "llamacppornith9bone",
+    "title": "Ornith 9B One",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "128K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppornith9bone.png",
+    "icon_hash": "6093148db358f938844c3f1850c4c9ac121a4be087ea43bfee50f98ed395edda",
+    "featured": "featured/llamacppornith9bone.png",
+    "featured_hash": "7b7df482ee24a8f8c6f2267b96b60a3d9a6d2a1abfddd61d978a611afcfed09f",
+    "icon_url": "https://cdn.olares.com/images/2026/08/ab94744505d1acb99f8468d6701eefc2.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/0edfdbe1c5fbc05e7976e622bf2d2407.png"
+  },
+  {
+    "id": "llamacppqwable35bone",
+    "title": "Qwable 35B MoE",
+    "backend": "buun MTP",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "192K",
+    "speed": "243 t/s",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwable35bone.png",
+    "icon_hash": "2a37ef9003379ba2839300f0f6df40544699fcebb13ddd8a55fef6d7717de680",
+    "featured": "featured/llamacppqwable35bone.png",
+    "featured_hash": "0ca4e58c8218e991a425111ddb86006c675c530675cb7e5146dbf7620501ad90",
+    "icon_url": "https://cdn.olares.com/images/2026/08/c18bcfb02c6e54f722828d631a5ca327.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/8053a00007127d6862782349a6824f3c.png"
+  },
+  {
+    "id": "llamacppqwen3627btq34sone",
+    "title": "Qwen36 27B TQ34S",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "131K",
+    "speed": "—",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen3627btq34sone.png",
+    "icon_hash": "b6e7b53b98c79ee885617b6ba026205f191e8b98e8876a0a8433017481161267",
+    "featured": "featured/llamacppqwen3627btq34sone.png",
+    "featured_hash": "026d6aec07b5fbaa4e474b4316559b31a20e1951c74bae6cd630ec645775a9b2",
+    "icon_url": "https://cdn.olares.com/images/2026/08/888c80b98a099f5b3d5805cd7120d6d9.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/a134db4ae65d6a5731f35c37ab773547.png"
+  },
+  {
+    "id": "llamacppqwen3635ba3btq34sone",
+    "title": "Qwen35 35B Vision",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "128K",
+    "speed": "—",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen3635ba3btq34sone.png",
+    "icon_hash": "cf5943def7eafe8dacb161c6ce89dcf583b0e521e4a8b78ca2d3e5fc4e22f1b2",
+    "featured": "featured/llamacppqwen3635ba3btq34sone.png",
+    "featured_hash": "a94842c9ef2459aa0cc5d20422c2e1b782acc7ba5abbd7aa8a0bf8228457fa20",
+    "icon_url": "https://cdn.olares.com/images/2026/08/4e9d0422fb098bef4969445dab10d052.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/8ad63d1262652f6e1b8aa03e386f2f73.png"
+  },
+  {
+    "id": "llamacppqwen36a3bdflashone",
+    "title": "Qwen36 35B DFlash",
+    "backend": "upstream DFlash + vision",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "128K",
+    "speed": "302 t/s",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen36a3bdflashone.png",
+    "icon_hash": "2215c454a5662cc0d78f97d8255951050d2955c02e192013500d64df1dddca09",
+    "featured": "featured/llamacppqwen36a3bdflashone.png",
+    "featured_hash": "f5f5db82bec7baa0530fed46ce2ef250c658b14233bb3e909c0222546a69b013",
+    "icon_url": "https://cdn.olares.com/images/2026/08/f2c0b9b7d5a851edcda125b9042ad569.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/e76b4a5f4e31b06ba686986d80f901de.png"
+  },
+  {
+    "id": "llamacppqwen36a3bone",
+    "title": "Qwen36 35B-A3B MTP",
+    "backend": "buun MTP + vision",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "192K",
+    "speed": "243 t/s",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen36a3bone.png",
+    "icon_hash": "c0849b0fab9699eb45c9b6f7e7606d6e58e1819d115d8c0ac0499cdd6f503340",
+    "featured": "featured/llamacppqwen36a3bone.png",
+    "featured_hash": "b5b5ddb86313588282e35a1eb329cfc795ad399f6309328053bbf126165ea355",
+    "icon_url": "https://cdn.olares.com/images/2026/08/8c51a189cbb581ef41d0f59b37727883.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/9e4a4b4cde595c2d113f7daf319b124b.png"
+  },
+  {
+    "id": "llamacppqwen36beellamaone",
+    "title": "Qwen36 27B BeeLlama",
+    "backend": "BeeLlama DFlash",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "262K",
+    "speed": "106 t/s",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen36beellamaone.png",
+    "icon_hash": "cdea1e4b251e84ed937de24fa2288972e76175ff1fb51291adcc18c238210fdf",
+    "featured": "featured/llamacppqwen36beellamaone.png",
+    "featured_hash": "2f1969c4dfca435669fa7e6a63002a69632c6c2d9941ec2da626d2e0e727ad8f",
+    "icon_url": "https://cdn.olares.com/images/2026/08/d5b1891ed81feac357e3d2772e326d4e.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/6a028adc0eb3dd87fee483275b2e4b2d.png"
+  },
+  {
+    "id": "llamacppqwen36beellamavision1",
+    "title": "Qwen36 27B Vision",
+    "backend": "BeeLlama DFlash",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "200K",
+    "speed": "105 t/s",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen36beellamavision1.png",
+    "icon_hash": "824aafa49735c4544e6df28eb1300e5a7b8328766006fa78336ca25a0409e368",
+    "featured": "featured/llamacppqwen36beellamavision1.png",
+    "featured_hash": "44727a7a49c3fc467a90a63e3756b6ed8b4ee3712f4bbce09355665a8d6a2e70",
+    "icon_url": "https://cdn.olares.com/images/2026/08/9fc8f40860d79313f557ed1c73a4de1d.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/ef1543f4172fc307c1fc0f3003bf4ad6.png"
+  },
+  {
+    "id": "llamacppqwen36fable27bone",
+    "title": "Qwen36 Fable 27B",
+    "backend": "MTP + vision tools",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "128K",
+    "speed": "128K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen36fable27bone.png",
+    "icon_hash": "4f9a2a74fcad4367a35829ef879602de5d775fbbbc589c85dda15178f3ef63bf",
+    "featured": "featured/llamacppqwen36fable27bone.png",
+    "featured_hash": "7b6f36d78f0d6822fe5474bb94aa46def7d8892166b595174acf2afca6230a30",
+    "icon_url": "https://cdn.olares.com/images/2026/08/22d3f6315de1a5edd2689c5c2fd81469.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/62624e2949da9f149e77df9480eb925c.png"
+  },
+  {
+    "id": "llamacppqwen36mtpone",
+    "title": "Qwen36 27B MTP",
+    "backend": "buun draft-MTP",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "262K",
+    "speed": "74 t/s",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen36mtpone.png",
+    "icon_hash": "bad0db93633171e6bb990f30b21a35324a0c8f74a4bfaaa16dca77082cb81b62",
+    "featured": "featured/llamacppqwen36mtpone.png",
+    "featured_hash": "2ca75cda138120327154757a0fb47c26fae7cb69a46a0676f8e21b8004a71d16",
+    "icon_url": "https://cdn.olares.com/images/2026/08/c57f37ce08e3b83ada1de638960aa068.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/aa2867d82c8b036cfb337c27f500d3cd.png"
+  },
+  {
+    "id": "llamacppqwen3827bmtpone",
+    "title": "Qwen38 27B MTP",
+    "backend": "buun MTP + vision",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "192K",
+    "speed": "MTP n=4",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwen3827bmtpone.png",
+    "icon_hash": "5f4ac9418dbf830ad3cb00f461a98d7f09df42a2d5948f375500c055f3e039b4",
+    "featured": "featured/llamacppqwen3827bmtpone.png",
+    "featured_hash": "f2fff0c7fbfafaeab9c869292ee9d38719d04d8eba460d777f3bfff09466debd",
+    "icon_url": "https://cdn.olares.com/images/2026/08/d5ec62e46ce5d08755b6ff8bbe569094.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/2b070c466d844c5055e53936800a0560.png"
+  },
+  {
+    "id": "llamacppqwopus27coder1",
+    "title": "Qwopus 27B Coder",
+    "backend": "buun llama.cpp",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "128K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwopus27coder1.png",
+    "icon_hash": "ea5b62429068854fc88ccf7ad3206eee1f11f5eeb3cf96408f6ca19db3a99aa1",
+    "featured": "featured/llamacppqwopus27coder1.png",
+    "featured_hash": "5a9f418c3ccd2c7dceedd2a4245b4e67bd8a61a8d253bfb7780cae7f7fe1761f",
+    "icon_url": "https://cdn.olares.com/images/2026/08/05fb2a3e3f49979cfcb850080a80885e.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/1d79591a65f62e0421a9e600ddebb762.png"
+  },
+  {
+    "id": "llamacppqwopus27mtpone",
+    "title": "Qwopus 27B MTP v2",
+    "backend": "buun draft-MTP",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "128K",
+    "speed": "~1.7x",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwopus27mtpone.png",
+    "icon_hash": "8fdccf08700e233e28307125510c7d050b646750e9b2eda9e37c2a00ec5099f3",
+    "featured": "featured/llamacppqwopus27mtpone.png",
+    "featured_hash": "2c10769fbbdcbdcdc3431241dc1c7ec7f3428c565aee0cc6cf4a4df9a1ccc5b4",
+    "icon_url": "https://cdn.olares.com/images/2026/08/d6386e5f910d1c5ebb50cdb836d28b07.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/d05b883f9b23fbd195c3aab0fa55d817.png"
+  },
+  {
+    "id": "llamacppqwythos9bone",
+    "title": "Qwythos 9B",
+    "backend": "buun draft-MTP",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "64K",
+    "speed": "64K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppqwythos9bone.png",
+    "icon_hash": "8964928634d5dc87d739b1fcf3586514f2f02e2157191f1a1d841366d94e52b5",
+    "featured": "featured/llamacppqwythos9bone.png",
+    "featured_hash": "4a3312e4413e1649f340e1c53b679e7ede9b41eb0fd93b2c40fbf045474a6c39",
+    "icon_url": "https://cdn.olares.com/images/2026/08/2368ac4aa82ec12f767947bbcbb0dd7d.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/7a6f586ab4c0703d540f914af41e2d7e.png"
+  },
+  {
+    "id": "llamacpptbonsai27bone",
+    "title": "Ternary Bonsai 27B",
+    "backend": "PrismML VLM",
+    "pipelines": [
+      "image-text-to-text",
+      "text-generation"
+    ],
+    "context": "131K",
+    "speed": "~8 GB",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacpptbonsai27bone.png",
+    "icon_hash": "a231a42c6ea5691633600a21a1e837850a666809106011f7b14df8340bd0b505",
+    "featured": "featured/llamacpptbonsai27bone.png",
+    "featured_hash": "018159bac414c12b10da11df729942e6777ec4f23c852f19cb98d8ad50a9cb4d",
+    "icon_url": "https://cdn.olares.com/images/2026/08/20f4b9c1613cf30c6a45a44b752a5c65.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/3bdcab4114ecebcfb16ab9f2435d6f9e.png"
+  },
+  {
+    "id": "llamacppthinkingcap27bone",
+    "title": "ThinkingCap Qwen36 27B",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "64K",
+    "speed": "64K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/llamacppthinkingcap27bone.png",
+    "icon_hash": "c8cc985e114cf99dcf1262a34a504e47c4616da10228a14c12d29724fcdb4f11",
+    "featured": "featured/llamacppthinkingcap27bone.png",
+    "featured_hash": "2116b229681e725d953f9e1b067247c7a5d1d9da635af5b6b97b632d8c5d5086",
+    "icon_url": "https://cdn.olares.com/images/2026/08/bb5eaf3d524738074df18c8b35f650c8.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/a790fa8db905e147299e82af86f67253.png"
+  },
+  {
+    "id": "locateanything3bone",
+    "title": "LocateAnything 3B",
+    "backend": "PyTorch + MagiAttn",
+    "pipelines": [
+      "visual-grounding"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/locateanything3bone.png",
+    "icon_hash": "6a5ff82264e9c81ce094c6d4dd7d098368b12ffd93663b325458a0dd451f0f3c",
+    "featured": "featured/locateanything3bone.png",
+    "featured_hash": "58e26485ab884a9aa051abbe29ded4690809e3cd5b6c10105f3fccbbbfaf4c0b",
+    "icon_url": "https://cdn.olares.com/images/2026/08/1563b04b8376b3551cc60ce928b3a6cf.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/9f1c6a985da6badffbb13549c97212af.png"
+  },
+  {
+    "id": "ltx23one",
+    "title": "LTX-2.3 FP8",
+    "backend": "LTX Distilled",
+    "pipelines": [
+      "text-to-video",
+      "image-to-video"
+    ],
+    "context": "—",
+    "speed": "8-step FP8",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/ltx23one.png",
+    "icon_hash": "e80add6a5f7619ee899c7b1389e40e09107b5d571a61db81c230b9cb521e15c9",
+    "featured": "featured/ltx23one.png",
+    "featured_hash": "0f9160e62838f6dacfc2741d30c07d4f917fc853963e0e97c8143d88c0f4cf0d",
+    "icon_url": "https://cdn.olares.com/images/2026/08/29da7d6b33e6ebfccce2678fd2e96567.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/a0e0dab1f8e432800c858ae897d0fb95.png"
+  },
+  {
+    "id": "mageflowone",
+    "title": "Mage Flow Turbo",
+    "backend": "Mage-Flow 4B",
+    "pipelines": [
+      "text-to-image",
+      "image-edit"
+    ],
+    "context": "—",
+    "speed": "4-step Turbo",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/mageflowone.png",
+    "icon_hash": "4366f544662e4046c1b9cf9004ccfd95fb43508196f853aeb253115960354754",
+    "featured": "featured/mageflowone.png",
+    "featured_hash": "657d02fac9e3963550ee2f006e4e1b91a31bb1f8a7c996dc4dd1a371c1aba572",
+    "icon_url": "https://cdn.olares.com/images/2026/08/2de8d999a88aebfc849687e8e12be8cd.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/0c3368cac245b150a2e8607a84d04522.png"
+  },
+  {
+    "id": "minimaxh3nvfp4one",
+    "title": "MiniMax H3 NVFP4",
+    "backend": "Diffusers Modular",
+    "pipelines": [
+      "text-to-video",
+      "image-to-video"
+    ],
+    "context": "—",
+    "speed": "native audio",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/minimaxh3nvfp4one.png",
+    "icon_hash": "2e74ad5f324966892041cf94e0fe1d4bd69441b0e19fed4422754e22252cf82b",
+    "featured": "featured/minimaxh3nvfp4one.png",
+    "featured_hash": "863712a56f440817eed4df5099934be0516623b34e2ba4bc6424a6cb67dab78f",
+    "icon_url": "https://cdn.olares.com/images/2026/08/e076850517f13171e0d965a3c52bf553.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/19be6537211d1b85202b096b93bed62c.png"
+  },
+  {
+    "id": "mossttslocalone",
+    "title": "MOSS-TTS Local One",
+    "backend": "MOSS-TTS 1.5",
+    "pipelines": [
+      "text-to-speech"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/mossttslocalone.png",
+    "icon_hash": "8eb351ebfe787213497be69998f718160ce342423c72f92cf6ab52df1941c4cd",
+    "featured": "featured/mossttslocalone.png",
+    "featured_hash": "abc1967feeafb415fccebef5b1a1ef4a64022a40ee340e36d9047ede83a25458",
+    "icon_url": "https://cdn.olares.com/images/2026/08/c2e048c2786d7f96700c3ded542de47d.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/178fb24dc8b7b1e4745cc51b6ca33043.png"
+  },
+  {
+    "id": "motifvideo2bone",
+    "title": "Motif Video 2B",
+    "backend": "Diffusers GGUF",
+    "pipelines": [
+      "text-to-video",
+      "image-to-video"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/motifvideo2bone.png",
+    "icon_hash": "f9783e73f0311837338d035c16b85ff2ec9315c6eb88d59e6be192abfa86ea89",
+    "featured": "featured/motifvideo2bone.png",
+    "featured_hash": "bc66753d8dbc8bf262df40b9562b990bab96644dc411bce8db6806969d9ed6b7",
+    "icon_url": "https://cdn.olares.com/images/2026/08/8ae2bae82d043fc8584401b96d708dfb.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/fc00c476b66c9a7f69aded5039178715.png"
+  },
+  {
+    "id": "nemotronlabselastic30bnvfp4one",
+    "title": "Nemotron 30B NVFP4",
+    "backend": "vLLM",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "4K",
+    "speed": "~181 t/s",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/nemotronlabselastic30bnvfp4one.png",
+    "icon_hash": "0aea7a6f7c5c6ae8f1f229b2e97bd47842ca58f605d483a5eccdbac9ee47dbc6",
+    "featured": "featured/nemotronlabselastic30bnvfp4one.png",
+    "featured_hash": "5012de576c7fe635371697c93923c62577c11984c6eef5706ba5c91919724172",
+    "icon_url": "https://cdn.olares.com/images/2026/08/ccf5018aa8b1f558fa61ec485ee770ee.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/66022ab20f3addcd1d7af04314da3e50.png"
+  },
+  {
+    "id": "omnivoiceone",
+    "title": "OmniVoice TTS",
+    "backend": "OmniVoice",
+    "pipelines": [
+      "text-to-speech"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/omnivoiceone.png",
+    "icon_hash": "5801b1d4fcabacc29fc167f9b07d2360cb9ac6b7bd37d346f9b122b0546ec34d",
+    "featured": "featured/omnivoiceone.png",
+    "featured_hash": "64264a12d7cd63f6cafcf0386fd33dc5a831bb7b88660ebeaff3e9eff30a61de",
+    "icon_url": "https://cdn.olares.com/images/2026/08/d87e2de00794967304437d5fe8727950.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/325c02cefb52a8b4a4f26151ae10917f.png"
+  },
+  {
+    "id": "openwebsearchone",
+    "title": "Open WebSearch",
+    "backend": "Open Web Search",
+    "pipelines": [
+      "agent-tools"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/openwebsearchone.png",
+    "icon_hash": "767476e0ed2c1ad8e7aea60988a55095b652d9c54ad67f900317e773f468d5e8",
+    "featured": "featured/openwebsearchone.png",
+    "featured_hash": "ae19f05e5337d605f78f7016e286d52fc2f73d268fb25e71aad8c21895ae431b",
+    "icon_url": "https://cdn.olares.com/images/2026/08/f124d5b144e4c562d537585e10335cea.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/3e3014611114e0fa8e37e0b3d11c8204.png"
+  },
+  {
+    "id": "pipecatxiaozhione",
+    "title": "Pipecat Xiaozhi Bridge",
+    "backend": "Pipecat",
+    "pipelines": [
+      "speech-bridge"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/pipecatxiaozhione.png",
+    "icon_hash": "ffb3edf6e74f6b15919f2d67a1535f7395575fe564c605ca523039fb2870ea83",
+    "featured": "featured/pipecatxiaozhione.png",
+    "featured_hash": "16354984164b616fb67bbe3449cb831669b0e4a990163a0f2c212e4c9fd7129f",
+    "icon_url": "https://cdn.olares.com/images/2026/08/ae0492b107180d8f021f25e6670d60f3.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/28273e12b1356b4db999504cf07fd930.png"
+  },
+  {
+    "id": "qwen36a3bvisionone",
+    "title": "Qwen3.6 Vision",
+    "backend": "llama.cpp",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "32K",
+    "speed": "131 t/s",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/qwen36a3bvisionone.png",
+    "icon_hash": "57256358dcaa6936d5ec753e46003b0099ac2260d563cdbfe743d3d3e1cd0b05",
+    "featured": "featured/qwen36a3bvisionone.png",
+    "featured_hash": "0ef625a8673000f040ad1933c8c9f256c0de65ed399b7df5083f6379f21d3cf7",
+    "icon_url": "https://cdn.olares.com/images/2026/08/6f376ea11515159060aa65bd9f0a7a1c.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/f8841da8602293d7b424ce40ac4b4d34.png"
+  },
+  {
+    "id": "qwen3ttstone",
+    "title": "Qwen3-TTS 1.7B",
+    "backend": "Qwen3-TTS",
+    "pipelines": [
+      "text-to-speech"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/qwen3ttstone.png",
+    "icon_hash": "6d8ed512fea62633ab9be43e75165b9627f54e0fcf20180eb18bda9a68b2e1a3",
+    "featured": "featured/qwen3ttstone.png",
+    "featured_hash": "7496cab3ab337f96ba46f5e0da9786a5abf6a6e5eb3625efdc16901b88b56aae",
+    "icon_url": "https://cdn.olares.com/images/2026/08/298f1a022e0a8fb829e4fcb08fcdcab3.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/3434ca510c3264897b15abae86c7fa6a.png"
+  },
+  {
+    "id": "sensenovasi15one",
+    "title": "SenseNova SI 1.5",
+    "backend": "InternVL VQA",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/sensenovasi15one.png",
+    "icon_hash": "c8e17f619d0d2c4a350b785b4bafa28d6162e007c67e4b8cf40f15d2b280d59c",
+    "featured": "featured/sensenovasi15one.png",
+    "featured_hash": "4bd6c1db14381cd8d2afe47d591797da5844c743c915b9c7fd9745e2235964d1",
+    "icon_url": "https://cdn.olares.com/images/2026/08/2b9ca83a8e0da0daf7fbde1170054507.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/138f51a9fafcc9eaba6bed436ac25e6a.png"
+  },
+  {
+    "id": "sensenovau1infov2one",
+    "title": "SenseNova Infog V2",
+    "backend": "Infographic MoT",
+    "pipelines": [
+      "text-to-image",
+      "any-to-any"
+    ],
+    "context": "—",
+    "speed": "infographic",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/sensenovau1infov2one.png",
+    "icon_hash": "4b157ef6a83c529895571ff7ee457d5207ad1f1570653776675bba63520a40fb",
+    "featured": "featured/sensenovau1infov2one.png",
+    "featured_hash": "60297e599c84be8fadcba541a6b61064a85e7296fe68b3f2a7add7a72cb286c0",
+    "icon_url": "https://cdn.olares.com/images/2026/08/a37bc5cbfe8f0fd0855c64dbcb0aac5d.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/57dcf5ac8ce7c06c99ea24da1e2e4a76.png"
+  },
+  {
+    "id": "sensenovau1lightllmone",
+    "title": "SenseNova U1 Light",
+    "backend": "LightLLM FA3",
+    "pipelines": [
+      "text-to-image"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sensenovau1lightllmone.png",
+    "icon_hash": "4a8069586a24dbd39b08bc4935d62fdb0215ee8012e0604e81da02c05a65ceee",
+    "featured": "featured/sensenovau1lightllmone.png",
+    "featured_hash": "0a8f95d76189eeb9f1b47e6381070d5761d09dc9693c4caecc7b579fa788a028",
+    "icon_url": "https://cdn.olares.com/images/2026/08/78bf4c87a367cb6b774677e2956ba953.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/68b90d53a20f60869f13087d4967db22.png"
+  },
+  {
+    "id": "sensenovau1serveone",
+    "title": "SenseNova U1 Serve",
+    "backend": "SenseNova PyTorch",
+    "pipelines": [
+      "any-to-any"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sensenovau1serveone.png",
+    "icon_hash": "4855c3782a77f65b7b8f39e87b6661861a7cbbabc6f280816d26f8137bdd92a1",
+    "featured": "featured/sensenovau1serveone.png",
+    "featured_hash": "723ba993ba36846359a098858fef253e3d086ba5ec4862ef51850a09bdbb3304",
+    "icon_url": "https://cdn.olares.com/images/2026/08/531c651ee6bf4c4e9bcae1f6aa8d004e.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/4fb7ee2759ca65d0ca4253f10f8002a8.png"
+  },
+  {
+    "id": "sensenovavisionone",
+    "title": "SenseNova Vision",
+    "backend": "Vision 7B MoT",
+    "pipelines": [
+      "image-text-to-text",
+      "depth-estimation",
+      "image-segmentation"
+    ],
+    "context": "—",
+    "speed": "offload 24GB",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/sensenovavisionone.png",
+    "icon_hash": "d4d65e74d56cad4bcd6c5f8ca9e707812a2e98cf885c3df6c2489640eb818804",
+    "featured": "featured/sensenovavisionone.png",
+    "featured_hash": "1fd84dd5bed94fe22a6c7483d7df7a36b6ab08a60fbf06ea4efbd7130a3c864d",
+    "icon_url": "https://cdn.olares.com/images/2026/08/8a0d3b2aa894b40e43ec9fd3e4fa6cc1.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/b67e1941eb3f64831a408c7acaefa020.png"
+  },
+  {
+    "id": "sensevoiceone",
+    "title": "SenseVoice STT One",
+    "backend": "FunASR SenseVoice",
+    "pipelines": [
+      "automatic-speech-recognition"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sensevoiceone.png",
+    "icon_hash": "282ac226da5cba3c6b46a75f4cdfbd65112f53b9c4540f6617831aab6b102e35",
+    "featured": "featured/sensevoiceone.png",
+    "featured_hash": "28a6ae1b22f813457b00c2c1e469c333b533b166785dc0417aa5139226a85134",
+    "icon_url": "https://cdn.olares.com/images/2026/08/203b71dd6d5afeb839495973712be6cb.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/4677f92f7296114ea0935ec345d7de63.png"
+  },
+  {
+    "id": "sglangernieimageone",
+    "title": "ERNIE-Image",
+    "backend": "SGLang",
+    "pipelines": [
+      "text-to-image"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sglangernieimageone.png",
+    "icon_hash": "ee017ac613531414684592bd84d5fd975385f68cb679c6b5bed2987ab8ba0597",
+    "featured": "featured/sglangernieimageone.png",
+    "featured_hash": "b5b96b6f90d80d92ee53479f73bb90fd77963660f0b70326d4a5d856fda8c44d",
+    "icon_url": "https://cdn.olares.com/images/2026/08/17a83ca6f5f8f8f7ff5f517c4fbbfba8.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/a31abdd3a08b2b474c28f4591cc1f393.png"
+  },
+  {
+    "id": "sglangkrea2turboone",
+    "title": "SGLang Krea Turbo",
+    "backend": "SGLang DiT",
+    "pipelines": [
+      "text-to-image"
+    ],
+    "context": "—",
+    "speed": "SGLang offload",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sglangkrea2turboone.png",
+    "icon_hash": "7c87cf87bdc082cabf3014a0ce8a9a63e6c704bc6b91659637fe45312d595d44",
+    "featured": "featured/sglangkrea2turboone.png",
+    "featured_hash": "c631bb08cde2b4215c0fae881ae77916ffa6241be084cf2d883007ca165b32b3",
+    "icon_url": "https://cdn.olares.com/images/2026/08/36686f93922097a01f850e61732025fd.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/d054de11da8534547ef0c58d83cec49c.png"
+  },
+  {
+    "id": "sglanglfm258ba1bone",
+    "title": "LFM2-5 8B",
+    "backend": "SGLang",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "8K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sglanglfm258ba1bone.png",
+    "icon_hash": "1ffe9c5cc249b6ed7554e64c116778a649b20f7fa4a0b4784e7654ab54ee91b1",
+    "featured": "featured/sglanglfm258ba1bone.png",
+    "featured_hash": "a65f2363a8088d20969b6980f1c94e5fb3cdb29f3cbdb11911e7bc40ac7f0984",
+    "icon_url": "https://cdn.olares.com/images/2026/08/f98fd951c630e6f65ca2d0c9b5cb1361.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/6b651315d2163aacb0e06583740caae8.png"
+  },
+  {
+    "id": "sglangltx23one",
+    "title": "SGLang LTX-2-3",
+    "backend": "SGLang Video",
+    "pipelines": [
+      "text-to-video",
+      "image-to-video"
+    ],
+    "context": "—",
+    "speed": "layerwise DiT",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sglangltx23one.png",
+    "icon_hash": "fa1916c551e0576a77e75d4628ba1efd32ea5a953dbbd905af74b235485d6599",
+    "featured": "featured/sglangltx23one.png",
+    "featured_hash": "c7929cf53ff19639b418a30219018c45b0d4077744cf9b51bc214713c0725fa2",
+    "icon_url": "https://cdn.olares.com/images/2026/08/7e54f602cc103cbc5e16a0a502e3f975.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/62f5564403c9c5128a5b244262ae8fba.png"
+  },
+  {
+    "id": "sglangminicpm51bone",
+    "title": "MiniCPM5 1B",
+    "backend": "SGLang",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "8K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sglangminicpm51bone.png",
+    "icon_hash": "709f0123349d5f4c7a7ab9ebe55a8e1b8d035a9a310a379b44849054ab2f8f6e",
+    "featured": "featured/sglangminicpm51bone.png",
+    "featured_hash": "76568a6a5a752fa90c4e36b3c52c762402349f3b1cc4c4955825fa8cc9d81c0c",
+    "icon_url": "https://cdn.olares.com/images/2026/08/5adff420c57a8013224ea15c7ab22f6f.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/e51e73fd4366579a255dd11f30c06405.png"
+  },
+  {
+    "id": "sglangsanasprintone",
+    "title": "Sana Sprint 1.6B",
+    "backend": "SGLang",
+    "pipelines": [
+      "text-to-image"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sglangsanasprintone.png",
+    "icon_hash": "62c93c287f868603f2e90966f2444d79ae200eafdf8049847db78a1704ae99f5",
+    "featured": "featured/sglangsanasprintone.png",
+    "featured_hash": "50acfd637da3533931a7a1f2df37e47856cc37a7b185819753be5428ef3a73e7",
+    "icon_url": "https://cdn.olares.com/images/2026/08/f3c12fa7e21dce94b90710a1587a4488.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/aba4b0452f6d175d804bbda16cfa7fe4.png"
+  },
+  {
+    "id": "sndrdiffusiongemma26bone",
+    "title": "SNDR DiffusionGemma",
+    "backend": "SNDR Diff",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "8K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sndrdiffusiongemma26bone.png",
+    "icon_hash": "61e724a34a898efe75e5e98e21e4464a2a29f3dc0579c067f1af7f15709ac41a",
+    "featured": "featured/sndrdiffusiongemma26bone.png",
+    "featured_hash": "32ee8abedd90ecbf65b7402651553760d0bc174f1fcad8eeb268b0fc8f210662",
+    "icon_url": "https://cdn.olares.com/images/2026/08/fce0f9c6d30ff97a857199d058e76d66.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/fa564b43744c04f9468e35e5318ea7dc.png"
+  },
+  {
+    "id": "sndrgemma426ba4bone",
+    "title": "SNDR Gemma4 26B",
+    "backend": "SNDR AWQ",
+    "pipelines": [
+      "image-text-to-text",
+      "text-generation"
+    ],
+    "context": "32K",
+    "speed": "MoE A4B",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/sndrgemma426ba4bone.png",
+    "icon_hash": "9a491598a70a611d1b29509778cea9988931afc84cdc3ecc34f7a77525fba84a",
+    "featured": "featured/sndrgemma426ba4bone.png",
+    "featured_hash": "067bb7318f1526afce6d76012ce507df8c44e8881db3ca6ff1db1a32373cb8b2",
+    "icon_url": "https://cdn.olares.com/images/2026/08/eb80f0b56a9e8e5e53bd097ca866378c.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/4e3192ab7bb60957e2eb0ee506d89204.png"
+  },
+  {
+    "id": "sndrqwen3627bone",
+    "title": "SNDR Qwen36 27B",
+    "backend": "SNDR MTP K=4",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "48K",
+    "speed": "MTP K=4",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sndrqwen3627bone.png",
+    "icon_hash": "7719ac7e9f261e5e780f374af4a1c9386974ff2e29c8c2617f48e4d35a191c43",
+    "featured": "featured/sndrqwen3627bone.png",
+    "featured_hash": "2e58f9194bea69c85b09bf9ac1f320f6797286502e9da1acc48d9d85445f410d",
+    "icon_url": "https://cdn.olares.com/images/2026/08/a7d181ee18d78c40266fd46041ff07c7.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/49b28acafccab314d79e198622d86290.png"
+  },
+  {
+    "id": "sndrqwen3635ba3bone",
+    "title": "SNDR Qwen36 35B",
+    "backend": "SNDR MTP K=5",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "8K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/sndrqwen3635ba3bone.png",
+    "icon_hash": "7e81b6de9686963c617ba10f8add8af2b6e614024abcffb2d97956aa00f15581",
+    "featured": "featured/sndrqwen3635ba3bone.png",
+    "featured_hash": "b4cdb7f8146659a8436d8416f678d2abdc8eb5bae1b8800d745967ef20ae9981",
+    "icon_url": "https://cdn.olares.com/images/2026/08/44d4fd12cadd3242db0674df952ca588.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/a9ebc2b270010fdd637c50475406545f.png"
+  },
+  {
+    "id": "splatlabone",
+    "title": "SplatLab One",
+    "backend": "3D Gaussian",
+    "pipelines": [
+      "dev-tools"
+    ],
+    "context": "—",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/splatlabone.png",
+    "icon_hash": "3b1ad1ddcb2f3bf2103124da73fc542e0644a65975931bbe7a7a53a6a1d75481",
+    "featured": "featured/splatlabone.png",
+    "featured_hash": "4979c816cc9316746604cd95389502439f0c7829e7d02a1fdb9a2573fbbef286",
+    "icon_url": "https://cdn.olares.com/images/2026/08/09d8f4edcb64f2ff1583e750b1923a0b.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/97cad386e4404bcba89415b934690314.png"
+  },
+  {
+    "id": "vllmgemma31bitnvfp4one",
+    "title": "Gemma 4 31B NVFP4",
+    "backend": "vLLM",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "16K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/vllmgemma31bitnvfp4one.png",
+    "icon_hash": "2504edb3c7c44e17d320ba5b2d1cc4c6c92a541826b0e7fd00c0ed6efed94a59",
+    "featured": "featured/vllmgemma31bitnvfp4one.png",
+    "featured_hash": "0785f1f6ff9afaadfc2bdaeb2eeeea15d993950b58dc2509daa56bb140dc4566",
+    "icon_url": "https://cdn.olares.com/images/2026/08/ee52de85f9dd1ab561dbbe265f4ccb75.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/db85090bb50f98b5fca01e7c2a3ca5ee.png"
+  },
+  {
+    "id": "vllmgemma426ba4bvisionone",
+    "title": "Gemma 4 26B Vision",
+    "backend": "vLLM MTP",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "128K",
+    "speed": "250 t/s",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/vllmgemma426ba4bvisionone.png",
+    "icon_hash": "8b1c5cb947b79c2a0b88eee1e048ef6d0a67bdf3b096445d522cf0fc2dacde38",
+    "featured": "featured/vllmgemma426ba4bvisionone.png",
+    "featured_hash": "17a00d63312e29eebc640daf6e75a07aaa72f33474a95e1a2efd7ae9e6ce4924",
+    "icon_url": "https://cdn.olares.com/images/2026/08/08a1521bcff18b3da634f70a83e00b09.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/792b27a64adacbc15a37b452218272e5.png"
+  },
+  {
+    "id": "vllmgemma431bnvfp4one",
+    "title": "Gemma4 31B Unsloth NVFP4",
+    "backend": "vLLM TQ",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "16K",
+    "speed": "16K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/vllmgemma431bnvfp4one.png",
+    "icon_hash": "2af6307bf78a5002f10862fa4b228a8157015cda0fe14275165bc5cc68651e39",
+    "featured": "featured/vllmgemma431bnvfp4one.png",
+    "featured_hash": "73e29a9ad2792dd377a46d3a3658096f03b3c0b0aab2fcff32b54f76ebbe1d63",
+    "icon_url": "https://cdn.olares.com/images/2026/08/0064675ae4ff0eebcb0ff9f889441b15.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/df9f2b629adda5353c3beb229bcf86b4.png"
+  },
+  {
+    "id": "vllmgemma4dflashone",
+    "title": "Gemma 4 26B DFlash",
+    "backend": "vLLM DFlash",
+    "pipelines": [
+      "text-generation"
+    ],
+    "context": "16K",
+    "speed": "224 t/s",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/vllmgemma4dflashone.png",
+    "icon_hash": "6c001061b6b2ec88d799e0cc8ffbb33457d55fd088055a19aa8c54f0a4e5b7a4",
+    "featured": "featured/vllmgemma4dflashone.png",
+    "featured_hash": "78bbf2002fabbb9c5fc752ea754d20ec978c91c94902f85022ac466838deac26",
+    "icon_url": "https://cdn.olares.com/images/2026/08/b665c6aa363d4c947579aaf525587672.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/8000498d7963ffc5def46dc701c49e5f.png"
+  },
+  {
+    "id": "vllmgemma4e4bone",
+    "title": "Gemma 4 E4B Multi",
+    "backend": "vLLM MTP",
+    "pipelines": [
+      "any-to-any"
+    ],
+    "context": "32K",
+    "speed": "178 t/s",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/vllmgemma4e4bone.png",
+    "icon_hash": "1a46c58a2c38e10bc89fa901d30158ce14a2f06cd2c1a2345e94ea67246744c7",
+    "featured": "featured/vllmgemma4e4bone.png",
+    "featured_hash": "91c715476360923095b0f735cea03797e9cacbd2ab521cea65fc827efaa7f3c2",
+    "icon_url": "https://cdn.olares.com/images/2026/08/3ce574b9870166bcff48e4629ced8d16.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/3b1de19b9677190f2d8daf4c6dcfccc9.png"
+  },
+  {
+    "id": "vllmgepardone",
+    "title": "Gepard TTS One",
+    "backend": "vLLM",
+    "pipelines": [
+      "text-to-speech"
+    ],
+    "context": "—",
+    "speed": "25x RT",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/vllmgepardone.png",
+    "icon_hash": "d7e3c563f7f15b5bf56d68dea51be860e01e75ea968047133b12427c5799ce12",
+    "featured": "featured/vllmgepardone.png",
+    "featured_hash": "3b4b5dc892378f02bba44beeb80787ff57db7fab519e542e19ce945a014f358d",
+    "icon_url": "https://cdn.olares.com/images/2026/08/a1eb16c8006d4dcf98e9a3495114ad6b.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/356fc1a7007f1e1f18606513fa80cc81.png"
+  },
+  {
+    "id": "vllmnemotronaudex30bone",
+    "title": "Nemotron Audex 30B",
+    "backend": "vLLM",
+    "pipelines": [
+      "any-to-any"
+    ],
+    "context": "8K",
+    "speed": "—",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/vllmnemotronaudex30bone.png",
+    "icon_hash": "fecdf2a6e4183b286d716d23c5e4e5bf84897d3561a4d757c528bf5049952988",
+    "featured": "featured/vllmnemotronaudex30bone.png",
+    "featured_hash": "19432920977810e40e9a395f22526ee88fe03cc0bd67130467bde1c920cf17a6",
+    "icon_url": "https://cdn.olares.com/images/2026/08/3c9e31fc4879bba5549c2228d44b8848.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/31e5203b73d9590224e2c5278d66e677.png"
+  },
+  {
+    "id": "vllmqwen3627bnvfp4one",
+    "title": "Qwen36 27B NVFP4",
+    "backend": "vLLM TQ",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "8K",
+    "speed": "8K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/vllmqwen3627bnvfp4one.png",
+    "icon_hash": "9aa00580584eb1b4d0ed00ca62b8ca234b6fbb92f96bb288e3618747fbabe6f4",
+    "featured": "featured/vllmqwen3627bnvfp4one.png",
+    "featured_hash": "6d19c053b51e6bb51030ddf4b0f328555ec4dadbab64f242eb400e0e28fc046d",
+    "icon_url": "https://cdn.olares.com/images/2026/08/734498f3c909f978a06ef19106bcefc2.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/62991d610f811e33f69b10040c77c8b5.png"
+  },
+  {
+    "id": "vllmqwen3635bnvfp4fone",
+    "title": "Qwen36 35B NVFP4 Fast",
+    "backend": "vLLM TQ",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "32K",
+    "speed": "32K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/vllmqwen3635bnvfp4fone.png",
+    "icon_hash": "d32a418c2eb64398dcb3fc2567c5548ea81eec8360465be7da1bdb401528c4d6",
+    "featured": "featured/vllmqwen3635bnvfp4fone.png",
+    "featured_hash": "b46c424049d3e358d55a20f44a0c4f461a41cf1dbb58414400c2d4629867f791",
+    "icon_url": "https://cdn.olares.com/images/2026/08/4110528ede1bf9c308787b21e3e7ebcd.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/e0f2ec3b01285f7ca29fc9c541433d3d.png"
+  },
+  {
+    "id": "vllmqwen3827bnvfp4one",
+    "title": "Qwen38 27B NVFP4",
+    "backend": "vLLM TQ",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "8K",
+    "speed": "8K",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/vllmqwen3827bnvfp4one.png",
+    "icon_hash": "040eea9f12b5536ea3782735ebb8807b768fa303242af3607746b7ad188e1eb0",
+    "featured": "featured/vllmqwen3827bnvfp4one.png",
+    "featured_hash": "042b93ad04b24d03bdeba24790f41e97bdfa8dd9680f720b9731a22a74a10395",
+    "icon_url": "https://cdn.olares.com/images/2026/08/b2e120095a46f8f08628bf110d65b8d5.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/85ff2fd732f5e2df04b1442a3821789e.png"
+  },
+  {
+    "id": "vllmtess427bone",
+    "title": "Tess-4-27B NVFP4",
+    "backend": "vLLM",
+    "pipelines": [
+      "image-text-to-text"
+    ],
+    "context": "32K",
+    "speed": "64K ctx",
+    "vision": true,
+    "shared_entrance": true,
+    "icon": "icons/vllmtess427bone.png",
+    "icon_hash": "4193bce2883bb646ab6871e15585861b3fa3d5dfb03d86744889f40590982c3d",
+    "featured": "featured/vllmtess427bone.png",
+    "featured_hash": "54fe0b8dd3899f453f40ed3a16e0db0482842c12be8bdac9cfb4287347fd429e",
+    "icon_url": "https://cdn.olares.com/images/2026/08/af0046dd195ee62c3be5e8c36054912d.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/6ab7a40d79d7cfa7f3491f61c46e63dc.png"
+  },
+  {
+    "id": "voxcpmone",
+    "title": "VoxCPM2 TTS One",
+    "backend": "VoxCPM2",
+    "pipelines": [
+      "text-to-speech"
+    ],
+    "context": "—",
+    "speed": "30 lang",
+    "vision": false,
+    "shared_entrance": true,
+    "icon": "icons/voxcpmone.png",
+    "icon_hash": "8b4b93e44c8a26d90d4ad3c82bf0f6a9ddd52c81e2ab4e6bc34ffe107700efea",
+    "featured": "featured/voxcpmone.png",
+    "featured_hash": "65e27191b08457ac5505a1ac49d9f58ff56e5583bc3cb33bbabf9eac94160761",
+    "icon_url": "https://cdn.olares.com/images/2026/08/07512f5c198a957d7141600ee5c82c65.png",
+    "featured_url": "https://cdn.olares.com/images/2026/08/e92ef9eb624082049f9819114c376b56.png"
+  }
+]

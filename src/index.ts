@@ -1,5 +1,6 @@
 import catalog from './catalog.json';
 import icons from './icons.json';
+import featured from './featured.json';
 import charts from './charts.json';
 
 interface Env {}
@@ -167,6 +168,23 @@ export default {
         });
       }
       return json({ error: 'Icon not found' }, 404);
+    }
+
+    // Serve featured banners
+    if (path.startsWith('/featured/') && request.method === 'GET') {
+      const name = path.slice('/featured/'.length).replace(/\.png$/, '');
+      const data = (featured as Record<string, string>)[name];
+      if (data) {
+        const binary = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+        return new Response(binary, {
+          headers: {
+            'Content-Type': 'image/png',
+            'Cache-Control': 'public, max-age=86400',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+      return json({ error: 'Featured image not found' }, 404);
     }
 
     // Health check

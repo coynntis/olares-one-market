@@ -1,0 +1,746 @@
+{{- $llmCtx := .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" }}
+{{- $llmMaxOut := .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" }}
+{{- $llmApiKey := .Values.olaresEnv.LLM_API_KEY | default "" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sndr-sndrdiffusiongemma26bone-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_NAME: "RedHatAI/diffusiongemma-26B-A4B-it-FP8-dynamic"
+  MODEL_ALIAS: "diffusiongemma"
+  MAX_MODEL_LEN: "8192"
+  GPU_MEMORY_UTILIZATION: "0.90"
+  MAX_NUM_SEQS: "1"
+  MAX_NUM_BATCHED_TOKENS: "1024"
+  SNDR_GIT: "https://github.com/Sandermage/sndr_core_engine.git"
+  SNDR_REF: "main"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sndr-sndrdiffusiongemma26bone-soft-ready
+  namespace: "{{ .Release.Namespace }}"
+data:
+  soft_ready.py: |
+    #!/usr/bin/env python3
+    """Stdlib-only soft-ready HTTP for SNDR / vLLM charts.
+
+    Binds :SERVER_PORT immediately so Olares/K8s pass the install gate while
+    uv → site-packages + sndr.apply + model download run in the background.
+    """
+
+    from __future__ import annotations
+
+    import json
+    import os
+    import time
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    PORT = int(os.environ.get("SERVER_PORT", "8000"))
+    APP_NAME = os.environ.get("SNDR_APP", "sndr")
+    PHASE_FILE = os.environ.get(
+        "SNDR_BOOT_PHASE_FILE",
+        f"/shared-models/sndr/{APP_NAME}/.boot-phase",
+    )
+    ATTEMPTS_FILE = os.environ.get(
+        "SNDR_BOOT_ATTEMPTS_FILE",
+        f"/shared-models/sndr/{APP_NAME}/bootstrap.log",
+    )
+    MODEL_ALIAS = os.environ.get("MODEL_ALIAS", APP_NAME)
+    START = time.time()
+
+
+    def _tail_attempts(n: int = 16) -> list[str]:
+        if not os.path.isfile(ATTEMPTS_FILE):
+            return []
+        try:
+            with open(ATTEMPTS_FILE, encoding="utf-8", errors="replace") as fh:
+                lines = [ln.rstrip() for ln in fh if ln.strip()]
+            return lines[-n:]
+        except Exception as exc:
+            return [f"attempts_read_error:{exc}"]
+
+
+    def _phase() -> dict:
+        status = "installing"
+        detail = "starting"
+        if os.path.isfile(PHASE_FILE):
+            try:
+                with open(PHASE_FILE, encoding="utf-8") as fh:
+                    raw = fh.read().strip()
+                if raw:
+                    if raw.startswith("{"):
+                        data = json.loads(raw)
+                        data.setdefault("elapsed_s", round(time.time() - START, 1))
+                        data.setdefault("ready", False)
+                        data.setdefault("attempts_tail", _tail_attempts())
+                        return data
+                    status, _, detail = raw.partition(":")
+                    status = status.strip() or "installing"
+                    detail = detail.strip() or status
+            except Exception as exc:
+                detail = f"phase_read_error:{exc}"
+        return {
+            "status": status,
+            "ready": False,
+            "phase": status,
+            "detail": detail,
+            "elapsed_s": round(time.time() - START, 1),
+            "app": APP_NAME,
+            "attempts_tail": _tail_attempts(),
+            "hint": (
+                f"Deps via uv → /shared-models/sndr/{APP_NAME}/site-packages (persists). "
+                "Set UV_INDEX_URL for a PyPI mirror if downloads are slow. "
+                f"See {ATTEMPTS_FILE} for bootstrap attempts."
+            ),
+        }
+
+
+    def _models_soft() -> dict:
+        phase = _phase()
+        return {
+            "object": "list",
+            "data": [
+                {
+                    "id": MODEL_ALIAS,
+                    "object": "model",
+                    "created": int(START),
+                    "owned_by": "sndr-soft-ready",
+                    "permission": [],
+                    "root": MODEL_ALIAS,
+                    "parent": None,
+                    "status": "loading",
+                    "phase": phase.get("detail") or phase.get("phase"),
+                    "elapsed_s": phase.get("elapsed_s"),
+                }
+            ],
+        }
+
+
+    # CSS as plain strings (single braces only) so Helm ConfigMap embed stays inert.
+    _CSS = (
+        "body{font-family:system-ui,sans-serif;max-width:42rem;margin:3rem auto;padding:0 1rem;line-height:1.45}"
+        "code{background:#f2f2f2;padding:.1rem .3rem;border-radius:4px}"
+        ".muted{color:#666}"
+        "pre{background:#111;color:#e8e8e8;padding:1rem;border-radius:8px;overflow:auto;font-size:12px}"
+    )
+
+    HTML_HEAD = (
+        "<!doctype html>\n<html><head><meta charset=utf-8><meta http-equiv=refresh content=8>\n"
+        f"<title>{APP_NAME} — installing</title>\n"
+        f"<style>\n{_CSS}\n</style></head><body>\n"
+        f"<h1>{APP_NAME}</h1>\n"
+        "<p>Bootstrap in progress (uv site-packages + SNDR apply + model load). "
+        "First boot can take a long time.</p>\n"
+        f"<p>Site-packages: <code>/shared-models/sndr/{APP_NAME}/site-packages</code></p>\n"
+        f"<p>Bootstrap log: <code>{ATTEMPTS_FILE}</code></p>\n"
+        "<p class=muted>Page refreshes every 8s. API: <code>GET /health</code> · "
+        "<code>GET /v1/models</code></p>\n"
+        "<pre id=p>loading…</pre>\n<script>\n"
+    )
+
+    HTML_SCRIPT = (
+        "fetch('/health').then(function(r){return r.json();}).then(function(j){"
+        "document.getElementById('p').textContent=JSON.stringify(j,null,2);"
+        "}).catch(function(e){document.getElementById('p').textContent=String(e);});"
+    )
+
+    HTML_TAIL = "\n</script>\n</body></html>\n"
+
+    HTML = HTML_HEAD + HTML_SCRIPT + HTML_TAIL
+
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, fmt: str, *args) -> None:  # noqa: A003
+            return
+
+        def _send(self, code: int, body: bytes, content_type: str) -> None:
+            self.send_response(code)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:  # noqa: N802
+            path = self.path.split("?", 1)[0]
+            if path in ("/health", "/health/", "/ready", "/v1/health"):
+                body = json.dumps(_phase()).encode()
+                self._send(200, body, "application/json")
+                return
+            if path in ("/v1/models", "/v1/models/"):
+                body = json.dumps(_models_soft()).encode()
+                self._send(200, body, "application/json")
+                return
+            if path.startswith("/ui") or path in ("/", "/docs", "/openapi.json"):
+                self._send(200, HTML.encode(), "text/html; charset=utf-8")
+                return
+            # OpenAI-shaped soft error for chat while loading
+            if path.startswith("/v1/"):
+                phase = _phase()
+                err = {
+                    "error": {
+                        "message": (
+                            f"Model still loading (phase={phase.get('detail') or phase.get('phase')}). "
+                            f"See {ATTEMPTS_FILE}."
+                        ),
+                        "type": "server_error",
+                        "param": None,
+                        "code": "model_loading",
+                    }
+                }
+                self._send(503, json.dumps(err).encode(), "application/json")
+                return
+            self._send(200, json.dumps(_phase()).encode(), "application/json")
+
+        def do_POST(self) -> None:  # noqa: N802
+            self.do_GET()
+
+
+    def main() -> None:
+        os.makedirs(os.path.dirname(PHASE_FILE) or ".", exist_ok=True)
+        with open(PHASE_FILE, "w", encoding="utf-8") as fh:
+            fh.write("installing:soft_ready_listening")
+        httpd = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+        print(f"[{APP_NAME}-soft-ready] listening 0.0.0.0:{PORT}", flush=True)
+        httpd.serve_forever()
+
+
+    if __name__ == "__main__":
+        main()
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: sndrdiffusiongemma26bone
+  name: sndrdiffusiongemma26bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.sndrdiffusiongemma26bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: sndrdiffusiongemma26bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: sndrdiffusiongemma26bone
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms/huggingface /shared-models/sndr && chmod -R 777 /shared-models && echo ok
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: vllm-server
+          image: "vllm/vllm-openai@sha256:6a93ae4316826f3dd8a92bee5442cbed50184a9cbd688d310f9e56ecad1eabeb"
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              APP="sndrdiffusiongemma26bone"
+              CHART_BOOT="1.0.6"
+              APP_DIR="/shared-models/sndr/${APP}"
+              SITE_PKGS="$APP_DIR/site-packages"
+              PHASE_FILE="$APP_DIR/.boot-phase"
+              ATTEMPTS_FILE="$APP_DIR/bootstrap.log"
+              SNDR_HOME="/shared-models/sndr/sndr_core_engine"
+              UV_BIN_DIR="$APP_DIR/bin"
+              mkdir -p "$APP_DIR" "$SITE_PKGS" "$UV_BIN_DIR" "$APP_DIR/uv-cache" /shared-models/llms/huggingface
+              cp /app-src/soft_ready.py "$APP_DIR/soft_ready.py"
+
+              export HF_HOME="${HF_HOME:-/shared-models/llms/huggingface}"
+              export HF_HUB_CACHE="$HF_HOME/hub"
+              export PYTHONNOUSERSITE=1
+              export UV_CACHE_DIR="$APP_DIR/uv-cache"
+              export UV_CONCURRENT_DOWNLOADS="${UV_CONCURRENT_DOWNLOADS:-16}"
+              export SERVER_PORT=8000
+              export SNDR_APP="$APP"
+              export SNDR_BOOT_PHASE_FILE="$PHASE_FILE"
+              export SNDR_BOOT_ATTEMPTS_FILE="$ATTEMPTS_FILE"
+
+              set_phase() {
+                printf '%s\n' "$1" > "$PHASE_FILE"
+                echo "[${APP}] phase=$1" | tee -a "$ATTEMPTS_FILE"
+              }
+              log_attempt() {
+                printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" | tee -a "$ATTEMPTS_FILE"
+              }
+              retry() {
+                local n="$1"; shift
+                local i=1
+                while true; do
+                  log_attempt "attempt $i/$n: $*"
+                  if "$@"; then
+                    log_attempt "OK: $*"
+                    return 0
+                  fi
+                  log_attempt "FAIL ($i/$n): $*"
+                  if [ "$i" -ge "$n" ]; then
+                    return 1
+                  fi
+                  i=$((i + 1))
+                  sleep $((i * 3))
+                done
+              }
+
+              log_attempt "SNDR_CHART_BOOT=$CHART_BOOT mode=pythonpath+editable (never --target sndr)"
+
+              # ALWAYS scrub broken --target sndr copies — namespace merge with repo causes EngineAdapter unknown location
+              rm -rf "$SITE_PKGS/sndr" \
+                "$SITE_PKGS"/sndr[-_]platform* \
+                "$SITE_PKGS"/sndr_platform* \
+                "$SITE_PKGS"/sndr_platform-*.dist-info \
+                "$SITE_PKGS"/sndr_platform-*.egg-info \
+                "$SITE_PKGS"/__editable__.sndr* \
+                "$SITE_PKGS"/__editable___sndr* 2>/dev/null || true
+              rm -f "$APP_DIR"/.sndr-ok-* 2>/dev/null || true
+              log_attempt "purged $SITE_PKGS/sndr (+ markers) if any"
+
+              BASE_PY=""
+              for c in /usr/bin/python3 /usr/local/bin/python3 "$(command -v python3 || true)" "$(command -v python || true)"; do
+                [ -n "$c" ] && [ -x "$c" ] || continue
+                if PYTHONPATH= PYTHONNOUSERSITE=1 "$c" -c "import vllm" 2>/dev/null \
+                  || PYTHONPATH= PYTHONNOUSERSITE=1 "$c" -c "import torch" 2>/dev/null; then
+                  BASE_PY="$c"
+                  break
+                fi
+              done
+              if [ -z "$BASE_PY" ]; then
+                BASE_PY="$(command -v python3 || command -v python)"
+              fi
+              if [ -z "$BASE_PY" ] || [ ! -x "$BASE_PY" ]; then
+                log_attempt "FATAL: no python"
+                exit 1
+              fi
+              export UV_PYTHON="$BASE_PY"
+              log_attempt "base_python=$BASE_PY"
+              PYTHONPATH= PYTHONNOUSERSITE=1 "$BASE_PY" -c "import sys; print('[sndrdiffusiongemma26bone] python', sys.version.split()[0], sys.executable)" || true
+
+              set_phase "installing:soft_ready_starting"
+              PYTHONPATH= "$BASE_PY" "$APP_DIR/soft_ready.py" &
+              SOFT_PID=$!
+              log_attempt "soft-ready pid=$SOFT_PID port=$SERVER_PORT"
+              sleep 1
+
+              stop_soft_ready() {
+                if [ -n "${SOFT_PID:-}" ] && kill -0 "$SOFT_PID" 2>/dev/null; then
+                  log_attempt "stopping soft-ready pid=$SOFT_PID"
+                  kill "$SOFT_PID" 2>/dev/null || true
+                  wait "$SOFT_PID" 2>/dev/null || true
+                fi
+                if command -v fuser >/dev/null 2>&1; then
+                  fuser -k "${SERVER_PORT}/tcp" 2>/dev/null || true
+                fi
+                sleep 1
+              }
+              trap 'stop_soft_ready' EXIT
+
+              if [ -z "${UV_INDEX_URL:-}" ] && [ -n "${PIP_INDEX_URL:-}" ]; then
+                export UV_INDEX_URL="$PIP_INDEX_URL"
+              fi
+              if [ -z "${UV_INDEX_URL:-}" ]; then
+                case "${HF_ENDPOINT:-}" in
+                  *hf-mirror*|*huggingface.co.cn*|*hf-mirror.com*)
+                    export UV_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
+                    log_attempt "HF China mirror → UV_INDEX_URL=$UV_INDEX_URL"
+                    ;;
+                esac
+              fi
+
+              # ensure curl/git for uv bootstrap + clone
+              if ! command -v curl >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+                set_phase "installing:apt_tools"
+                log_attempt "apt install curl ca-certificates git"
+                apt-get update -qq
+                apt-get install -y -qq --no-install-recommends curl ca-certificates git
+                rm -rf /var/lib/apt/lists/*
+              fi
+
+              UV="$UV_BIN_DIR/uv"
+              if [ ! -x "$UV" ]; then
+                set_phase "installing:uv"
+                log_attempt "bootstrapping uv into $UV_BIN_DIR"
+                if ! curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$UV_BIN_DIR" UV_NO_MODIFY_PATH=1 sh; then
+                  log_attempt "uv install.sh failed — tarball fallback"
+                  tmpd="$(mktemp -d)"
+                  curl -fL "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-gnu.tar.gz" -o "$tmpd/uv.tgz"
+                  tar -xzf "$tmpd/uv.tgz" -C "$tmpd"
+                  find "$tmpd" -type f -name uv -exec mv {} "$UV" \;
+                  rm -rf "$tmpd"
+                  chmod +x "$UV"
+                fi
+              fi
+              if [ ! -x "$UV" ]; then
+                log_attempt "FATAL: uv missing"
+                exit 1
+              fi
+              log_attempt "uv=$("$UV" --version 2>&1 | head -1)"
+
+              uvpip_target() {
+                local extra=()
+                if [ -n "${UV_INDEX_URL:-}" ]; then
+                  extra+=(--index-url "$UV_INDEX_URL")
+                fi
+                # ONLY for non-sndr deps. Never install sndr via --target.
+                "$UV" pip install --python "$BASE_PY" --target "$SITE_PKGS" "${extra[@]}" "$@"
+              }
+              uvpip_editable() {
+                local extra=()
+                if [ -n "${UV_INDEX_URL:-}" ]; then
+                  extra+=(--index-url "$UV_INDEX_URL")
+                fi
+                "$UV" pip install --python "$BASE_PY" --system "${extra[@]}" "$@"
+              }
+
+              # clone / update SNDR (shared tree, retries logged)
+              set_phase "installing:git_clone"
+              if [ ! -d "$SNDR_HOME/.git" ]; then
+                rm -rf "$SNDR_HOME"
+                retry 3 git clone --depth 1 --branch "${SNDR_REF}" "${SNDR_GIT}" "$SNDR_HOME" \
+                  || retry 2 git clone --depth 1 "${SNDR_GIT}" "$SNDR_HOME"
+              else
+                log_attempt "sndr repo present — fetch ${SNDR_REF}"
+                git -C "$SNDR_HOME" fetch --depth 1 origin "${SNDR_REF}" && \
+                  git -C "$SNDR_HOME" checkout -q FETCH_HEAD \
+                  || log_attempt "git fetch soft-fail — using existing tree"
+              fi
+              log_attempt "sndr HEAD=$(git -C "$SNDR_HOME" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
+              # Repo root FIRST (install.sh --no-plugin). Never put target/sndr on path.
+              export PYTHONPATH="$SNDR_HOME:$SITE_PKGS${PYTHONPATH:+:$PYTHONPATH}"
+
+              # Optional runtime deps into persistent SITE_PKGS (not sndr)
+              if ! "$BASE_PY" -c "import yaml, packaging" 2>/dev/null; then
+                set_phase "installing:uv_deps"
+                log_attempt "uv pip --target pyyaml packaging (not sndr)"
+                uvpip_target --upgrade "pyyaml>=6" "packaging>=23" || log_attempt "target deps soft-fail"
+                # scrub again in case a bad dep tree dropped sndr
+                rm -rf "$SITE_PKGS/sndr" "$SITE_PKGS"/sndr[-_]platform* 2>/dev/null || true
+              fi
+
+              sndr_import_ok() {
+                PYTHONPATH="$SNDR_HOME:$SITE_PKGS" "$BASE_PY" -c \
+                  "from sndr.engines import EngineAdapter; import sndr; print('sndr', sndr.__file__, sndr.__version__)" 
+              }
+
+              set_phase "installing:uv_sndr"
+              # Primary: PYTHONPATH to clone (no --target). Secondary: editable for vllm plugin entry points.
+              if sndr_import_ok 2>&1 | tee -a "$ATTEMPTS_FILE" | grep -q 'sndr '; then
+                log_attempt "PYTHONPATH import OK — installing editable for vllm.general_plugins entry point"
+              else
+                log_attempt "PYTHONPATH import failed — will try editable then re-check"
+              fi
+              log_attempt "uv pip install --system --no-deps -e $SNDR_HOME"
+              retry 3 uvpip_editable --upgrade --no-deps -e "$SNDR_HOME" \
+                || log_attempt "editable --system soft-fail — relying on PYTHONPATH=$SNDR_HOME"
+              # purge target again after any uv ops
+              rm -rf "$SITE_PKGS/sndr" "$SITE_PKGS"/sndr[-_]platform* 2>/dev/null || true
+              export PYTHONPATH="$SNDR_HOME:$SITE_PKGS${PYTHONPATH:+:$PYTHONPATH}"
+              if ! sndr_import_ok 2>&1 | tee -a "$ATTEMPTS_FILE"; then
+                log_attempt "FATAL: import sndr.engines.EngineAdapter failed (chart=$CHART_BOOT)"
+                "$BASE_PY" -c "import sys; print('sys.path'); [print(p) for p in sys.path]" 2>&1 | tee -a "$ATTEMPTS_FILE" || true
+                ls -la "$SITE_PKGS" 2>&1 | tee -a "$ATTEMPTS_FILE" || true
+                ls -la "$SNDR_HOME/sndr/engines" 2>&1 | tee -a "$ATTEMPTS_FILE" || true
+                exit 1
+              fi
+              touch "$APP_DIR/.sndr-ok-$CHART_BOOT-$(git -C "$SNDR_HOME" rev-parse --short HEAD 2>/dev/null || echo na)"
+              log_attempt "sndr ready chart=$CHART_BOOT"
+
+              set_phase "installing:sndr_apply"
+              log_attempt "python -m sndr.apply"
+              "$BASE_PY" -m sndr.apply 2>&1 | tee -a "$ATTEMPTS_FILE" | tail -80 \
+                || "$BASE_PY" -c "from sndr.plugin import register; register()" \
+                || log_attempt "sndr.apply soft-fail — continuing"
+
+              CTX="${LLM_CONTEXT_WINDOW:-${MAX_MODEL_LEN}}"
+              EXTRA=()
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA+=(--api-key "$LLM_API_KEY"); fi
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then
+                EXTRA+=(--override-generation-config "{\"max_tokens\":$LLM_MAX_OUTPUT_TOKENS}")
+              fi
+
+              set_phase "starting:vllm"
+              stop_soft_ready
+              trap - EXIT
+              log_attempt "exec vllm serve model=$MODEL_NAME ctx=$CTX PYTHONPATH=$PYTHONPATH chart=$CHART_BOOT"
+              echo "$(date -Iseconds) [sndrdiffusiongemma26bone] vllm serve model=$MODEL_NAME"
+              exec vllm serve \
+                "$MODEL_NAME" \
+                --served-model-name \
+                "$MODEL_ALIAS" \
+                --host \
+                0.0.0.0 \
+                --port \
+                8000 \
+                --max-model-len \
+                "$CTX" \
+                --gpu-memory-utilization \
+                "$GPU_MEMORY_UTILIZATION" \
+                --max-num-seqs \
+                "$MAX_NUM_SEQS" \
+                --max-num-batched-tokens \
+                "$MAX_NUM_BATCHED_TOKENS" \
+                --dtype \
+                "bfloat16" \
+                --kv-cache-dtype \
+                "auto" \
+                --download-dir \
+                /shared-models/llms/huggingface \
+                --trust-remote-code \
+                --enable-prefix-caching \
+                --enable-chunked-prefill \
+                --enable-auto-tool-choice \
+                --tool-call-parser \
+                "gemma4" \
+                --tensor-parallel-size \
+                1 \
+                --disable-custom-all-reduce \
+                --enforce-eager \
+                --num-gpu-blocks-override \
+                "512" \
+                --attention-backend \
+                "TRITON_ATTN" \
+                --generation-config \
+                "vllm" \
+                "${EXTRA[@]}"
+          envFrom:
+            - configMapRef:
+                name: sndr-sndrdiffusiongemma26bone-env
+          env:
+            - name: HF_HOME
+              value: "/shared-models/llms/huggingface"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            {{- if .Values.olaresEnv.HF_ENDPOINT }}
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            {{- end }}
+            - name: UV_INDEX_URL
+              value: {{ .Values.olaresEnv.UV_INDEX_URL | default "" | quote }}
+            - name: PIP_INDEX_URL
+              value: {{ .Values.olaresEnv.PIP_INDEX_URL | default "" | quote }}
+            - name: UV_CONCURRENT_DOWNLOADS
+              value: {{ .Values.olaresEnv.UV_CONCURRENT_DOWNLOADS | default "16" | quote }}
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True,max_split_size_mb:512"
+            - name: CUDA_MODULE_LOADING
+              value: "LAZY"
+            - name: NCCL_P2P_DISABLE
+              value: "1"
+            - name: NCCL_CUMEM_ENABLE
+              value: "0"
+            - name: OMP_NUM_THREADS
+              value: "1"
+            - name: CUDA_DEVICE_MAX_CONNECTIONS
+              value: "8"
+            - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+              value: "1"
+            - name: VLLM_FLOAT32_MATMUL_PRECISION
+              value: "high"
+            - name: VLLM_NO_USAGE_STATS
+              value: "1"
+            - name: VLLM_USE_AOT_COMPILE
+              value: "1"
+            - name: VLLM_USE_STANDALONE_COMPILE
+              value: "1"
+            - name: VLLM_ENABLE_PREGRAD_PASSES
+              value: "1"
+            - name: VLLM_MARLIN_USE_ATOMIC_ADD
+              value: "1"
+            - name: VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS
+              value: "1"
+            - name: VLLM_MOE_USE_DEEP_GEMM
+              value: "0"
+            - name: VLLM_USE_DEEP_GEMM
+              value: "0"
+            - name: VLLM_USE_FLASHINFER_MOE_FP8
+              value: "0"
+            - name: VLLM_USE_FLASHINFER_SAMPLER
+              value: "1"
+            - name: VLLM_USE_FUSED_MOE_GROUPED_TOPK
+              value: "1"
+            - name: VLLM_WORKER_MULTIPROC_METHOD
+              value: "spawn"
+            - name: GENESIS_ENFORCE_VERSION_RANGE
+              value: "1"
+            - name: GENESIS_P67_NUM_WARPS
+              value: "4"
+            - name: GENESIS_ENABLE_P58_ASYNC_PLACEHOLDER_FIX
+              value: "1"
+            - name: GENESIS_ENABLE_P60_GDN_NGRAM_FIX
+              value: "1"
+            - name: GENESIS_ENABLE_P60B_TRITON_KERNEL
+              value: "1"
+            - name: GENESIS_ENABLE_P61B_STREAMING_OVERLAP
+              value: "1"
+            - name: GENESIS_ENABLE_P61C_QWEN3CODER_DEFERRED_COMMIT
+              value: "1"
+            - name: GENESIS_ENABLE_P62_STRUCT_OUT_SPEC_TIMING
+              value: "1"
+            - name: GENESIS_ENABLE_P65_TURBOQUANT_SPEC_CG_DOWNGRADE
+              value: "0"
+            - name: GENESIS_ENABLE_P66_CUDAGRAPH_SIZE_FILTER
+              value: "1"
+            - name: GENESIS_P67_USE_UPSTREAM
+              value: "1"
+            - name: GENESIS_P67_NUM_KV_SPLITS
+              value: "32"
+            - name: GENESIS_ENABLE_P95
+              value: "1"
+            - name: GENESIS_ENABLE_P98
+              value: "1"
+            - name: GENESIS_ENABLE_PN11_GDN_AB_CONTIGUOUS
+              value: "1"
+            - name: GENESIS_ENABLE_PN59_STREAMING_GDN
+              value: "1"
+            - name: GENESIS_ENABLE_P68_AUTO_FORCE_TOOL
+              value: "1"
+            - name: GENESIS_ENABLE_P69_LONG_CTX_TOOL_REMINDER
+              value: "1"
+            - name: GENESIS_ENABLE_P72_PROFILE_RUN_CAP
+              value: "1"
+            - name: GENESIS_PROFILE_RUN_CAP_M
+              value: "4096"
+            - name: GENESIS_ENABLE_P74_CHUNK_CLAMP
+              value: "1"
+            - name: GENESIS_ENABLE_PN17_FA2_LSE_CLAMP
+              value: "1"
+            - name: GENESIS_ENABLE_P99
+              value: "1"
+            - name: GENESIS_ENABLE_P101
+              value: "1"
+            - name: GENESIS_ENABLE_P103
+              value: "1"
+            - name: GENESIS_ENABLE_PN66
+              value: "1"
+            - name: GENESIS_ENABLE_PN30_DS_LAYOUT_SPEC_DECODE
+              value: "1"
+            - name: GENESIS_ENABLE_PN33_SPEC_DECODE_WARMUP_K
+              value: "1"
+            - name: GENESIS_ENABLE_PN35_INPUTS_EMBEDS_OPTIONAL
+              value: "1"
+            - name: GENESIS_ENABLE_PN116
+              value: "1"
+            - name: GENESIS_ENABLE_PN118
+              value: "1"
+            - name: GENESIS_ENABLE_PN119
+              value: "1"
+            - name: GENESIS_ENABLE_P109
+              value: "1"
+            - name: GENESIS_ENABLE_PN110
+              value: "1"
+            - name: GENESIS_ENABLE_P107_MTP_TRUNCATION_DETECTOR
+              value: "1"
+            - name: GENESIS_ENABLE_PN25_SILU_INDUCTOR_SAFE
+              value: "1"
+            - name: GENESIS_ENABLE_P82
+              value: "1"
+            - name: GENESIS_P82_THRESHOLD_SINGLE
+              value: "0.1"
+            - name: GENESIS_ENABLE_PN31_FA_VARLEN_PERSISTENT_OUT
+              value: "1"
+            - name: GENESIS_ENABLE_PN125_HYBRID_FULL_AND_PIECEWISE
+              value: "1"
+            - name: GENESIS_ENABLE_PN126_V1_DECODE_WARMUP
+              value: "1"
+            - name: GENESIS_ENABLE_PN128_SPEC_DECODE_WARMUP
+              value: "1"
+            - name: GENESIS_ENABLE_PN402_SANITIZE_INVALID_DRAFT_TOKENS
+              value: "1"
+            - name: GENESIS_ENABLE_P108
+              value: "1"
+            - name: GENESIS_BUFFER_MODE
+              value: "shared"
+            - name: GENESIS_PREALLOC_TOKEN_BUDGET
+              value: "4096"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "24300m"
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: "1"
+            - name: GENESIS_ENABLE_PN_FP8MOE_KPAD
+              value: "1"
+            - name: GENESIS_ENABLE_PN524_DIFFUSION_SPEC_PADDING_SKIP
+              value: "1"
+            - name: VLLM_USE_V2_MODEL_RUNNER
+              value: "1"
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+            periodSeconds: 15
+            failureThreshold: 480
+          resources:
+            limits:
+              cpu: "16"
+              memory: 48Gi
+            requests:
+              cpu: "4"
+              memory: 24Gi
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/app-src"
+              name: soft-ready-src
+      volumes:
+        - name: shared-models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/shared-llms"
+            type: DirectoryOrCreate
+        - name: soft-ready-src
+          configMap:
+            name: sndr-sndrdiffusiongemma26bone-soft-ready
+            defaultMode: 0555
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sndrdiffusiongemma26bone
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    io.kompose.service: sndrdiffusiongemma26bone
+spec:
+  ports:
+    - name: "vllm"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: sndrdiffusiongemma26bone

@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.3"
+description: Qwen AgentWorld 35B-A3B fast long-context text profile
+name: llamacppagentworld35bone
+type: application
+version: 1.0.3

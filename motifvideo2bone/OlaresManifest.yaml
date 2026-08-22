@@ -1,62 +1,87 @@
 ---
-olaresManifest.version: '0.10.0'
+olaresManifest.version: 0.12.0
 olaresManifest.type: app
-apiVersion: 'v2'
+apiVersion: v3
+workloadReplicas:
+  motifvideo2bone: 1
+  motifvideo2bonecli: 1
 metadata:
   name: motifvideo2bone
-  icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
-  description: "Motif Video 2B Gradio UI for text-to-video and image-to-video"
-  appid: motifvideo2bone
+  icon: https://cdn.olares.com/images/2026/08/8ae2bae82d043fc8584401b96d708dfb.png
+  description: Motif Video 2B GGUF Gradio + REST for text-to-video and image-to-video
   title: Motif Video 2B One
-  version: '1.0.0'
+  version: 1.0.20
   categories:
     - AI
-entrances:
+sharedEntrances:
   - name: motifvideo2bone
-    port: 7860
-    host: motifvideo2bone
+    host: sharedentrances-motifvideo2bone
+    port: 0
+    title: Motif Video 2B API
+    icon: https://cdn.olares.com/images/2026/08/8ae2bae82d043fc8584401b96d708dfb.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: motifvideo2bonecli
+    port: 8080
+    host: motifvideo2bonecli
     title: Motif Video 2B One
-    icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+    icon: https://cdn.olares.com/images/2026/08/8ae2bae82d043fc8584401b96d708dfb.png
     openMethod: window
     authLevel: internal
 spec:
-  versionName: '1.0.0'
+  versionName: 1.0.20
+  featuredImage: https://cdn.olares.com/images/2026/08/fc00c476b66c9a7f69aded5039178715.png
   fullDescription: |
-    Gradio interface for Motif-Technologies/Motif-Video-2B using diffusers.
-    Supports both text-to-video and image-to-video generation.
+    Motif-Technologies/Motif-Video-2B via official Diffusers pipelines
+    (MotifVideoPipeline / MotifVideoImage2VideoPipeline) with GGUF quantized
+    transformer from Motif-Video-2B-GGUF (default Q5_K_M).
 
-    Optimized for 24GB GPUs (RTX 4090 / 3090 style memory budget) with:
-      - enable_model_cpu_offload()
+    Optimized for Olares One RTX 5090M (24GB GDDR7):
+      - GGUF Q5_K_M transformer (~1.3G) + BF16 VAE/text encoder
+      - enable_model_cpu_offload() when VRAM <= 24.5GB
+      - SageAttention via transformer.set_attention_backend when available;
+        falls back to SDPA (MOTIF_ATTENTION_BACKEND=sage|sdpa|auto)
+      - AdaptiveProjectedGuidance (APG): guidance_scale=8.0, rescale=12.0, momentum=0.1
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-    Runtime base image:
-      pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel
-
-    Service:
-      - Gradio on port 7860
+    Service (port 7860, entrance proxies 8080):
+      - Gradio UI at /ui
+      - REST POST /api/v1/t2v, POST /api/v1/i2v, GET /api/v1/health
+      - OpenAPI /docs
       - CUDA required
 
+    Runtime: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel
   developer: Motif Technologies
   website: https://huggingface.co/Motif-Technologies/Motif-Video-2B
   sourceCode: https://huggingface.co/Motif-Technologies/Motif-Video-2B
-  submitter: aamsellem
+  submitter: coynntis
   locale:
     - en-US
   license:
     - text: Apache-2.0
       url: https://huggingface.co/Motif-Technologies/Motif-Video-2B/blob/main/LICENSE
-
-  limitedCpu: 16
-  requiredCpu: 4
-  requiredDisk: 80Gi
-  limitedDisk: 150Gi
-  limitedMemory: 64Gi
-  requiredMemory: 24Gi
-  requiredGpu: 1Gi
-  limitedGpu: 24Gi
-
   supportArch:
     - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 80Gi
+      limitedDisk: 150Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.20: trim CPU/memory requests for denser multi-app packing (media).
+    v1.0.19: GGUF Q5_K_M MotifVideoPipeline + MotifVideoImage2VideoPipeline; SageAttention/SDPA; FastAPI /api/v1/t2v|/i2v|/health + Gradio /ui.
+    v1.0.18: restore root templates/configmap.yaml (motifvideo2bone-source) for v3 flat chart.
+    v1.0.17: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.16: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
 envs:
   - envName: HF_TOKEN
     required: false
@@ -68,11 +93,10 @@ envs:
     applyOnChange: true
     valueFrom:
       envName: OLARES_USER_HUGGINGFACE_SERVICE
-permission:
-  appData: true
 options:
+  shared: true
   apiTimeout: 0
   dependencies:
     - name: olares
-      version: '>=1.12.3-0'
+      version: '>=1.12.6-0'
       type: system

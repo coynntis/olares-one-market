@@ -1,0 +1,10 @@
+workloads:
+  nemotronlabselastic30bnvfp4one:
+    replicaCount: 1
+  nemotronlabselastic30bnvfp4cli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

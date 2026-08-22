@@ -1,0 +1,27 @@
+admin: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+bfl:
+  username: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  MCP_CORS_ORIGIN: '*'
+image:
+  repository: ghcr.io/coynntis/splatlabone
+  tag: "1.1.14"
+  pullPolicy: IfNotPresent
+# false = skip HF/ModelScope prefetch init (faster boot; download on first pipeline use)
+prefetchModels: false
+prefetchModelKeys: "vggt_omega,da3,lingbot,mast3r"
+server:
+  port: 7860
+workloads:
+  splatlabone:
+    replicaCount: 1
+  splatlabonecli:
+    replicaCount: 1

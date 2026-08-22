@@ -1,0 +1,17 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  MINIMAX_MODEL_REPO: 'MiniMaxAI/MiniMax-H3'
+  MINIMAX_WORKFLOW: 't2va'
+workloads:
+  minimaxh3nvfp4one:
+    replicaCount: 1
+  minimaxh3nvfp4onecli:
+    replicaCount: 1

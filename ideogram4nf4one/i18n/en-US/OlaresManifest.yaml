@@ -1,0 +1,14 @@
+metadata:
+  title: Ideogram 4 NF4 One
+  description: "Ideogram 4 NF4 + fal Instant — open text-to-image for Olares One"
+
+spec:
+  fullDescription: |
+    Gradio UI for Ideogram 4 on Olares One (RTX 5090M 24GB).
+
+    Modes: Turbo Instant 8 (fal), Turbo 12, Default 20, Quality 48 (NF4).
+    Accept HF gates for ideogram-4-nf4-diffusers, and fal/ideogram-v4-instant.
+    Set HF_TOKEN; optional IDEOGRAM_API_KEY for remote JSON magic-prompt (best with Instant).
+
+    Diffusers git main + bitsandbytes NF4; attention auto flash/SDPA.
+    Service: Gradio on port 7860

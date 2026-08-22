@@ -1,0 +1,10 @@
+metadata:
+  description: "EXPERIMENTAL Laguna S 2.1 Q4_K_M — cpu-moe (DFlash off by default)"
+  title: Laguna S 2-1 One
+spec:
+  fullDescription: |
+    Experimental Laguna S 2.1 (118B-A8B) via poolsideai/llama.cpp branch laguna on Olares One.
+    Official Poolside Q4_K_M (~96.0 GB) with --cpu-moe (mmap). DFlash off by default —
+    on this hybrid path draft accept can be ~9% and slows TG vs plain ~15 t/s.
+    Knobs: LAGUNA_QUANT, ENABLE_DFLASH, ENABLE_NO_MMAP, N_CPU_MOE, LLM_CONTEXT_WINDOW.
+    OpenAI-compatible API on port 8000; client entrance proxies on 8080.

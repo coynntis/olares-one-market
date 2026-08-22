@@ -1,0 +1,300 @@
+{{- $llmCtx := .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" }}
+{{- $llmMaxOut := .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" }}
+{{- $llmApiKey := .Values.olaresEnv.LLM_API_KEY | default "" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-thinkingcap-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_URL: "https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.6-27B-GGUF/resolve/main/ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf"
+  MODEL_FILE: "ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf"
+  MMPROJ_URL: "https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.6-27B-GGUF/resolve/main/mmproj-ThinkingCap-Qwen3.6-27B-f16.gguf"
+  MMPROJ_FILE: "mmproj-ThinkingCap-Qwen3.6-27B-f16.gguf"
+  MODEL_ALIAS: "thinkingcap-qwen36-27b"
+  CONTEXT_SIZE: "65536"
+  N_GPU_LAYERS: "99"
+  THREADS: "16"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: llamacppthinkingcap27bone
+  name: llamacppthinkingcap27bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppthinkingcap27bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppthinkingcap27bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppthinkingcap27bone
+    spec:
+      {{- $token := .Values.olaresEnv.GITHUB_TOKEN | trim -}}
+      {{- if $token }}
+      imagePullSecrets:
+        - name: llamacppthinkingcap27bone-ghcr
+      {{- end }}
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models/llms && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - '-c'
+            - |
+              log() { echo "$(date -Iseconds) [thinkingcap:init] $*"; }
+              download() {
+                url="$1"
+                dest="$2"
+                label="$3"
+                if [ -f "$dest" ]; then
+                  log "$label already downloaded: $dest"
+                  ls -lh "$dest"
+                  return 0
+                fi
+                log "Downloading $label from $url ..."
+                if [ -n "$HF_TOKEN" ]; then
+                  wget --header="Authorization: Bearer $HF_TOKEN" -O "$dest.tmp" "$url"
+                else
+                  wget -O "$dest.tmp" "$url"
+                fi
+                mv "$dest.tmp" "$dest"
+                log "$label download complete."
+                ls -lh "$dest"
+              }
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              MODEL_PATH="$SHARED_DIR/${MODEL_FILE}"
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                link_from_comfy_llms "$MODEL_PATH" || true
+              fi
+              if [ -f "$MODELS_DIR/${MODEL_FILE}" ] && [ ! -f "$MODEL_PATH" ]; then
+                log "Migrating model from per-app cache"
+                mv "$MODELS_DIR/${MODEL_FILE}" "$MODEL_PATH"
+              fi
+              download "$MODEL_URL" "$MODEL_PATH" "model"
+              MMPROJ_PATH="$SHARED_DIR/${MMPROJ_FILE}"
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                link_from_comfy_llms "$MMPROJ_PATH" || true
+              fi
+              if [ -f "$MODELS_DIR/${MMPROJ_FILE}" ] && [ ! -f "$MMPROJ_PATH" ]; then
+                log "Migrating mmproj from per-app cache"
+                mv "$MODELS_DIR/${MMPROJ_FILE}" "$MMPROJ_PATH"
+              fi
+              download "$MMPROJ_URL" "$MMPROJ_PATH" "mmproj"
+              log "setup complete"
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-thinkingcap-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "docker.io/aamsellem/buun-llama-cpp:87c351d2"
+          command: ["/app/llama-server"]
+          args:
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8080"
+            - "--model"
+            - "/shared-models/llms/$(MODEL_FILE)"
+            - "--mmproj"
+            - "/shared-models/llms/$(MMPROJ_FILE)"
+            - "--alias"
+            - "$(MODEL_ALIAS)"
+            - "--ctx-size"
+{{- if $llmCtx }}
+            - {{ $llmCtx | quote }}
+{{- else }}
+            - "$(CONTEXT_SIZE)"
+{{- end }}
+            - "--n-gpu-layers"
+            - "$(N_GPU_LAYERS)"
+            - "--threads"
+            - "$(THREADS)"
+            - "--cache-type-k"
+            - "turbo4"
+            - "--cache-type-v"
+            - "turbo4"
+            - "--batch-size"
+            - "512"
+            - "--ubatch-size"
+            - "512"
+            - "--parallel"
+            - "1"
+            - "--swa-full"
+            - "--flash-attn"
+            - "auto"
+            - "--op-offload"
+            - "--jinja"
+            - "--slot-save-path"
+            - "/cache"
+            - "--no-context-shift"
+{{- if $llmMaxOut }}
+            - "--n-predict"
+            - {{ $llmMaxOut | quote }}
+{{- end }}
+{{- if $llmApiKey }}
+            - "--api-key"
+            - {{ $llmApiKey | quote }}
+{{- end }}
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-thinkingcap-env
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/cache"
+              name: cache
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: cache
+          emptyDir: {}
+      restartPolicy: Always
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: llamacppthinkingcap27bone
+  name: llamacppthinkingcap27bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: llamacppthinkingcap27bone
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppthinkingcap27bone
+  name: sharedentrances-llamacppthinkingcap27bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppthinkingcap27bone"
+      port: 80
+      targetPort: 8080
+  selector:
+    io.kompose.service: llamacppthinkingcap27bone

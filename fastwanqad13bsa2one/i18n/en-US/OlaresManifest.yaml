@@ -1,0 +1,16 @@
+metadata:
+  title: FastWan QAD 1.3B SA2 One
+  description: FastWan QAD 1.3B SA2 — ~2s lightning T2V on Blackwell NVFP4
+spec:
+  fullDescription: |
+    Gradio UI for FastVideo/FastWan-QAD-1.3B-SA2 — quantization-aware distilled Wan2.1 T2V.
+
+    Olares One / RTX 5090M (Blackwell sm100+):
+      - 3-step inference, no CFG
+      - NVFP4 linear layers + SageAttention2++
+      - TAEHV tiny decoder (~2s for 5s 480p clip)
+      - 81 frames @ 16fps (832×480)
+
+    Image: ghcr.io/hao-ai-lab/fastvideo/fastvideo-dev:py3.12-sha-f889e6b (~8.4 GB pull).
+    ghcr.io: set OLARES_USER_GITHUB_TOKEN (read:packages) — chart uses it as imagePullSecret.
+    T2V only (no image-to-video).

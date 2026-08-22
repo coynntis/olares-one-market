@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.9
+description: fastwanqad13fp8one shared server
+name: fastwanqad13fp8srv
+type: application
+version: 1.0.9

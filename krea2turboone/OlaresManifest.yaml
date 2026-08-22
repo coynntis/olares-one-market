@@ -1,0 +1,176 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  krea2turboone: 1
+  krea2turboonecli: 1
+metadata:
+  name: krea2turboone
+  # TODO(generate:icons): replace placeholder CDN URLs with krea2turboone icon+featured pair
+  icon: https://cdn.olares.com/images/2026/08/7b49b96c0f6e947b29dea43b25e1f235.png
+  description: Krea-2-Turbo — fast T2I Gradio + REST for Olares One
+  title: Krea 2 Turbo One
+  version: 1.0.24
+  categories:
+    - AI
+sharedEntrances:
+  - name: krea2turboone
+    host: sharedentrances-krea2turboone
+    port: 0
+    title: Krea 2 Turbo API
+    icon: https://cdn.olares.com/images/2026/08/7b49b96c0f6e947b29dea43b25e1f235.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: krea2turboonecli
+    port: 8080
+    host: krea2turboonecli
+    title: Krea 2 Turbo One
+    icon: https://cdn.olares.com/images/2026/08/7b49b96c0f6e947b29dea43b25e1f235.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.24
+  featuredImage: https://cdn.olares.com/images/2026/08/42094b0b721bafe30bc25692a88bdc8f.png
+  fullDescription: |
+    Gradio UI + REST API for Krea-2-Turbo text-to-image on Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+
+    Default quant KREA_QUANT=nvfp4: try OzzyGT Nunchaku Lite NVFP4+NF4 pipeline,
+    else TorchAO NVFP4 on krea/Krea-2-Turbo transformer, else BF16 + cpu_offload.
+    BF16 full-GPU is disabled — it fills ~23GB and OOMs on denoise.
+
+    Attention KREA_ATTENTION=sage3 — soft experiment: install sageattn3 + monkeypatch
+    Diffusers `sageattn` → `sageattn3_blackwell` (NHD↔HND); any fail soft-falls to SA2.
+    Set KREA_ATTENTION=sage for SA2-only, KREA_SAGE3=0 to disable patch. Check GET /health
+    sage3_status / sage3_stats after first generate.
+
+    Runtime image MUST be pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel — torch 2.12 has no
+    nunchaku-lite-kernels build (IndexError) so NVFP4 never loads.
+
+    Official style LoRAs (dropdown): neondrip, darkbrush, retroanime,
+    softwatercolor, kidsdrawing, vintagetarot, dotmatrix, rainywindow, sunsetblur.
+    Optional KREA_EXTRA_LORAS = comma-separated extra HF LoRA ids.
+
+    Defaults: 8 steps, guidance 0.0 (Turbo distilled recipe).
+    UI: / and /ui · REST: POST /api/v1/generate · MCP: /mcp/mcp (streamable HTTP)
+    · health: GET /health · docs: /docs
+
+    Boot: soft-ready on :7860 within seconds (stdlib) so install can exceed ~30m;
+    deps via uv → /workspace/krea2turboone/site-packages (uv + cache persist). Optional
+    UV_INDEX_URL for faster PyPI (auto Tsinghua if HF_ENDPOINT is China mirror).
+    GET /health shows phase while installing.
+
+    License: Krea 2 Community License — commercial use allowed when the
+    organization's trailing-twelve-month revenue is under $1M USD (see HF model card).
+
+    Runtime: pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel
+    Service: Gradio + FastAPI on port 7860
+  developer: Krea.ai
+  website: https://huggingface.co/krea/Krea-2-Turbo
+  sourceCode: https://github.com/krea-ai/krea-2
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Krea 2 Community License
+      url: https://huggingface.co/krea/Krea-2-Turbo
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 80Gi
+      limitedDisk: 150Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.24: masked attn uses Flash/Efficient (GQA→MHA) not MATH — stops 3.8GiB OOM at 1024; skip sequential escalate on nunchaku (meta tensor); default size 768.
+    v1.0.23: fix MCP generate_image deadlock (_PIPE_LOCK nested acquire hung CallTool forever).
+    v1.0.22: MCP streamable HTTP at /mcp/mcp — tools generate_image, list_loras, health_check, clear_vram, unload_model (Pipecat/agents).
+    v1.0.21: fix Gradio image 404 — root_path=/ui + allowed_paths for /output/gradio.
+    v1.0.19: sage attn_mask → _native_efficient fallback (Krea text_fusion); unmasked DiT stays sage/SA3.
+    v1.0.18: purge torch/torchvision uv pulled into site-packages (was 2.13 shadowing image 2.11 → Sage ABI + torchvision::nms crash); sage --no-deps; deps marker v4.
+    v1.0.17: install via uv (parallel downloads); persist uv binary+cache on workspace; optional UV_INDEX_URL / auto Tsinghua when HF China mirror.
+    v1.0.16: drop --break-system-packages (old pip has no such option); --target site-packages only.
+    v1.0.15: PEP 668 — drop system pip upgrade; always --break-system-packages + --target site-packages.
+    v1.0.14: drop broken venv — pip --target /workspace/.../site-packages; wipe half-venv; python -m pip (+ ensurepip/get-pip).
+    v1.0.13: soft-ready HTTP before pip (pass ~30m install gate); persist venv+pip-cache on /workspace; skip reinstall when deps marker OK.
+    v1.0.12: pin pydantic>=2.10,<2.12 (+ fastapi/uvicorn/gradio5) — stop pip backtracking against Gradio pydantic cap.
+    v1.0.11: fix Helm YAML — image if/else whitespace chomp glued name+image (mapping values error).
+    v1.0.10: soft SageAttention3 experiment — patch Diffusers sageattn→sageattn3_blackwell with SA2 fallback; default KREA_ATTENTION=sage3; /health sage3_stats.
+    v1.0.9: pin torch 2.11+cu130 (nunchaku-lite-kernels + JahJedi sageattention 2.2); kernel preflight; TorchAO NVFP4 filters Linear dims%16; force-reinstall sage wheel.
+    v1.0.8: BF16 uses sequential CPU offload (model offload still OOMs ~22GB transformer on 24GB); escalate OOM→sequential; louder NVFP4 failure logs.
+    v1.0.7: fix UnboundLocalError _PIPE_CPU_OFFLOAD on generate; attention default sage + soft-install wheel; skip broken sage_hub on torch>2.10; map sdpa→_native_efficient.
+    v1.0.6: default NVFP4 (Nunchaku/TorchAO) + SageAttention sage_hub; disable BF16 full-GPU (OOM); denoise OOM→cpu_offload retry.
+    v1.0.5: redirect / → /ui/ so Olares entrance opens Gradio (was 404).
+    v1.0.4: fix CrashLoop — drop broken .venv boot; use /opt/conda/bin/python + --break-system-packages; diffusers via zip (no git).
+    v1.0.3: timing breakdown + VRAM park/unload (Ideogram lessons). Try full GPU first; park-after-generate default ON; /api/v1/unload + clear_vram.
+    v1.0.2: trim CPU/memory requests for denser multi-app packing (media).
+    v1.0.1: fix helm render — quote KREA_* env defaults without escaped backslashes.
+    v1.0.0: initial Krea-2-Turbo chart (Gradio + REST + official LoRA picker).
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: KREA_MODEL_ID
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'krea/Krea-2-Turbo'
+  - envName: KREA_QUANT
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'nvfp4'
+  - envName: KREA_ATTENTION
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'sage3'
+  - envName: KREA_SAGE3
+    required: false
+    editable: true
+    applyOnChange: true
+    value: '1'
+  - envName: KREA_NUNCHAKU_MODEL_ID
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'OzzyGT/Krea_2_Turbo_nunchaku_lite_nvfp4'
+  - envName: KREA_TRY_FULL_GPU
+    required: false
+    editable: true
+    applyOnChange: true
+    value: '1'
+  - envName: KREA_EXTRA_LORAS
+    required: false
+    editable: true
+    applyOnChange: true
+    value: ''
+  - envName: UV_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+    value: ''
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

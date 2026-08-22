@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.2"
+description: SenseNova-SI-1.5 InternVL3-8B spatial VQA (vision understand only) on Olares One
+name: sensenovasi15one
+type: application
+version: 1.0.2

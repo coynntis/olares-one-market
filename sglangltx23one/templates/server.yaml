@@ -1,0 +1,156 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: sglangltx23one
+  name: sglangltx23one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+spec:
+  replicas: {{ .Values.workloads.sglangltx23one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: sglangltx23one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: sglangltx23one
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms/huggingface && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: sglang-server
+          image: "lmsysorg/sglang:dev-cu13"
+          command:
+            - "zsh"
+            - "-c"
+          args:
+            - |
+              set -euo pipefail
+              MODEL_PATH="${SGLANG_MODEL_PATH:-Lightricks/LTX-2.3}"
+              if [ ! -d /workspace/sglang/.git ]; then
+                rm -rf /workspace/sglang
+                git clone --depth 1 https://github.com/sgl-project/sglang.git /workspace/sglang
+              fi
+              cd /workspace/sglang
+              pip install -e "python[diffusion]" --break-system-packages
+              # 24GB video DiT: layerwise transformer + TE, VAE tiling/CPU offload.
+              # Cache-DiT incompatible with dit-layerwise-offload — keep off.
+              exec sglang serve \
+                --model-path "$MODEL_PATH" \
+                --dit-layerwise-offload \
+                --layerwise-offload-components transformer text_encoder \
+                --vae-tiling \
+                --vae-cpu-offload \
+                --text-encoder-cpu-offload \
+                --pin-cpu-memory \
+                --trust-remote-code \
+                --host 0.0.0.0 \
+                --port 30000
+          env:
+            - name: HF_HOME
+              value: "/shared-models/llms/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: SGLANG_MODEL_PATH
+              value: {{ .Values.olaresEnv.SGLANG_MODEL_PATH | default "Lightricks/LTX-2.3" | quote }}
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+          ports:
+            - containerPort: 30000
+          startupProbe:
+            tcpSocket:
+              port: 30000
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 20
+            failureThreshold: 1200
+          livenessProbe:
+            tcpSocket:
+              port: 30000
+            initialDelaySeconds: 300
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 56Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/dev/shm"
+              name: dshm
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/sglangltx23one-workspace"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sglangltx23one
+  name: sglangltx23one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sglang"
+      port: 30000
+      targetPort: 30000
+  selector:
+    io.kompose.service: sglangltx23one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sglangltx23one
+  name: sharedentrances-sglangltx23one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sglangltx23one"
+      port: 80
+      targetPort: 30000
+  selector:
+    io.kompose.service: sglangltx23one

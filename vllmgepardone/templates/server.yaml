@@ -1,0 +1,484 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gepard-postgres-init
+  namespace: "{{ .Release.Namespace }}"
+data:
+  01-voices.sql: |
+    create table if not exists voices (
+      id          uuid primary key default gen_random_uuid(),
+      name        text not null,
+      language    text,
+      created_at  timestamptz not null default now(),
+      prefix      bytea not null
+    );
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gepard-tts-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_NAME: "nineninesix/gepard-1.0"
+  MODEL_ALIAS: "gepard-1.0"
+  TTS_CODEC_MODEL: "nvidia/nemo-nano-codec-22khz-1.89kbps-21.5fps"
+  TTS_GPU_MEMORY_UTILIZATION: "0.38"
+  TTS_MAX_NUM_SEQS: "8"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: vllmgepardone
+  name: vllmgepardone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.vllmgepardone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: vllmgepardone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: vllmgepardone
+    spec:
+      initContainers:
+        - name: setup-speech-runtime
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              log() { echo "$(date -Iseconds) [vllmgepardone:init] $*"; }
+              log "starting setup-speech-runtime"
+              mkdir -p /shared-models/speech/huggingface /shared-models/speech/modelscope /shared-models/llms
+              log "fixing permissions on speech cache dirs only..."
+              chmod -R 777 /shared-models/speech /shared-models/llms
+              log "setup-speech-runtime complete"
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: postgres
+          image: "docker.io/postgres:16-alpine"
+          env:
+            - name: POSTGRES_USER
+              value: gepard
+            - name: POSTGRES_PASSWORD
+              value: gepard
+            - name: POSTGRES_DB
+              value: gepard
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U gepard -d gepard
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: pgdata
+            - mountPath: /docker-entrypoint-initdb.d
+              name: postgres-init
+              readOnly: true
+        - name: gepard-tts
+          image: "docker.io/ylankgz/gepard-vllm:latest"
+          command:
+            - bash
+            - -c
+            - |
+              set -euo pipefail
+              log() { echo "$(date -Iseconds) [vllmgepardone] $*"; }
+              cd /app
+
+              log "waiting for postgres on 127.0.0.1:5432..."
+              python3 - << 'WAITPG'
+              import socket, time
+              for i in range(180):
+                  try:
+                      s = socket.create_connection(("127.0.0.1", 5432), 2)
+                      s.close()
+                      print(f"[vllmgepardone] postgres reachable after {i * 2}s", flush=True)
+                      break
+                  except OSError:
+                      time.sleep(2)
+              else:
+                  raise SystemExit("postgres not reachable after 360s")
+              WAITPG
+
+              export DATABASE_URL="postgresql://gepard:gepard@127.0.0.1:5432/gepard"
+              export HF_HOME="${HF_HOME:-/shared-models/speech/huggingface}"
+              export TRANSFORMERS_CACHE="${HF_HOME}"
+              export HF_HUB_CACHE="${HF_HOME}"
+              export TTS_MODEL_PATH="${TTS_MODEL_PATH:-${MODEL_NAME}}"
+              export TTS_CODEC_MODEL="${TTS_CODEC_MODEL:-nvidia/nemo-nano-codec-22khz-1.89kbps-21.5fps}"
+              export TTS_GPU_MEMORY_UTILIZATION="${TTS_GPU_MEMORY_UTILIZATION:-0.38}"
+              export TTS_MAX_NUM_SEQS="${TTS_MAX_NUM_SEQS:-8}"
+              export VLLM_ALLOW_INSECURE_SERIALIZATION=1
+              export VLLM_ATTENTION_BACKEND=FLASH_ATTN
+              export VLLM_USE_FLASHINFER_SAMPLER=0
+
+              log "HF_HOME=$HF_HOME model=$TTS_MODEL_PATH gpu_util=$TTS_GPU_MEMORY_UTILIZATION"
+              ls -la /shared-models/speech/ 2>/dev/null || true
+
+              cat > /tmp/launcher.py << 'PYEOF'
+              import asyncio
+              import os
+              import subprocess
+              import threading
+              import traceback
+              import urllib.error
+              import urllib.request
+              from contextlib import asynccontextmanager
+              from typing import Optional
+
+              from fastapi import FastAPI, HTTPException, Request, Response, WebSocket
+              from fastapi.responses import JSONResponse, RedirectResponse
+
+              _phase = "starting"
+              _bootstrap_error: Optional[str] = None
+              _backend_proc: Optional[subprocess.Popen] = None
+              _backend_port = 8001
+
+
+              def log(msg: str) -> None:
+                  print(f"[vllmgepardone] {msg}", flush=True)
+
+
+              def relay_output(proc: subprocess.Popen) -> None:
+                  if proc.stdout is None:
+                      return
+
+                  def pump() -> None:
+                      for raw in iter(proc.stdout.readline, b""):
+                          line = raw.decode(errors="replace").rstrip()
+                          if line:
+                              print(f"[gepard] {line}", flush=True)
+                      proc.stdout.close()
+
+                  threading.Thread(target=pump, daemon=True).start()
+
+
+              def backend_healthy_sync() -> bool:
+                  try:
+                      with urllib.request.urlopen(
+                          f"http://127.0.0.1:{_backend_port}/health", timeout=10
+                      ) as resp:
+                          return resp.status == 200
+                  except Exception:
+                      return False
+
+
+              def wait_for_backend_sync() -> None:
+                  global _phase
+                  import time
+
+                  interval = 5
+                  max_wait = int(os.environ.get("GEPARD_BOOTSTRAP_TIMEOUT_SEC", "3600"))
+                  max_iters = max(1, max_wait // interval)
+                  log(f"waiting up to {max_wait}s for Gepard /health on :{_backend_port}")
+                  for i in range(max_iters):
+                      if _backend_proc is not None and _backend_proc.poll() is not None:
+                          raise RuntimeError(f"Gepard backend exited {_backend_proc.returncode}")
+                      if backend_healthy_sync():
+                          _phase = "ready"
+                          log(f"Gepard backend ready after ~{i * interval}s — proxying API traffic")
+                          return
+                      if i > 0 and i % 60 == 0:
+                          elapsed = i * interval
+                          state = (
+                              f"alive pid={_backend_proc.pid}"
+                              if _backend_proc and _backend_proc.poll() is None
+                              else "not running"
+                          )
+                          log(f"still loading ({elapsed}s / {max_wait}s) — backend={state}")
+                      time.sleep(interval)
+                  raise RuntimeError(
+                      f"Gepard backend health timeout after {max_wait}s "
+                      f"(set GEPARD_BOOTSTRAP_TIMEOUT_SEC to increase)"
+                  )
+
+
+              def bootstrap_sync() -> None:
+                  global _phase, _bootstrap_error, _backend_proc
+                  try:
+                      _phase = "starting_backend"
+                      log("background: starting gepard-vLLM on :8001...")
+                      _backend_proc = subprocess.Popen(
+                          [
+                              "/app/.venv/bin/python",
+                              "-m",
+                              "uvicorn",
+                              "server:app",
+                              "--host",
+                              "127.0.0.1",
+                              "--port",
+                              str(_backend_port),
+                              "--log-level",
+                              "info",
+                          ],
+                          cwd="/app",
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT,
+                          bufsize=1,
+                      )
+                      relay_output(_backend_proc)
+                      _phase = "loading_model"
+                      wait_for_backend_sync()
+                  except Exception as exc:
+                      _bootstrap_error = str(exc)
+                      _phase = "error"
+                      log(f"bootstrap failed: {exc}")
+                      traceback.print_exc()
+
+
+              @asynccontextmanager
+              async def lifespan(app: FastAPI):
+                  log("fast-ready: launcher on :8000 — Gepard starts in background on :8001")
+                  asyncio.create_task(asyncio.to_thread(bootstrap_sync))
+                  yield
+
+
+              app = FastAPI(title="Gepard TTS launcher", lifespan=lifespan)
+
+
+              @app.get("/health")
+              async def health():
+                  ready = _phase == "ready"
+                  backend_ok = ready and await asyncio.to_thread(backend_healthy_sync)
+                  body = {
+                      "status": _phase,
+                      "ready": ready and backend_ok,
+                      "model": os.environ.get("TTS_MODEL_PATH") or os.environ.get("MODEL_NAME"),
+                      "bootstrap_error": _bootstrap_error,
+                      "backend_running": _backend_proc is not None and _backend_proc.poll() is None,
+                      "api": "Cartesia-compatible (/tts/bytes, /tts/websocket, /voices/*)",
+                  }
+                  return JSONResponse(status_code=200, content=body)
+
+
+              async def proxy_request(request: Request, full_path: str = ""):
+                  if _phase != "ready":
+                      raise HTTPException(503, detail=f"not ready (phase={_phase})")
+                  if not await asyncio.to_thread(backend_healthy_sync):
+                      raise HTTPException(503, detail="Gepard backend down")
+                  try:
+                      import httpx
+                  except ImportError:
+                      raise HTTPException(503, detail="httpx not available for proxy")
+
+                  url = f"http://127.0.0.1:{_backend_port}/{full_path}"
+                  if request.url.query:
+                      url = f"{url}?{request.url.query}"
+                  headers = {
+                      k: v
+                      for k, v in request.headers.items()
+                      if k.lower() not in ("host", "content-length")
+                  }
+                  body = await request.body()
+                  async with httpx.AsyncClient(timeout=None) as client:
+                      upstream = await client.request(
+                          request.method,
+                          url,
+                          headers=headers,
+                          content=body if body else None,
+                      )
+                  return Response(
+                      content=upstream.content,
+                      status_code=upstream.status_code,
+                      headers=dict(upstream.headers),
+                  )
+
+
+              @app.websocket("/{full_path:path}")
+              async def ws_proxy(websocket: WebSocket, full_path: str):
+                  if _phase != "ready" or not await asyncio.to_thread(backend_healthy_sync):
+                      await websocket.close(code=1013, reason="not ready")
+                      return
+                  try:
+                      import websockets
+                  except ImportError:
+                      await websocket.close(code=1011, reason="websockets missing")
+                      return
+
+                  await websocket.accept()
+                  backend_url = f"ws://127.0.0.1:{_backend_port}/{full_path}"
+                  if websocket.url.query:
+                      backend_url = f"{backend_url}?{websocket.url.query}"
+                  try:
+                      async with websockets.connect(backend_url) as backend_ws:
+
+                          async def client_to_backend() -> None:
+                              while True:
+                                  msg = await websocket.receive()
+                                  if msg.get("type") == "websocket.disconnect":
+                                      break
+                                  if "text" in msg:
+                                      await backend_ws.send(msg["text"])
+                                  elif "bytes" in msg:
+                                      await backend_ws.send(msg["bytes"])
+
+                          async def backend_to_client() -> None:
+                              async for msg in backend_ws:
+                                  if isinstance(msg, bytes):
+                                      await websocket.send_bytes(msg)
+                                  else:
+                                      await websocket.send_text(msg)
+
+                          await asyncio.gather(client_to_backend(), backend_to_client())
+                  except Exception as exc:
+                      log(f"websocket proxy closed: {exc}")
+                  finally:
+                      await websocket.close()
+
+
+              @app.get("/")
+              async def root(request: Request):
+                  if _phase != "ready":
+                      raise HTTPException(503, detail=f"not ready (phase={_phase})")
+                  return await proxy_request(request, "")
+
+
+              @app.api_route(
+                  "/{full_path:path}",
+                  methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+              )
+              async def proxy(full_path: str, request: Request):
+                  return await proxy_request(request, full_path)
+
+
+              if __name__ == "__main__":
+                  import uvicorn
+
+                  uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+              PYEOF
+
+              log "installing launcher deps (fastapi/uvicorn/httpx/websockets)..."
+              /app/.venv/bin/python -m pip install -q fastapi uvicorn httpx websockets
+
+              log "starting fast-ready launcher on :8000..."
+              exec /app/.venv/bin/python /tmp/launcher.py
+          envFrom:
+            - configMapRef:
+                name: gepard-tts-env
+          env:
+            - name: HF_HOME
+              value: "/shared-models/speech/huggingface"
+            - name: TRANSFORMERS_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: TTS_GPU_MEMORY_UTILIZATION
+              value: {{ .Values.olaresEnv.TTS_GPU_MEMORY_UTILIZATION | default "" | quote }}
+            - name: GEPARD_BOOTSTRAP_TIMEOUT_SEC
+              value: {{ .Values.olaresEnv.GEPARD_BOOTSTRAP_TIMEOUT_SEC | default "3600" | quote }}
+            - name: HF_HUB_VERBOSITY
+              value: "info"
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: "1"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "24400m"
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 20Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: pgdata
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/postgres"
+            type: DirectoryOrCreate
+        - name: postgres-init
+          configMap:
+            name: gepard-postgres-init
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: vllmgepardone
+  name: vllmgepardone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "gepard"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: vllmgepardone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: vllmgepardone
+  name: sharedentrances-vllmgepardone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "vllmgepardone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: vllmgepardone

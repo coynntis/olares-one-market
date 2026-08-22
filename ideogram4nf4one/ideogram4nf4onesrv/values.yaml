@@ -1,0 +1,14 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+  IDEOGRAM_API_KEY: ""
+image:
+  repository: ""
+  tag: ""

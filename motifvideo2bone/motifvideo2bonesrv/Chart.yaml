@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.16
+description: motifvideo2bone shared server
+name: motifvideo2bonesrv
+type: application
+version: 1.0.16

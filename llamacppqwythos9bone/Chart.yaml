@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.19"
+description: Qwythos 9B Mythos — 262K ctx, buun draft-MTP on Olares One
+name: llamacppqwythos9bone
+type: application
+version: 1.0.19

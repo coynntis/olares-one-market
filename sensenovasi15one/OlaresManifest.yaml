@@ -1,0 +1,100 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sensenovasi15one: 1
+  sensenovasi15onecli: 1
+metadata:
+  name: sensenovasi15one
+  icon: https://cdn.olares.com/images/2026/08/2b9ca83a8e0da0daf7fbde1170054507.png
+  description: SenseNova-SI-1.5 spatial VQA — vision understand only not image gen
+  title: SenseNova SI 15 One
+  version: 1.0.2
+  categories:
+    - AI
+sharedEntrances:
+  - name: sensenovasi15one
+    host: sharedentrances-sensenovasi15one
+    port: 0
+    title: SenseNova SI VQA API
+    icon: https://cdn.olares.com/images/2026/08/2b9ca83a8e0da0daf7fbde1170054507.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sensenovasi15onecli
+    port: 8080
+    host: sensenovasi15onecli
+    title: SenseNova SI 15 One
+    icon: https://cdn.olares.com/images/2026/08/2b9ca83a8e0da0daf7fbde1170054507.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.2
+  featuredImage: https://cdn.olares.com/images/2026/08/138f51a9fafcc9eaba6bed436ac25e6a.png
+  fullDescription: |
+    SenseNova-SI-1.5-InternVL3-8B spatial VQA / vision understanding on Olares One (RTX 5090M 24GB).
+
+    This app is UNDERSTANDING ONLY (image + question → text answer). It does NOT generate or edit images.
+    For SenseNova-U1 T2I / VQA / editing / interleave generation stack, install sensenovau1serveone instead.
+    SenseNova-Vision is intentionally skipped (CC-BY-NC license).
+
+    Upstream: https://github.com/OpenSenseNova/SenseNova-SI (example.py InternVL chat path).
+    Model: sensenova/SenseNova-SI-1.5-InternVL3-8B (BF16 ~16GB weights — fits 24GB VRAM).
+    Apache-2.0.
+
+    Runtime: pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel. Attention defaults to SDPA (Blackwell sm_120).
+    Optional flash_attn if importable (ATTENTION_BACKEND=auto|flash) soft-fails to SDPA — no ancient flash_attn pin.
+
+    Boot: snapshot_download into MODEL_DIR under HF_HOME=/models/huggingface (or local MODEL_DIR).
+    Set LOAD_LAZY=1 to defer download+load until first VQA request.
+
+    HTTP:
+      - Gradio UI: /ui (image + question → answer)
+      - POST /api/v1/vqa  {question, image_base64|images_base64, ...}
+      - GET /health  GET /docs  GET /api/v1/capabilities
+  developer: OpenSenseNova
+  website: https://github.com/OpenSenseNova/SenseNova-SI
+  sourceCode: https://github.com/OpenSenseNova/SenseNova-SI
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/OpenSenseNova/SenseNova-SI/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 80Gi
+      limitedDisk: 140Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.2: align pytorch 2.11.0-cuda13 (py3.12); optional FA2 via pinned sm_120 wheel only (no source compile).
+        v1.0.0: initial SenseNova-SI-1.5 InternVL3-8B spatial VQA chart (understand only).
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

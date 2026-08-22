@@ -1,0 +1,17 @@
+metadata:
+  title: Qwen36 35B DFlash Vision One
+  description: "Qwen3.6 35B-A3B DFlash + Vision — 302 t/s @ 128K on upstream llama.cpp (no fork)"
+
+spec:
+  fullDescription: |
+    Qwen 3.6 35B-A3B (MoE, ~3B active) with DFlash speculative decoding and vision on Olares One.
+
+    Speed sibling of llamacppqwen36a3bone: ~302 t/s vs ~243 t/s, vision kept, 128K context (262K needs buun --mmproj-gpu-swap).
+
+    Stack:
+    - ghcr.io/ggml-org/llama.cpp:server-cuda12-b10156 (upstream)
+    - Target: unsloth Q3_K_XL (~17 GB) + mmproj-BF16 (~900 MB)
+    - Drafter: Anbeeld DFlash Q8_0 (~400 MB, has dflash.target_layers)
+    - --spec-type draft-dflash --spec-draft-n-max 6, q4_0 KV, --jinja, --reasoning off
+
+    OpenAI-compatible API via nginx client proxy (port 8080 → server 8000) and sharedEntrances for LLM gateway.

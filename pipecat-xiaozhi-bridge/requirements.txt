@@ -1,0 +1,16 @@
+# HTTP + static + ASGI WebSocket (Olares single port)
+starlette>=0.41.0,<1
+uvicorn[standard]>=0.32.0,<1
+
+# Protocol + APIs
+openai>=1.59.0,<2
+numpy>=1.26,<3
+httpx>=0.27,<1
+
+# Audio (xiaozhi uses Opus over WebSocket for non-MQTT paths)
+opuslib>=3.0.1
+
+# MCP client (list tools / future LLM tool calling)
+mcp>=1.11.0,<2
+
+# Pipecat removed from LLM path — direct AsyncOpenAI only (avoids runner cancel races)

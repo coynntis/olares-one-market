@@ -1,0 +1,126 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sensevoiceone: 1
+  sensevoiceonecli: 1
+metadata:
+  name: sensevoiceone
+  icon: https://cdn.olares.com/images/2026/08/203b71dd6d5afeb839495973712be6cb.png
+  description: SenseVoice STT — Cantonese yue ASR on CPU, OpenAI-compatible API
+  title: SenseVoice STT One
+  version: 1.0.16
+  categories:
+    - STT
+    - AI
+  bento:
+    family: other
+    size_label: SenseVoice
+    badge: stt
+    hero:
+      value: yue
+      label: Cantonese ASR
+    specs:
+      - label: device
+        value: CPU default
+      - label: vram
+        value: 0 GB
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: true
+      mtp:
+        enabled: false
+    stack: FunASR · SenseVoiceSmall
+sharedEntrances:
+  - name: sensevoiceone
+    host: sharedentrances-sensevoiceone
+    port: 0
+    title: SenseVoice STT API
+    icon: https://cdn.olares.com/images/2026/08/203b71dd6d5afeb839495973712be6cb.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sensevoiceonecli
+    port: 8080
+    host: sensevoiceonecli
+    title: SenseVoice STT One
+    icon: https://cdn.olares.com/images/2026/08/203b71dd6d5afeb839495973712be6cb.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.16
+  featuredImage: https://cdn.olares.com/images/2026/08/4677f92f7296114ea0935ec345d7de63.png
+  fullDescription: |
+    SenseVoice-Small STT (FunAudioLLM) — native Cantonese (yue) speech recognition.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Runs on **CPU by default** (~0 GPU VRAM) — set SENSEVOICE_DEVICE=cuda:0 in Settings for GPU STT.
+    Preserves colloquial Cantonese (唔/嘅/呢). Also supports zh, en, ja, ko.
+    OpenAI-compatible POST /v1/audio/transcriptions.
+
+    In-cluster: http://sensevoiceone:8000
+    Shared entrance: http://<route-id>.shared.olares.com
+
+    curl -X POST http://sensevoiceone:8000/v1/audio/transcriptions \
+      -F "file=@sample.wav" -F "language=yue"
+
+    Shared model cache (with all STT/TTS apps): /olares/share/ai/model/speech/huggingface
+    LLM GGUF cache remains separate: /olares/share/ai/model/llms/
+
+    Pair with cosyvoice2yueone or voxcpmone (TTS) and vllmgemma4e4bone (multimodal LLM).
+  upgradeDescription: |2
+        v1.0.13: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.12: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.11: venv gate on bin/pip not bin/python; ensurepip fallback.
+    v1.0.10: fix broken venv: recreate if bin/pip missing; add python3-venv apt package.
+    v1.0.9: init: visible logs + chmod speech dirs only (was silent slow chmod on full /shared-models).
+    v1.0.8: chart bump — Gradio test UI at /.
+    v1.0.7: Gradio test UI at / (app entrance). Upload audio → transcribe when ready. Delete models/venv before upgrade.
+    v1.0.6: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-runtime — aligns with Olares One GPU apps (CUDA 13). SENSEVOICE_DEVICE: cpu (default) or cuda:0. Delete models/venv before upgrade.
+    v1.0.5: pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime (valid pull). Torch from image; venv uses --system-site-packages. SENSEVOICE_DEVICE env: cpu (default) or cuda:0. Delete models/venv before upgrade if prior install failed.
+    v1.0.4: fix invalid base image — pytorch/pytorch:2.5.1-cpu does not exist on Docker Hub (pull failed). Now python:3.11-slim + CPU torch wheels in bootstrap. Delete models/venv if prior install left a broken venv.
+    v1.0.3: fast-ready bootstrap — /health returns 200 immediately; pip + model load run in background. Fixes Olares install timeout (30m). API returns 503 until ready.
+    v1.0.2: pytorch CPU base + persisted venv, visible install logs, model preload before /health 200, shared HF cache under /olares/share/ai/model/speech/huggingface.
+    If v1.0.1 left a broken venv, delete app Settings → Application data folder models/venv before upgrade.
+  developer: coynntis
+  website: https://huggingface.co/FunAudioLLM/SenseVoiceSmall
+  sourceCode: https://github.com/FunAudioLLM/SenseVoice
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Model License
+      url: https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 9Gi
+      requiredDisk: 8Gi
+      limitedDisk: 20Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 2Gi
+permission:
+  appData: true
+envs:
+  - envName: SENSEVOICE_DEVICE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

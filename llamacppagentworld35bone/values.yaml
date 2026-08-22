@@ -1,0 +1,23 @@
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+workloads:
+  llamacppagentworld35bone:
+    replicaCount: 1
+  llamacppagentworld35bonecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+  LLM_CONTEXT_WINDOW: ""
+  LLM_MAX_OUTPUT_TOKENS: ""
+  LLM_API_KEY: ""
+  LLM_BATCH_SIZE: ""
+  LLM_UBATCH_SIZE: ""
+  LLM_CACHE_TYPE_K: ""
+  LLM_CACHE_TYPE_V: ""
+  LLM_PARALLEL: ""

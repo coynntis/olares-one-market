@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.16"
+description: Qwen3.6 35B-A3B Unsloth NVFP4-Fast via vLLM + llama.cpp web UI
+name: vllmqwen3635bnvfp4fone
+type: application
+version: 1.0.16

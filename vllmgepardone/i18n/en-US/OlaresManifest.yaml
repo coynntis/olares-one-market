@@ -1,0 +1,7 @@
+metadata:
+  description: Gepard 1.0 streaming TTS — Cartesia-compatible vLLM API
+  title: Gepard TTS One
+spec:
+  fullDescription: |
+    nineninesix/gepard-1.0 — low-latency streaming TTS with voice cloning.
+    Cartesia-compatible endpoints for Pipecat and LiveKit agents.

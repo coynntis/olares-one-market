@@ -1,0 +1,15 @@
+metadata:
+  title: LTX-2.3 One
+  description: "LTX-2.3 distilled FP8 T2V/I2V for Olares One 24GB"
+
+spec:
+  fullDescription: |
+    Gradio UI + REST for Lightricks LTX-2.3 text-to-video and image-to-video
+    on Olares One (RTX 5090M 24GB).
+
+    BF16 full does not fit 24GB. Ships distilled FP8
+    (Lightricks/LTX-2.3-fp8) via official DistilledPipeline (8-step, CFG=1).
+    Diffusers LTX-2.3 still coming soon.
+
+    Defaults: ~768x512, 49 frames. LoRAs via LTX_LORA_IDS (on-demand download).
+    UI /ui · POST /api/v1/t2v · /api/v1/i2v · GET /health

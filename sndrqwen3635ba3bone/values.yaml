@@ -1,0 +1,13 @@
+workloads:
+  sndrqwen3635ba3bone:
+    replicaCount: 1
+  sndrqwen3635ba3bonecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  UV_INDEX_URL: ''
+  PIP_INDEX_URL: ''
+  LLM_CONTEXT_WINDOW: ''
+  LLM_MAX_OUTPUT_TOKENS: ''
+  LLM_API_KEY: ''

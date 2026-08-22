@@ -4,7 +4,7 @@
 
 A Cloudflare Worker serving as a **custom Olares Market source** — an alternative app store optimized for the **Olares One** device (the only Olares hardware product).
 
-The user is **aamsellem**, the only external contributor to `beclab/apps` (the official Olares app store).
+The user is **coynntis**, the only external contributor to `beclab/apps` (the official Olares app store).
 
 ## Architecture
 
@@ -84,7 +84,7 @@ npm run dev              # Build + wrangler dev (localhost:8787)
 npm run deploy           # Build + wrangler deploy (Cloudflare)
 ```
 
-Deployed at: `https://orales-one-market.aamsellem.workers.dev`
+Deployed at: `https://orales-one-market.coynntis.workers.dev`
 
 The build script:
 - Scans the repo root for directories containing both `Chart.yaml` and `OlaresManifest.yaml`
@@ -118,6 +118,155 @@ Only Olares One optimized apps belong here. Generic apps stay in `orales-market`
 - Top-level `apiVersion: 'v2'` required in OlaresManifest.yaml
 - CPU values in integer cores (e.g., `4`), NOT millicores (`4000m`)
 - Olares dependency: `>=1.12.3-0`
+
+## New Helm App Defaults (MUST include)
+
+Every new app chart in this repo **must** ship with these patterns from day one. Do not add them later via one-off scripts.
+
+Reference app: `llamacppqwen36beellamaone/` (server/client split + all envs). Helper scripts: `scripts/split-server-client.js`, `scripts/align-shared-apps.js`, `scripts/add-llm-serving-envs.js`.
+
+### 1. Shared entrance (server/client split)
+
+All GPU / API-serving apps use the **Ollama-style split** (see `beclab/apps` `ollamav2`):
+
+- Root chart: `apiVersion: v2`, `subCharts` with **server** `shared: true` + **client** (app name, no `shared`)
+- Server subchart (`<app>srv/`): GPU workload, admin-guarded Deployment (`{{- if and .Values.admin ... }}`)
+- Client subchart (`<app>/`): nginx proxy → `http://<backend>.<serverChart>-shared:<port>`
+- Root `templates/clientproxy.yaml`: lint safety net (Deployment named exactly `metadata.name`)
+- Manifest `sharedEntrances`: `host: sharedentrances-<app>`, **`port: 0`** (integer, not string), `authLevel: internal`, `invisible: true`
+- Manifest `options.apiTimeout: 0` — required for long SSE streams (Envoy default 15s otherwise)
+- Non-admin installs: mandatory self-dependency on client chart (`type: application`, `mandatory: true`)
+- Subchart / entrance names: **max 30 chars** (`fitSuffix()` in scripts)
+
+Open WebUI / external clients connect via: `http://<route-id>.shared.olares.com/v1`
+
+### 2. User-configurable env vars (Settings → Application)
+
+Declare in `OlaresManifest.yaml` `envs:` and wire into server deployment via `.Values.olaresEnv.*`. When unset, fall back to chart defaults (ConfigMap / hardcoded).
+
+**LLM serving apps** (llama.cpp, vLLM, SGLang text servers) — all three:
+
+```yaml
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+```
+
+| Env | Maps to | Fallback when empty |
+|-----|---------|---------------------|
+| `LLM_CONTEXT_WINDOW` | `--ctx-size` / `--max-model-len` / `--context-length` | ConfigMap default (e.g. `CTX_SIZE`, `CONTEXT_SIZE`) |
+| `LLM_MAX_OUTPUT_TOKENS` | `--n-predict` (llama.cpp), `--override-generation-config` (vLLM) | Server default (no cap) |
+| `LLM_API_KEY` | `--api-key` | No auth required |
+
+Deployment pattern (bash llama.cpp):
+
+```bash
+--ctx-size "${LLM_CONTEXT_WINDOW:-${CTX_SIZE:-16384}}"
+# before exec:
+EXTRA_LLM_ARGS=()
+[ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ] && EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS")
+[ -n "${LLM_API_KEY:-}" ] && EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY")
+exec ./llama-server ... "${EXTRA_LLM_ARGS[@]}"
+```
+
+Container env (all serving apps):
+
+```yaml
+- name: LLM_CONTEXT_WINDOW
+  value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+- name: LLM_MAX_OUTPUT_TOKENS
+  value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+- name: LLM_API_KEY
+  value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+```
+
+If user sets `LLM_API_KEY`, Open WebUI / API clients must send the **same key**.
+
+### 3. Hugging Face token
+
+Any app that downloads from Hugging Face **must** declare:
+
+```yaml
+envs:
+  - envName: OLARES_USER_HUGGINGFACE_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+```
+
+Server deployment (safe when `olaresEnv` missing):
+
+```yaml
+- name: HF_TOKEN
+  value: {{ .Values.olaresEnv.OLARES_USER_HUGGINGFACE_TOKEN | default "" | quote }}
+```
+
+Optional mirror endpoint:
+
+```yaml
+  - envName: OLARES_USER_HUGGINGFACE_SERVICE
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+```
+
+Always set `olaresEnv: {}` in server subchart `values.yaml`.
+
+### 4. ghcr.io image pulls (GitHub token)
+
+Any app whose **container image** is on `ghcr.io` **must** wire `OLARES_USER_GITHUB_TOKEN` as an `imagePullSecret` when the user has a token set (PAT scope: `read:packages`).
+
+Manifest:
+
+```yaml
+envs:
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+```
+
+Server subchart (`values.yaml`):
+
+```yaml
+olaresEnv:
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+```
+
+Templates (copy from `locateanything3bone` or run `node scripts/add-ghcr-pull-secrets.js`):
+
+- `<app>srv/templates/ghcr-pull-secret.yaml` — creates `{{ app }}-ghcr` Secret when token and username are set
+- Pod `spec.imagePullSecrets: [{ name: <app>-ghcr }]` when token set
+
+`GHCR_USER` is injected from `OLARES_USER_GITHUB_USERNAME` and must match the GitHub account that owns the PAT. **Docker Hub login does not apply** to ghcr.io pulls.
+
+### Checklist for new apps
+
+- [ ] Server/client split + `sharedEntrances` + `apiTimeout: 0`
+- [ ] `LLM_CONTEXT_WINDOW`, `LLM_MAX_OUTPUT_TOKENS`, `LLM_API_KEY` (LLM servers only)
+- [ ] `OLARES_USER_HUGGINGFACE_TOKEN` (if HF downloads)
+- [ ] `GITHUB_TOKEN` + `imagePullSecrets` (if image is `ghcr.io/...`)
+- [ ] Server deployment reads envs with fallbacks to chart defaults
+- [ ] `npm run build` (package + catalog) before deploy
 
 ## Key References
 
@@ -296,7 +445,7 @@ Alternative backend for models not well-suited to GGUF quantization. Uses BF16 n
 ## TODO
 
 - [x] ~~Investigate chart `.tgz` download mechanism~~ — resolved: `{BaseURL}/api/v1/applications/{appName}/chart?fileName={chartName}`
-- [x] ~~Deploy to Cloudflare~~ — live at `https://orales-one-market.aamsellem.workers.dev`
+- [x] ~~Deploy to Cloudflare~~ — live at `https://orales-one-market.coynntis.workers.dev`
 - [x] ~~Test with actual Olares device as market source~~ — working, all metadata displays correctly
 - [x] ~~Custom-compiled llama.cpp~~ — NOT worth it. CPU has no AVX-512/AMX (Arrow Lake-HX). Generic image already uses AVX2+FMA. No docker on Olares One (only containerd).
 - [ ] Add GitHub Action for auto-deploy on push

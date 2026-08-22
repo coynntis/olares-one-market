@@ -1,0 +1,21 @@
+# Krea2Pipeline is in Diffusers main; zip install — no git binary in pytorch image.
+diffusers @ https://github.com/huggingface/diffusers/archive/refs/heads/main.zip
+transformers>=4.50.0
+accelerate>=1.0.0
+sentencepiece
+peft>=0.14.0
+# Gradio 5.x caps pydantic<2.12 — pin to kill pip backtracking (was walking 2.13→2.7 forever).
+gradio>=5.0.0,<6
+fastapi>=0.115.2,<1.0
+uvicorn[standard]>=0.30.0,<1.0
+pydantic>=2.10,<2.12
+Pillow
+mcp>=1.8.0,<2
+# TorchAO NVFP4 / SageAttention hub kernels (Blackwell). Soft-fail in app if missing.
+kernels>=0.16.0
+bitsandbytes>=0.49.2
+# TorchAO NVFP4/MXFP8 (optional path). Prefer image torch; upgrade torchao if import fails at runtime.
+torchao>=0.12.0
+# torch / torchvision / torchaudio: PROVIDED by pytorch/pytorch:2.11.0-cuda13.0 image ONLY.
+# Do not list them here — uv --target would pull torch 2.13, shadow image 2.11, break Sage/nunchaku ABI.
+# Boot script purges any torch* that lands in site-packages after install.

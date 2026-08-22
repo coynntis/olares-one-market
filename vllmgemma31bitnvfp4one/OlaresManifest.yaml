@@ -1,61 +1,119 @@
 ---
-olaresManifest.version: '0.10.0'
+olaresManifest.version: 0.12.0
 olaresManifest.type: app
-apiVersion: 'v2'
+apiVersion: v3
+workloadReplicas:
+  vllmgemma31bitnvfp4one: 1
+  vllmgemma31bitnvfp4onecli: 1
 metadata:
   name: vllmgemma31bitnvfp4one
-  icon: https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma31bitnvfp4one.png
-  description: "Gemma 4 31B IT NVFP4 via vLLM modelopt on Olares One"
-  appid: vllmgemma31bitnvfp4one
+  icon: https://cdn.olares.com/images/2026/08/ee52de85f9dd1ab561dbbe265f4ccb75.png
+  description: Gemma 4 31B IT NVFP4 Turbo via vLLM modelopt on Olares One
   title: Gemma 4 31B NVFP4 One
-  version: '1.0.0'
+  version: 1.0.22
   categories:
     - AI
-entrances:
+  bento:
+    family: gemma
+    size_label: 31B
+    badge: nvfp4
+    hero:
+      value: text-only
+      label: modelopt quant
+    specs:
+      - label: context
+        value: 16K
+      - label: vram
+        value: 22 GB
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: false
+    stack: vLLM · modelopt NVFP4 · fp8 KV
+sharedEntrances:
   - name: vllmgemma31bitnvfp4one
-    port: 8000
-    host: vllmgemma31bitnvfp4one
+    host: sharedentrances-vllmgemma31bitnvfp4one
+    port: 0
+    title: Gemma 4 31B NVFP4 API
+    icon: https://cdn.olares.com/images/2026/08/ee52de85f9dd1ab561dbbe265f4ccb75.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmgemma31bitnvfp4onecli
+    port: 8080
+    host: vllmgemma31bitnvfp4onecli
     title: Gemma 4 31B NVFP4 One
-    icon: https://orales-one-market.aamsellem.workers.dev/icons/vllmgemma31bitnvfp4one.png
+    icon: https://cdn.olares.com/images/2026/08/ee52de85f9dd1ab561dbbe265f4ccb75.png
     openMethod: window
     authLevel: internal
 spec:
-  versionName: '1.0.0'
+  versionName: 1.0.22
+  featuredImage: https://cdn.olares.com/images/2026/08/db85090bb50f98b5fca01e7c2a3ca5ee.png
   fullDescription: |
-    NVIDIA optimized Gemma 4 31B IT NVFP4 checkpoint served via vLLM on Olares One.
+    LilaRest Gemma 4 31B IT NVFP4 Turbo checkpoint served via vLLM on Olares One.
     RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
-    Startup command: vllm serve /models/gemma-4-31b-it-nvfp4 --quantization modelopt
-    This model supports long context and multimodal understanding with text output.
-    Apache 2.0 license.
-    Ensure model files are available at /models/gemma-4-31b-it-nvfp4 before startup.
+    Text-only generation — no vision or audio input.
+    Startup command: vllm serve LilaRest/gemma-4-31B-it-NVFP4-turbo --quantization modelopt --max-model-len 16384
+    16K default context window. Apache 2.0 license.
+    Model files are downloaded from Hugging Face into /models at startup.
     Exposes an OpenAI-compatible API on port 8000.
-
-  developer: aamsellem
-  website: https://github.com/aamsellem/olares-one-market
-  sourceCode: https://github.com/aamsellem/olares-one-market
-  submitter: aamsellem
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
   locale:
     - en-US
   license:
     - text: Apache 2.0
       url: https://www.apache.org/licenses/LICENSE-2.0
-
-  limitedCpu: 16
-  requiredCpu: 4
-  requiredDisk: 35Gi
-  limitedDisk: 50Gi
-  limitedMemory: 50Gi
-  requiredMemory: 24Gi
-  requiredGpu: 1Gi
-  limitedGpu: 24Gi
-
   supportArch:
     - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 35Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+        v1.0.20: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.19: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
 permission:
   appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
 options:
+  shared: true
   apiTimeout: 0
   dependencies:
     - name: olares
-      version: '>=1.12.3-0'
+      version: '>=1.12.6-0'
       type: system
+  LLMGatewaySupported: true

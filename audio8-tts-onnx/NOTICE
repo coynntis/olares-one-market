@@ -1,0 +1,4 @@
+Audio8 TTS ONNX runtime code under `arktts_runtime/` is from
+https://github.com/Audio8-AI/Audio8_TTS (Apache License 2.0).
+
+Seed reference WAVs are converted from Audio8 demo assets for bootstrap only.

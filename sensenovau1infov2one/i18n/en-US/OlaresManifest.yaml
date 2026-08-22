@@ -1,0 +1,10 @@
+metadata:
+  title: SenseNova Infographic V2
+  description: "SenseNova-U1 Infographic-V2 specialist — charts, posters, structured layouts"
+
+spec:
+  fullDescription: |
+    SenseNova-U1 Infographic-V2 (sensenova/SenseNova-U1-8B-MoT-Infographic-V2) on Olares One.
+    Same NeoChat MoT stack as U1 Serve: T2I, VQA, editing, interleave via REST + Gradio.
+    Infographic GGUF (Q6 default) from smthem; VRAM_MODE=full. Attention = FA2 (not SageAttention3). Park/unload after generate.
+    Init: GGUF via curl→.part (progress on .part); snapshot watches HF *.incomplete (not final .gguf).

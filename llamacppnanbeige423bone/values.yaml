@@ -1,0 +1,21 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  LLM_CONTEXT_WINDOW: ''
+  LLM_MAX_OUTPUT_TOKENS: ''
+  LLM_API_KEY: ''
+workloads:
+  llamacppnanbeige423bone:
+    replicaCount: 1
+  llamacppnanbeige423bonecli:
+    replicaCount: 1

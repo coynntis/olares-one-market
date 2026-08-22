@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.30
+description: dockerbuilderone client proxy
+name: dockerbuilderone
+type: application
+version: 1.0.30

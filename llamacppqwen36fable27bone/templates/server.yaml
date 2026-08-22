@@ -1,0 +1,412 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-qwen36fable27b-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  TARGET_MODEL: "DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF"
+  # NEO-MTP-Q4_K_M — speed/quality balance on 24GB (author: ~90 t/s class MTP on 5090 when accept OK)
+  TARGET_FILE: "Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf"
+  MODEL_BYTES: "18498575840"
+  MODEL_MIN_BYTES: "18400000000"
+  # Unique shared-dir name (avoid colliding with other mmproj-BF16.gguf)
+  MMPROJ_REMOTE: "mmproj-BF16.gguf"
+  MMPROJ_FILE: "mmproj-Fable711-BF16.gguf"
+  MMPROJ_BYTES: "931146304"
+  MMPROJ_MIN_BYTES: "900000000"
+  MODEL_ALIAS: "qwen3.6-27b-fable-fusion-711"
+  THREADS: "16"
+  SPEC_DRAFT_N_MAX: "3"
+  # turbo3 KV (~3-bit) frees VRAM vs q8_0/turbo4 — 128K default; raise toward 192K–256K via LLM_CONTEXT_WINDOW
+  CONTEXT_SIZE: "131072"
+  CHAT_TEMPLATE_URL: "https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja"
+  CHAT_TEMPLATE_FILE: "chat_template.jinja"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen36fable27bone
+  name: llamacppqwen36fable27bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppqwen36fable27bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppqwen36fable27bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppqwen36fable27bone
+    spec:
+      initContainers:
+        - name: fix-shared-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command: ["sh", "-c", "mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo perms-fixed"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-mtp-server
+          image: "docker.io/aamsellem/buun-llama-cpp:87c351d2"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              log() { echo "$(date -Iseconds) [fable711] $*" >&2; }
+              MODELS_DIR=${MODELS_DIR:-/models}
+              SHARED_DIR=${SHARED_DIR:-/shared-models/llms}
+              mkdir -p "$MODELS_DIR" "$SHARED_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              bytes_of() { wc -c < "$1" 2>/dev/null | tr -d ' \n' || echo 0; }
+              file_ok() {
+                local f min_bytes exact_bytes size
+                f="$1"; min_bytes="$2"; exact_bytes="${3:-}"
+                [ -f "$f" ] || return 1
+                size=$(bytes_of "$f")
+                if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                  [ "$size" -eq "$exact_bytes" ] && return 0
+                  return 1
+                fi
+                if [ -n "$min_bytes" ] && [ "$size" -lt "$min_bytes" ]; then
+                  return 1
+                fi
+                return 0
+              }
+              promote_part() {
+                local part dest label
+                part="$1"; dest="$2"; label="$3"
+                if [ ! -f "$part" ]; then
+                  log "ERROR: promote missing part=$part"
+                  exit 1
+                fi
+                if [ "$part" = "$dest" ] || { [ -e "$dest" ] && [ "$part" -ef "$dest" ]; }; then
+                  log "$label already at final path: $dest size=$(bytes_of "$dest")"
+                  return 0
+                fi
+                mv -f "$part" "$dest"
+                log "$label promoted: $(ls -lh "$dest" | awk '{print $5}') size=$(bytes_of "$dest")"
+              }
+              resolve_part() {
+                local dest cand
+                dest="$1"
+                PART_FILE="${dest}.part"
+                for cand in "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" "${dest}.tmp.tmp.tmp"; do
+                  if [ -f "$cand" ]; then
+                    if [ "$cand" != "$PART_FILE" ]; then
+                      log "migrating incomplete $(basename "$cand") → $(basename "$PART_FILE") size=$(bytes_of "$cand")"
+                      mv -f "$cand" "$PART_FILE"
+                    fi
+                    return 0
+                  fi
+                done
+                return 0
+              }
+              download() {
+                local url dest label min_bytes exact_bytes part have curl_rc prog_pid last size delta rate
+                url="$1"; dest="$2"; label="$3"; min_bytes="$4"; exact_bytes="${5:-}"
+                if type link_from_comfy_llms >/dev/null 2>&1; then
+                  if link_from_comfy_llms "$dest"; then
+                    if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                      log "$label OK via ComfyUI Common — skip download"
+                      return 0
+                    fi
+                    rm -f "$dest"
+                  fi
+                fi
+                if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                  log "$label OK: $dest ($(ls -lh "$dest" | awk '{print $5}'))"
+                  rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" "${dest}.tmp.tmp.tmp"
+                  return 0
+                fi
+                if [ -f "$dest" ]; then
+                  log "REJECT truncated $label size=$(bytes_of "$dest") — removing final"
+                  rm -f "$dest"
+                fi
+                resolve_part "$dest"
+                part="$PART_FILE"
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  log "$label part complete size=$(bytes_of "$part") — promoting (skip download)"
+                  promote_part "$part" "$dest" "$label"
+                  return 0
+                fi
+                HF_HDR=()
+                if [ -n "${HF_TOKEN:-}" ]; then HF_HDR=(-H "Authorization: Bearer $HF_TOKEN"); fi
+                if [ -f "$part" ]; then
+                  have=$(bytes_of "$part")
+                  log "Resuming $label from $have bytes (exact=${exact_bytes:-none})"
+                  if [ -n "$exact_bytes" ] && [ "$have" -eq "$exact_bytes" ]; then
+                    promote_part "$part" "$dest" "$label"
+                    return 0
+                  fi
+                else
+                  log "Downloading $label from $url ..."
+                fi
+                (
+                  last=0
+                  while true; do
+                    sleep 15
+                    [ -f "$part" ] || continue
+                    size=$(bytes_of "$part")
+                    delta=$((size - last))
+                    rate=$((delta / 15))
+                    log "progress $label: size=$size (+${delta}B / ${rate}B/s)"
+                    last=$size
+                  done
+                ) &
+                prog_pid=$!
+                curl_rc=0
+                curl -fL -C - --retry 20 --retry-delay 15 --retry-all-errors --connect-timeout 30 \
+                  "${HF_HDR[@]}" "$url" -o "$part" || curl_rc=$?
+                kill "$prog_pid" 2>/dev/null || true
+                wait "$prog_pid" 2>/dev/null || true
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  if [ "$curl_rc" -ne 0 ]; then
+                    log "$label curl exit=$curl_rc but size OK — promoting"
+                  fi
+                  promote_part "$part" "$dest" "$label"
+                  return 0
+                fi
+                have=$(bytes_of "$part")
+                if [ -n "$exact_bytes" ] && [ "$have" -eq "$exact_bytes" ]; then
+                  log "$label size still exact after curl_rc=$curl_rc — promoting"
+                  promote_part "$part" "$dest" "$label"
+                  return 0
+                fi
+                if [ "$have" -lt 1000000 ] && [ -n "$exact_bytes" ]; then
+                  log "ERROR: $label looks like HF error page size=$have — remove corrupt part and retry next boot"
+                  rm -f "$part"
+                fi
+                log "ERROR: $label incomplete curl_rc=$curl_rc size=$have min=$min_bytes exact=${exact_bytes:-none}"
+                exit 1
+              }
+              if [ -f "$MODELS_DIR/$TARGET_FILE" ] && [ ! -f "$SHARED_DIR/$TARGET_FILE" ]; then
+                log "Migrating $TARGET_FILE per-app → shared"
+                mv "$MODELS_DIR/$TARGET_FILE" "$SHARED_DIR/$TARGET_FILE"
+              fi
+              if [ -f "$MODELS_DIR/$MMPROJ_FILE" ] && [ ! -f "$SHARED_DIR/$MMPROJ_FILE" ]; then
+                log "Migrating $MMPROJ_FILE per-app → shared"
+                mv "$MODELS_DIR/$MMPROJ_FILE" "$SHARED_DIR/$MMPROJ_FILE"
+              fi
+              download \
+                "https://huggingface.co/${TARGET_MODEL}/resolve/main/${TARGET_FILE}" \
+                "$SHARED_DIR/$TARGET_FILE" "model" \
+                "${MODEL_MIN_BYTES:-18400000000}" "${MODEL_BYTES:-18498575840}"
+              download \
+                "https://huggingface.co/${TARGET_MODEL}/resolve/main/${MMPROJ_REMOTE:-mmproj-BF16.gguf}" \
+                "$SHARED_DIR/$MMPROJ_FILE" "mmproj" \
+                "${MMPROJ_MIN_BYTES:-900000000}" "${MMPROJ_BYTES:-931146304}"
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              REASONING_ARGS=()
+              REASONING_MODE="$(echo "${LLM_REASONING:-on}" | tr '[:upper:]' '[:lower:]')"
+              case "$REASONING_MODE" in
+                off|0|false|no) REASONING_ARGS=(--reasoning off) ;;
+                auto) REASONING_ARGS=(--reasoning auto) ;;
+                *) REASONING_ARGS=(--reasoning on) ;;
+              esac
+              CTK_ARGS=()
+              if [ -n "${LLM_ENABLE_THINKING:-}" ] || [ -n "${LLM_PRESERVE_THINKING:-}" ]; then
+                json_bool() { case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in 1|true|yes|on) echo true ;; *) echo false ;; esac; }
+                kw="{"
+                [ -n "${LLM_ENABLE_THINKING:-}" ] && kw="${kw}\"enable_thinking\":$(json_bool "$LLM_ENABLE_THINKING"),"
+                [ -n "${LLM_PRESERVE_THINKING:-}" ] && kw="${kw}\"preserve_thinking\":$(json_bool "$LLM_PRESERVE_THINKING"),"
+                kw="${kw%,}}"
+                CTK_ARGS=(--chat-template-kwargs "$kw")
+              fi
+              CHAT_TEMPLATE="${MODELS_DIR}/${CHAT_TEMPLATE_FILE:-chat_template.jinja}"
+              TEMPLATE_SRC="$(echo "${LLM_CHAT_TEMPLATE_SOURCE:-froggeric}" | tr '[:upper:]' '[:lower:]')"
+              case "$TEMPLATE_SRC" in
+                froggeric|remote|hf)
+                  log "Fetching chat template (froggeric)"
+                  HF_HDR=()
+                  if [ -n "${HF_TOKEN:-}" ]; then HF_HDR=(-H "Authorization: Bearer $HF_TOKEN"); fi
+                  curl -fL --retry 10 --retry-delay 5 "${HF_HDR[@]}" \
+                    "${CHAT_TEMPLATE_URL:-https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja}" \
+                    -o "$CHAT_TEMPLATE"
+                  ;;
+                url|custom)
+                  if [ -z "${LLM_CHAT_TEMPLATE_URL:-}" ]; then log "LLM_CHAT_TEMPLATE_URL required when source=url"; exit 1; fi
+                  log "Fetching chat template from $LLM_CHAT_TEMPLATE_URL"
+                  curl -fL --retry 10 --retry-delay 5 -o "$CHAT_TEMPLATE" "$LLM_CHAT_TEMPLATE_URL"
+                  ;;
+                bundled|local|chart|*)
+                  if [ -f "/etc/llamacpp/chat-template/chat_template.jinja" ]; then
+                    cp "/etc/llamacpp/chat-template/chat_template.jinja" "$CHAT_TEMPLATE"
+                    log "Using bundled chart chat template"
+                  else
+                    log "Bundled template missing; falling back to froggeric"
+                    HF_HDR=()
+                    if [ -n "${HF_TOKEN:-}" ]; then HF_HDR=(-H "Authorization: Bearer $HF_TOKEN"); fi
+                    curl -fL --retry 10 --retry-delay 5 "${HF_HDR[@]}" \
+                      "${CHAT_TEMPLATE_URL:-https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja}" \
+                      -o "$CHAT_TEMPLATE"
+                  fi
+                  ;;
+              esac
+              DRAFT_N="${LLM_SPEC_DRAFT_N_MAX:-${SPEC_DRAFT_N_MAX:-3}}"
+              log "start llama-server MTP n_max=$DRAFT_N ctx=${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-131072}} kv=turbo3"
+              exec /app/llama-server \
+                --model "$SHARED_DIR/$TARGET_FILE" \
+                --mmproj "$SHARED_DIR/$MMPROJ_FILE" \
+                --mmproj-gpu-swap \
+                --alias "$MODEL_ALIAS" \
+                --host 0.0.0.0 --port 8000 \
+                --ctx-size "${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-131072}}" \
+                --n-gpu-layers 99 \
+                --threads "${THREADS:-16}" \
+                --cache-type-k turbo3 --cache-type-v turbo3 \
+                --batch-size 512 --ubatch-size 512 \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload --jinja --chat-template-file "$CHAT_TEMPLATE" \
+                --spec-type draft-mtp \
+                --spec-draft-n-max "$DRAFT_N" \
+                "${CTK_ARGS[@]}" \
+                "${REASONING_ARGS[@]}" \
+                "${EXTRA_LLM_ARGS[@]}"
+          envFrom:
+            - configMapRef:
+                name: llamacpp-qwen36fable27b-env
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HF_ENDPOINT
+              value: {{ .Values.olaresEnv.HF_ENDPOINT | default "" | quote }}
+            - name: MODELS_DIR
+              value: "/models"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "30000m"
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: LLM_REASONING
+              value: {{ .Values.olaresEnv.LLM_REASONING | default "" | quote }}
+            - name: LLM_CHAT_TEMPLATE_SOURCE
+              value: {{ .Values.olaresEnv.LLM_CHAT_TEMPLATE_SOURCE | default "" | quote }}
+            - name: LLM_CHAT_TEMPLATE_URL
+              value: {{ .Values.olaresEnv.LLM_CHAT_TEMPLATE_URL | default "" | quote }}
+            - name: LLM_ENABLE_THINKING
+              value: {{ .Values.olaresEnv.LLM_ENABLE_THINKING | default "" | quote }}
+            - name: LLM_PRESERVE_THINKING
+              value: {{ .Values.olaresEnv.LLM_PRESERVE_THINKING | default "" | quote }}
+            - name: LLM_SPEC_DRAFT_N_MAX
+              value: {{ .Values.olaresEnv.LLM_SPEC_DRAFT_N_MAX | default "" | quote }}
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 600
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 720
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen36fable27bone
+  name: llamacppqwen36fable27bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp-mtp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppqwen36fable27bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen36fable27bone
+  name: sharedentrances-llamacppqwen36fable27bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppqwen36fable27bone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppqwen36fable27bone

@@ -1,0 +1,10 @@
+metadata:
+  description: "SNDR Core Engine — DiffusionGemma 26B FP8 (experimental 1x)"
+  title: SNDR DiffusionGemma One
+spec:
+  fullDescription: |
+    SNDR Core Engine — DiffusionGemma 26B-A4B FP8-dynamic.
+    
+    Upstream validates TP=2 only. Olares One is 1× — experimental 8K.
+    Requires PN-FP8MOE-KPAD + sndr.apply before serve.
+    Upstream: https://github.com/Sandermage/sndr_core_engine

@@ -1,0 +1,21 @@
+workloads:
+  vllmqwen3827bnvfp4one:
+    replicaCount: 1
+  vllmqwen3827bnvfp4onecli:
+    replicaCount: 1
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+  LLM_CONTEXT_WINDOW: ""
+  LLM_MAX_OUTPUT_TOKENS: ""
+  LLM_API_KEY: ""
+  LLM_ENABLE_THINKING: ""
+  LLM_PRESERVE_THINKING: ""
+  LLM_REASONING_EFFORT: ""
+  LLM_VIDEO_FPS: ""

@@ -1,0 +1,99 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  openwebsearchone: 1
+  openwebsearchonecli: 1
+metadata:
+  name: openwebsearchone
+  icon: https://cdn.olares.com/images/2026/08/f124d5b144e4c562d537585e10335cea.png
+  description: Multi-engine web search MCP server for Olares One agents — no API keys
+  title: Open WebSearch One
+  version: 1.0.22
+  categories:
+    - Developer
+sharedEntrances:
+  - name: openwebsearchmcp
+    host: sharedentrances-openwebsearchone
+    port: 0
+    title: Open WebSearch MCP API
+    icon: https://cdn.olares.com/images/2026/08/f124d5b144e4c562d537585e10335cea.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: openwebsearchonecli
+    port: 8080
+    host: openwebsearchonecli
+    title: Open WebSearch MCP
+    icon: https://cdn.olares.com/images/2026/08/f124d5b144e4c562d537585e10335cea.png
+    openMethod: default
+    authLevel: internal
+spec:
+  versionName: 1.0.22
+  featuredImage: https://cdn.olares.com/images/2026/08/3e3014611114e0fa8e37e0b3d11c8204.png
+  fullDescription: |
+    [Open-WebSearch](https://github.com/Aas-ee/open-webSearch) MCP over HTTP.
+    MCP server listens on port 3000; Olares app entrance proxies port 8080 to the backend.
+    In-cluster MCP URL: http://openwebsearchone:3000/mcp
+    Shared entrance: openwebsearchmcp (routes to backend port 3000).
+    All entrances use authLevel internal (Olares session). MCP from other apps in the same
+    Olares space: use in-cluster URL or the internal app entrance URL with normal auth.
+    ENABLE_CORS=true, CORS_ORIGIN=* on the server when needed for sub-app MCP clients.
+    Tools: search, fetchWebContent, fetchGithubReadme, fetchCsdnArticle, fetchJuejinArticle.
+    Optional: USE_PROXY, PROXY_URL; PLAYWRIGHT_WS_ENDPOINT=ws://browserlessone:3000/ for Bing browser mode.
+  developer: coynntis
+  website: https://github.com/Aas-ee/open-webSearch
+  sourceCode: https://github.com/Aas-ee/open-webSearch
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: cpu
+      requiredCpu: '1'
+      limitedCpu: '3'
+      requiredMemory: 1Gi
+      limitedMemory: 5Gi
+      requiredDisk: 1Gi
+      limitedDisk: 8Gi
+  upgradeDescription: |
+    v1.0.22: trim CPU/memory requests for denser multi-app packing (tiny).
+    v1.0.21: wire GITHUB_TOKEN/GHCR_USER imagePullSecret from OLARES_USER_GITHUB_* for ghcr.io/aas-ee/open-web-search.
+    v1.0.18: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.17: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+  - envName: USE_PROXY
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_USE_PROXY
+  - envName: PROXY_URL
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_PROXY_URL
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

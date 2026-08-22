@@ -1,7 +1,18 @@
-admin: ""
+admin: ''
 bfl:
-  username: ""
+  username: ''
 userspace:
-  appData: ""
-  appCache: ""
-  userData: ""
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+workloads:
+  llamacppbonsai8bone:
+    replicaCount: 1
+  llamacppbonsai8bonecli:
+    replicaCount: 1

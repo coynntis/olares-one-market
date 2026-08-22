@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.20
+description: sglangminicpm51bone client proxy
+name: sglangminicpm51bone
+type: application
+version: 1.0.20

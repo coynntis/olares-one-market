@@ -1,1 +1,17 @@
-{}
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+workloads:
+  vllmgemma31bitnvfp4one:
+    replicaCount: 1
+  vllmgemma31bitnvfp4onecli:
+    replicaCount: 1

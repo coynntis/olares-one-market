@@ -1,0 +1,18 @@
+metadata:
+  description: "Gemma 4 26B-A4B vision + MTP via vLLM v0.21 — 250 t/s @ 128K + vision + tool calling on Olares One"
+  title: Gemma 4 26B Vision MTP One
+spec:
+  fullDescription: |
+    Google Gemma 4 26B-A4B (MoE, 3.8B active, native multimodal Gemma4ForConditionalGeneration) with **MTP speculative decoding** — served via vLLM v0.21, optimized for Olares One.
+
+    Champion-speed multimodal model: 250 t/s @ 128K context with native vision input AND tool calling. Single endpoint covers text generation, image Q&A, agentic tool flows.
+
+    Stack:
+    - vLLM v0.21.0 (official Gemma4 MTP support, PR #41745)
+    - Target: cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit (~17 GB AWQ + vision encoder bundled)
+    - Drafter: google/gemma-4-26B-A4B-it-assistant (official Google MTP head, 840 MB)
+    - --attention-backend triton_attn (required for vision head_dim heterogeneity)
+    - --kv-cache-dtype fp8, prefix caching, 128K context window
+    - OpenAI-compatible chat API with image_url + tool_call support on port 8000
+
+    Validated bench on Olares One 2026-05-23: 250.80 t/s AVG @ 128K (10 runs, range 246.53–254.39), 86.4% MTP draft acceptance, no cycle bug. Vision validated (64×64 PNG → "Red" correct). +85% throughput vs the previous no-spec v1.0.0 baseline (135.97 t/s).

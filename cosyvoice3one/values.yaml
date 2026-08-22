@@ -1,0 +1,14 @@
+workloads:
+  cosyvoice3one:
+    replicaCount: 1
+  cosyvoice3onecli:
+    replicaCount: 1
+image:
+  repository: ghcr.io/hsiang-han/cosyvoice3-api
+  tag: latest
+  pullPolicy: IfNotPresent
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

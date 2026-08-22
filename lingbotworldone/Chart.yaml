@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.8"
+description: World I2V NF4 + T5 CPU / layer offload (24GB)
+name: lingbotworldone
+type: application
+version: 1.0.8

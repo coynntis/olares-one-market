@@ -1,0 +1,11 @@
+metadata:
+  title: Qwopus 27B Coder One
+  description: "Qwopus3.6-27B-Coder Q5_K_M — agentic coding, buun llama.cpp, froggeric template, dense 128K"
+
+spec:
+  fullDescription: |
+    Qwopus3.6-27B-Coder Q5_K_M dense coding model served via buun-llama-cpp:87c351d2 on Olares One.
+    Target: Jackrong/Qwopus3.6-27B-Coder-GGUF Qwopus3.6-27B-Coder-Q5_K_M.gguf (~18 GB).
+    No MTP or speculative decoding — standard autoregressive inference.
+    Asymmetric KV: q8_0 keys + turbo4 values. 128K default context. Froggeric Qwen fixed chat template.
+    OpenAI-compatible API on port 8000 via nginx client proxy on port 8080.

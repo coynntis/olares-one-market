@@ -1,0 +1,134 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  ltx23one: 1
+  ltx23onecli: 1
+metadata:
+  name: ltx23one
+  # Placeholder motifvideo CDN URLs — replace with generate:icons later
+  icon: https://cdn.olares.com/images/2026/08/29da7d6b33e6ebfccce2678fd2e96567.png
+  description: LTX-2.3 distilled FP8 T2V/I2V for Olares One 24GB
+  title: LTX-2.3 One
+  version: 1.0.2
+  categories:
+    - AI
+sharedEntrances:
+  - name: ltx23one
+    host: sharedentrances-ltx23one
+    port: 0
+    title: LTX-2.3 API
+    icon: https://cdn.olares.com/images/2026/08/29da7d6b33e6ebfccce2678fd2e96567.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: ltx23onecli
+    port: 8080
+    host: ltx23onecli
+    title: LTX-2.3 One
+    icon: https://cdn.olares.com/images/2026/08/29da7d6b33e6ebfccce2678fd2e96567.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.2
+  featuredImage: https://cdn.olares.com/images/2026/08/a0e0dab1f8e432800c858ae897d0fb95.png
+  fullDescription: |
+    Gradio UI + REST API for Lightricks LTX-2.3 text-to-video and image-to-video
+    on Olares One (RTX 5090M 24GB GDDR7 + 96GB DDR5).
+
+    Honesty / VRAM:
+      - BF16 full checkpoint (~46GB on disk, ~28GB+ VRAM) does NOT fit 24GB.
+      - This chart ships the distilled FP8 path only:
+        Lightricks/LTX-2.3-fp8 → ltx-2.3-22b-distilled-fp8.safetensors
+        + spatial upscaler from Lightricks/LTX-2.3
+        + Gemma-3-12B QAT text encoder
+      - Runtime: official Lightricks LTX-2 DistilledPipeline (8-step, CFG=1).
+        Diffusers LTX-2.3 support is still "coming soon" — not used here.
+      - Default offload: LTX_OFFLOAD_MODE=cpu (set none only if VRAM allows).
+
+    Defaults for 24GB: ~768x512, 49 frames (8n+1), 24 fps, modest two-stage
+    output (stage-1 half-res then x2 upscale+refine).
+
+    LoRA: set LTX_LORA_IDS to a comma-separated list of Hugging Face LoRA
+    repo ids. Gradio dropdown hot-swaps one LoRA at a time (download to
+    /models/loras on demand).
+
+    SageAttention: LTX_ATTENTION_BACKEND=sage|sdpa|auto — optional import
+    try/catch only (LTX-2 has no first-class Sage hook yet); falls back to
+    stock SDPA/Flash if unavailable.
+
+    UI: /ui · REST: POST /api/v1/t2v · POST /api/v1/i2v · GET /health · /docs
+    Image: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel
+    First boot downloads ~40GB+ weights — leave ample disk (120Gi+).
+  developer: Lightricks
+  website: https://huggingface.co/Lightricks/LTX-2.3-fp8
+  sourceCode: https://github.com/Lightricks/LTX-2
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: LTX-2 Community License
+      url: https://github.com/Lightricks/LTX-2/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 120Gi
+      limitedDisk: 250Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.2: trim CPU/memory requests for denser multi-app packing (media).
+    v1.0.1: fix helm render — quote LTX_* env defaults without escaped backslashes.
+    v1.0.0: initial LTX-2.3 distilled FP8 T2V/I2V chart (Gradio + REST).
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: LTX_CHECKPOINT_REPO
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'Lightricks/LTX-2.3-fp8'
+  - envName: LTX_ATTENTION_BACKEND
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'auto'
+  - envName: LTX_OFFLOAD_MODE
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'cpu'
+  - envName: LTX_QUANTIZATION
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'fp8-cast'
+  - envName: LTX_LORA_IDS
+    required: false
+    editable: true
+    applyOnChange: true
+    value: ''
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

@@ -1,0 +1,15 @@
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+workloads:
+  llamacppornith9bone:
+    replicaCount: 1
+  llamacppornith9bonecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

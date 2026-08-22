@@ -1,0 +1,256 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-beellama-vision-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  TARGET_URL: "https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/Qwen3.6-27B-UD-Q3_K_XL.gguf"
+  TARGET_FILE: "Qwen3.6-27B-UD-Q3_K_XL.gguf"
+  DRAFT_URL: "https://huggingface.co/spiritbuun/Qwen3.6-27B-DFlash-GGUF/resolve/main/dflash-draft-3.6-q8_0.gguf"
+  DRAFT_FILE: "dflash-draft-3.6-q8_0.gguf"
+  MMPROJ_URL: "https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/mmproj-F16.gguf"
+  MMPROJ_FILE: "mmproj-Qwen3.6-27B-F16.gguf"
+  MODEL_ALIAS: "qwen3.6-27b-beellama-vision"
+  CTX_SIZE: "200000"
+  THREADS: "16"
+  CHAT_TEMPLATE_URL: "https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja"
+  CHAT_TEMPLATE_FILE: "chat_template.jinja"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen36beellamavision1
+  name: llamacppqwen36beellamavision1
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppqwen36beellamavision1.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppqwen36beellamavision1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppqwen36beellamavision1
+    spec:
+      containers:
+        - name: beellama-vision-server
+          image: "docker.io/aamsellem/beellama-cpp:0.1.3-rc1"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              MODELS_DIR=${MODELS_DIR:-/models}
+              SHARED_DIR=${SHARED_DIR:-/shared-models/llms}
+              mkdir -p "$MODELS_DIR" "$SHARED_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              HF_AUTH=""
+              if [ -n "$HF_TOKEN" ]; then HF_AUTH="-H \"Authorization: Bearer $HF_TOKEN\""; fi
+              # Migrate $TARGET_FILE from old per-app dir to shared if needed
+              if [ -s "$MODELS_DIR/$TARGET_FILE" ] && [ ! -f "$SHARED_DIR/$TARGET_FILE.ok" ]; then
+                echo "==> Migrating $TARGET_FILE from per-app → shared"
+                mv "$MODELS_DIR/$TARGET_FILE" "$SHARED_DIR/$TARGET_FILE"
+                touch "$SHARED_DIR/$TARGET_FILE.ok"
+              fi
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                if link_from_comfy_llms "$SHARED_DIR/$TARGET_FILE"; then
+                  if [ -s "$SHARED_DIR/$TARGET_FILE" ]; then
+                    echo "[comfy-reuse] $TARGET_FILE present — stamp .ok" >&2
+                    if [ -n "${REV:-}" ]; then
+                      echo "$REV" > "$SHARED_DIR/$TARGET_FILE.ok"
+                    else
+                      touch "$SHARED_DIR/$TARGET_FILE.ok"
+                    fi
+                  fi
+                fi
+              fi
+              if [ ! -f "$SHARED_DIR/$TARGET_FILE.ok" ]; then
+                echo "==> Downloading target $TARGET_FILE (~15 GB)"
+                eval curl -fL -C - --retry 20 --retry-delay 15 --retry-all-errors --connect-timeout 30 $HF_AUTH \
+                  "$TARGET_URL" -o "$SHARED_DIR/$TARGET_FILE"
+                touch "$SHARED_DIR/$TARGET_FILE.ok"
+              fi
+              # Migrate $DRAFT_FILE from old per-app dir to shared if needed
+              if [ -s "$MODELS_DIR/$DRAFT_FILE" ] && [ ! -f "$SHARED_DIR/$DRAFT_FILE.ok" ]; then
+                echo "==> Migrating $DRAFT_FILE from per-app → shared"
+                mv "$MODELS_DIR/$DRAFT_FILE" "$SHARED_DIR/$DRAFT_FILE"
+                touch "$SHARED_DIR/$DRAFT_FILE.ok"
+              fi
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                if link_from_comfy_llms "$SHARED_DIR/$DRAFT_FILE"; then
+                  if [ -s "$SHARED_DIR/$DRAFT_FILE" ]; then
+                    echo "[comfy-reuse] $DRAFT_FILE present — stamp .ok" >&2
+                    touch "$SHARED_DIR/$DRAFT_FILE.ok"
+                  fi
+                fi
+              fi
+              if [ ! -f "$SHARED_DIR/$DRAFT_FILE.ok" ]; then
+                echo "==> Downloading DFlash drafter $DRAFT_FILE (~2 GB)"
+                eval curl -fL -C - --retry 20 --retry-delay 15 --retry-all-errors --connect-timeout 30 $HF_AUTH \
+                  "$DRAFT_URL" -o "$SHARED_DIR/$DRAFT_FILE"
+                touch "$SHARED_DIR/$DRAFT_FILE.ok"
+              fi
+              # Migrate $MMPROJ_FILE from old per-app dir to shared if needed
+              if [ -s "$MODELS_DIR/$MMPROJ_FILE" ] && [ ! -f "$SHARED_DIR/$MMPROJ_FILE.ok" ]; then
+                echo "==> Migrating $MMPROJ_FILE from per-app → shared"
+                mv "$MODELS_DIR/$MMPROJ_FILE" "$SHARED_DIR/$MMPROJ_FILE"
+                touch "$SHARED_DIR/$MMPROJ_FILE.ok"
+              fi
+              if [ ! -f "$SHARED_DIR/$MMPROJ_FILE.ok" ]; then
+                echo "==> Downloading mmproj $MMPROJ_FILE (~1 GB)"
+                eval curl -fL -C - --retry 20 --retry-delay 15 --retry-all-errors --connect-timeout 30 $HF_AUTH \
+                  "$MMPROJ_URL" -o "$SHARED_DIR/$MMPROJ_FILE"
+                touch "$SHARED_DIR/$MMPROJ_FILE.ok"
+              fi
+              cd /app
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              CHAT_TEMPLATE="${MODELS_DIR:-/models}/${CHAT_TEMPLATE_FILE:-chat_template.jinja}"
+              echo "==> Fetching chat template"
+              eval curl -fL --retry 10 --retry-delay 5 $HF_AUTH \
+                "${CHAT_TEMPLATE_URL:-https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja}" -o "$CHAT_TEMPLATE"
+
+              exec ./llama-server \
+                --model "$SHARED_DIR/$TARGET_FILE" \
+                --spec-draft-model "$SHARED_DIR/$DRAFT_FILE" \
+                --mmproj "$SHARED_DIR/$MMPROJ_FILE" \
+                --spec-type dflash \
+                --spec-dflash-cross-ctx 1024 \
+                --alias "$MODEL_ALIAS" \
+                --host 0.0.0.0 --port 8000 \
+                -ngl 99 --spec-draft-ngl 99 \
+                --ctx-size "${LLM_CONTEXT_WINDOW:-${CTX_SIZE:-200000}}" \
+                --threads "${THREADS:-16}" \
+                --cache-type-k turbo3 --cache-type-v turbo3 \
+                --batch-size 2048 --ubatch-size 2048 \
+                --parallel 1 --kv-unified \
+                --flash-attn on --op-offload --jinja --chat-template-file "$CHAT_TEMPLATE" --no-mmap \
+                --temp 0.6 --top-k 20 --min-p 0.0 \
+                "${EXTRA_LLM_ARGS[@]}"
+          envFrom:
+            - configMapRef:
+                name: llamacpp-beellama-vision-env
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN | default "" }}"
+            - name: MODELS_DIR
+              value: "/models"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "30000m"
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 600
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 720
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen36beellamavision1
+  name: llamacppqwen36beellamavision1
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "beellama-vision"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppqwen36beellamavision1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen36beellamavision1
+  name: sharedentrances-llamacppqwen36beellamavision1
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppqwen36beellamavision1"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppqwen36beellamavision1

@@ -1,0 +1,116 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppornith35bone: 1
+  llamacppornith35bonecli: 1
+metadata:
+  name: llamacppornith35bone
+  icon: https://cdn.olares.com/images/2026/08/b1869182c2b57b22590d291f1034a00e.png
+  description: Ornith 1.0 35B Q4_K_M — dense reasoning via llama.cpp b8740
+  title: Ornith 35B One
+  version: 1.0.13
+  categories:
+    - AI
+sharedEntrances:
+  - name: llamacppornith35bone
+    host: sharedentrances-llamacppornith35bone
+    port: 0
+    title: Ornith 35B API
+    icon: https://cdn.olares.com/images/2026/08/b1869182c2b57b22590d291f1034a00e.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppornith35bonecli
+    port: 8080
+    host: llamacppornith35bonecli
+    title: Ornith 35B One
+    icon: https://cdn.olares.com/images/2026/08/b1869182c2b57b22590d291f1034a00e.png
+    openMethod: window
+    authLevel: internal
+spec:
+  onlyAdmin: true
+  versionName: 1.0.13
+  featuredImage: https://cdn.olares.com/images/2026/08/6f6fb714f4e637302b790db4633fcd45.png
+  upgradeDescription: |
+    v1.0.13: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.11: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+    v1.0.10: reject truncated Ornith GGUF (exact size 21166757760) and re-download instead of CrashLooping on corrupt cache.
+    v1.0.9: trim CPU/memory requests for denser multi-app packing (llm).
+    v1.0.7: KV cache to q8_0 (b8740 has no turbo3/turbo4 support).
+    v1.0.6: startupProbe to ≥2h (period 30s × failureThreshold 240) for model load.
+    v1.0.5: initContainers use beclab/aboveos-busybox (v3 rejects alpine+runAsUser 0).
+    v1.0.2: migrate OlaresManifest to apiVersion v3 for Olares OS 1.12.6+ (v2 shared apps blocked on upload).
+    Flatten server+client into single shared chart; workloadReplicas + spec.accelerator.
+    v1.0.1: turbo4/turbo4 KV cache (TurboQuant via buun) + default context 64K (was 32K q8_0).
+  fullDescription: |
+    Ornith 1.0 35B dense reasoning model served via llama.cpp on Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+
+    Model: deepreinforce-ai/Ornith-1.0-35B-GGUF → ornith-1.0-35b-Q4_K_M.gguf (~21.2 GB).
+    Image: docker.io/aamsellem/buun-llama-cpp:87c351d2.
+    Default context 64K (65536 tokens). turbo4/turbo4 KV cache (TurboQuant via buun), batch/ubatch 512.
+    Downloads model on first launch and caches under /olares/share/ai/model.
+    OpenAI-compatible API on port 8080 via client proxy.
+    Optional LLM_CONTEXT_WINDOW, LLM_MAX_OUTPUT_TOKENS, LLM_API_KEY in app settings.
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 25Gi
+      limitedDisk: 30Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  supportArch:
+    - amd64
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  LLMGatewaySupported: true
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

@@ -1,0 +1,9 @@
+metadata:
+  description: "SNDR Core Engine — Gemma 4 26B-A4B AWQ (1x adapt)"
+  title: SNDR Gemma4 26B One
+spec:
+  fullDescription: |
+    SNDR Core Engine — Gemma 4 26B-A4B AWQ (family default = MTP off).
+    
+    Upstream prod uses TP=2; this chart TP=1 / 32K for Olares One.
+    Upstream: https://github.com/Sandermage/sndr_core_engine

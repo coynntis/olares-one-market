@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.31"
+description: SenseNova-U1 official examples stack (t2i, VQA, editing, interleave) on Olares One
+name: sensenovau1serveone
+type: application
+version: 1.0.31

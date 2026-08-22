@@ -1,0 +1,282 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dflash-qwen36-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_REPO: "unsloth/Qwen3.6-27B-GGUF"
+  MODEL_FILE: "Qwen3.6-27B-Q4_K_M.gguf"
+  DRAFT_REPO: "z-lab/Qwen3.6-27B-DFlash"
+  DRAFT_FILE: "model.safetensors"
+  LUCE_REPO_URL: "https://github.com/Luce-Org/lucebox-hub"
+  CUDA_ARCH: "120"
+  DDTREE_BUDGET: "22"
+  MAX_CTX: "32768"
+  BUILD_JOBS: "8"
+  SERVER_PORT: "8080"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: dflashqwen3627bone
+  name: dflashqwen3627bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+
+spec:
+  replicas: {{ .Values.workloads.dflashqwen3627bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: dflashqwen3627bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: dflashqwen3627bone
+    spec:
+      initContainers:
+        - name: model-downloader
+          image: "docker.io/library/debian:bookworm-slim"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eu
+              apt-get update
+              apt-get install -y --no-install-recommends ca-certificates curl coreutils
+              rm -rf /var/lib/apt/lists/*
+
+              mkdir -p /models/draft
+
+              download_hf_file() {
+                repo="$1"
+                file="$2"
+                dest="$3"
+                min_size="$4"
+
+                if [ -f "$dest" ] && [ "$(stat -c%s "$dest")" -gt "$min_size" ]; then
+                  echo "Already present: $dest ($(numfmt --to=iec --suffix=B "$(stat -c%s "$dest")"))"
+                  return 0
+                fi
+
+                url="https://huggingface.co/${repo}/resolve/main/${file}"
+                tmp="${dest}.part"
+                echo "Start download: ${repo}/${file}"
+                echo "URL: $url"
+
+                auth_header=""
+                if [ -n "${HF_TOKEN:-}" ]; then
+                  auth_header="Authorization: Bearer ${HF_TOKEN}"
+                  echo "HF token detected. Using authenticated download."
+                else
+                  echo "HF token missing. Download may be slower or fail for gated repos."
+                fi
+
+                (
+                  while true; do
+                    if [ -f "$tmp" ]; then
+                      size="$(stat -c%s "$tmp" || echo 0)"
+                      echo "Downloading ${file}: $(numfmt --to=iec --suffix=B "$size")"
+                    fi
+                    sleep 10
+                  done
+                ) &
+                progress_pid="$!"
+
+                if [ -n "$auth_header" ]; then
+                  curl --fail --location --progress-bar --continue-at - \
+                    -H "$auth_header" \
+                    --output "$tmp" \
+                    "$url"
+                else
+                  curl --fail --location --progress-bar --continue-at - \
+                    --output "$tmp" \
+                    "$url"
+                fi
+
+                kill "$progress_pid" 2>/dev/null || true
+                wait "$progress_pid" 2>/dev/null || true
+
+                mv "$tmp" "$dest"
+                echo "Download done: $dest ($(numfmt --to=iec --suffix=B "$(stat -c%s "$dest")"))"
+              }
+
+              download_hf_file "$MODEL_REPO" "$MODEL_FILE" "/models/$MODEL_FILE" 1000000000
+              download_hf_file "$DRAFT_REPO" "$DRAFT_FILE" "/models/draft/$DRAFT_FILE" 100000000
+              echo "All downloads finished."
+          envFrom:
+            - configMapRef:
+                name: dflash-qwen36-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+      containers:
+        - name: dflash-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "sh"
+            - "-c"
+            - |
+              set -eux
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                git ca-certificates cmake ninja-build build-essential \
+                python3 python3-venv python3-pip \
+                curl pkg-config zlib1g-dev
+              rm -rf /var/lib/apt/lists/*
+
+              # HostPath workspace often not owned by container UID → git refuses: "dubious ownership"
+              export HOME=/workspace
+              mkdir -p "$HOME"
+              git config --global --replace-all safe.directory '*'
+
+              export HF_HOME="/workspace/hf_cache"
+              mkdir -p "$HF_HOME"
+
+              if [ ! -x /workspace/venv/bin/python ]; then
+                python3 -m venv /workspace/venv
+                /workspace/venv/bin/pip install -U pip wheel
+                /workspace/venv/bin/pip install --no-cache-dir \
+                  fastapi "uvicorn[standard]" transformers pydantic gguf huggingface_hub jinja2
+              fi
+
+              LUCE_DIR="/workspace/lucebox-hub"
+              REPO_URL="${LUCE_REPO_URL}"
+
+              if [ -d "$LUCE_DIR/.git" ]; then
+                echo "Updating lucebox-hub"
+                git -C "$LUCE_DIR" fetch --tags --prune origin || true
+                git -C "$LUCE_DIR" pull --ff-only || true
+                git -C "$LUCE_DIR" submodule update --init --recursive
+              else
+                echo "Cloning lucebox-hub (submodules)"
+                git clone --recurse-submodules "$REPO_URL" "$LUCE_DIR"
+              fi
+
+              cd "$LUCE_DIR/dflash"
+              cmake -B build -S . \
+                -DCMAKE_BUILD_TYPE=Release \
+                -GNinja \
+                "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH}"
+              ninja -C build -j"${BUILD_JOBS}" test_dflash
+
+              exec /workspace/venv/bin/python scripts/server.py \
+                --host 0.0.0.0 \
+                --port "${SERVER_PORT}" \
+                --bin build/test_dflash \
+                --target "/models/${MODEL_FILE}" \
+                --draft "/models/draft" \
+                --budget "${DDTREE_BUDGET}" \
+                --max-ctx "${LLM_CONTEXT_WINDOW:-$MAX_CTX}" \
+                --daemon
+          envFrom:
+            - configMapRef:
+                name: dflash-qwen36-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          ports:
+            - containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /v1/models
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 15
+            periodSeconds: 20
+            failureThreshold: 360
+          livenessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 60
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/dflashqwen3627bone-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: dflashqwen3627bone
+  name: dflashqwen3627bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "dflash"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: dflashqwen3627bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: dflashqwen3627bone
+  name: sharedentrances-dflashqwen3627bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "dflashqwen3627bone"
+      port: 80
+      targetPort: 8080
+  selector:
+    io.kompose.service: dflashqwen3627bone

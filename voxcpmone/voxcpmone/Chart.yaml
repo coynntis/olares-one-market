@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.10
+description: voxcpmone client proxy
+name: voxcpmone
+type: application
+version: 1.0.10

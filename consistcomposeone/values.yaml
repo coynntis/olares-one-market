@@ -1,0 +1,24 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+image:
+  repository: pytorch/pytorch
+  tag: 2.12.0-cuda13.0-cudnn9-devel
+attention:
+  # sdpa default (sm_120). auto|flash soft-fails via patched navit — do not pin flash_attn==2.5.8
+  backend: sdpa
+  installFlashAttn: false
+model:
+  precision: nf4
+workloads:
+  consistcomposeone:
+    replicaCount: 1
+  consistcomposeonecli:
+    replicaCount: 1

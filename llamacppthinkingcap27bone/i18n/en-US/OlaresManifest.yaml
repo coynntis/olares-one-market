@@ -1,0 +1,12 @@
+metadata:
+  title: ThinkingCap Qwen36 27B One
+  description: ThinkingCap Qwen3.6 27B vision — hybrid MoE via llama.cpp b8740 on Olares One
+
+spec:
+  fullDescription: |
+    ThinkingCap Qwen3.6 27B vision-language model served via llama.cpp — optimized for Olares One.
+    Multimodal: accepts images via OpenAI-compatible vision API (image_url format).
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Q4_K_M quantization (16.8GB) + f16 mmproj. Qwen3.6 hybrid with --swa-full and turbo4/turbo4 KV cache.
+    Downloads model + mmproj on first launch (~18GB). 64K default context.
+    OpenAI-compatible API on port 8080.

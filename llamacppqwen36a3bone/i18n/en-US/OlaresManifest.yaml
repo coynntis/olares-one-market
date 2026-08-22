@@ -1,0 +1,19 @@
+metadata:
+  title: Qwen36 35B-A3B MTP Vision One
+  description: "Qwen3.6 35B-A3B MTP + Vision — GGUF Q3_K_XL, turbo4 KV, MTP n=5, 192K on Olares One"
+
+spec:
+  fullDescription: |
+    Qwen3.6 35B-A3B (MoE, 3B active) with MTP speculative decoding + native vision via mmproj-gpu-swap — optimized for Olares One.
+
+    Stack (max speed on 1×24GB — not vLLM FP8/NVFP4):
+    - unsloth/Qwen3.6-35B-A3B-MTP-GGUF UD-Q3_K_XL (17.2 GB) + mmproj-BF16 (~900 MB)
+    - buun-llama-cpp:87c351d2 with --spec-type draft-mtp --spec-draft-n-max 5 and --mmproj-gpu-swap
+    - Asymmetric KV: q8_0 keys + turbo4 values
+    - 192K default context, froggeric Qwen fixed chat template, --reasoning off
+    - Override MTP depth via LLM_SPEC_DRAFT_N_MAX (Unsloth default is 2; chart default 5)
+
+    Why Q3 not Q4/NVFP4: UD-Q4_K_XL (~22.8GB) OOMs with large KV+MTP on 24GB; NVFP4-Fast targets 32GB.
+
+    Single endpoint covers text generation at ~243 t/s, image input via OpenAI-compatible image_url, and tool calling.
+    OpenAI-compatible API on port 8000 via nginx client proxy on port 8080.

@@ -1,0 +1,31 @@
+# App deps only — NEVER pin torch/torchvision (image owns them).
+gradio>=4.44.0,<6
+fastapi>=0.115.2,<1.0
+uvicorn[standard]>=0.30.0,<1.0
+pydantic>=2.10,<2.12
+huggingface_hub>=0.26.0
+hf_transfer>=0.1.8
+accelerate>=0.33.0
+transformers>=4.44.0
+safetensors>=0.4.5
+pillow>=10.0.0
+numpy>=1.24.0,<2.0.0
+tqdm>=4.66.0
+# upstream lingbot-vla-v2 inference subset (skip train-only wandb/tensorboard/ipdb)
+einops>=0.7.0
+omegaconf>=2.3.0
+opencv-python-headless>=4.8.0
+scipy>=1.10.0
+pyyaml>=6.0
+tokenizers>=0.20.0
+sentencepiece>=0.2.0
+peft>=0.15.0
+qwen-vl-utils>=0.0.11
+av>=12.0.0
+imageio>=2.34.0
+msgpack>=1.0.0
+websockets>=12.0
+packaging>=24.0
+protobuf>=3.20.0,<4
+pandas>=2.0.0
+pyarrow>=14.0.0

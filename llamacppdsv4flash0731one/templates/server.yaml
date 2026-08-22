@@ -1,0 +1,793 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-dsv4flash0731-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_ALIAS: "deepseek-v4-flash-0731"
+  CONTEXT_SIZE: "131072"
+  N_GPU_LAYERS_DEFAULT: "99"
+  THREADS: "22"
+  BUILD_JOBS: "4"
+  CUDA_ARCH: "120a"
+  LLAMA_CPP_REPO: "https://github.com/ggml-org/llama.cpp"
+  LLAMA_CPP_REF: "27df9199d16c393868d20b3ed28b4f72e30de6bd"
+  CHART_BOOT: "1.0.5"
+  UI_HF_REF: "latest"
+  UI_HF_BUCKET: "ggml-org/llama-ui"
+  TEMP: "1.0"
+  TOP_P: "0.95"
+  TOP_K: "0"
+  MIN_P: "0"
+  BATCH_SIZE: "2048"
+  UBATCH_SIZE: "1024"
+
+  # Default IQ2_XXS — ~90.9 GB fits 96GB RAM with cpu-moe; IQ3_XXS ~104 GB may thrash
+  QUANT_IQ2_XXS_FILE: "DeepSeek-V4-Flash-0731-UD-IQ2_XXS-00001-of-00003.gguf"
+  QUANT_IQ2_XXS_BASE: "https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF/resolve/main/UD-IQ2_XXS"
+  QUANT_IQ2_XXS_BYTES_1: "5257664"
+  QUANT_IQ2_XXS_BYTES_2: "49890588800"
+  QUANT_IQ2_XXS_BYTES_3: "40964890464"
+  QUANT_IQ3_XXS_FILE: "DeepSeek-V4-Flash-0731-UD-IQ3_XXS-00001-of-00004.gguf"
+  QUANT_IQ3_XXS_BASE: "https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF/resolve/main/UD-IQ3_XXS"
+  QUANT_IQ3_XXS_BYTES_1: "5257696"
+  QUANT_IQ3_XXS_BYTES_2: "49910532416"
+  QUANT_IQ3_XXS_BYTES_3: "49257859456"
+  QUANT_IQ3_XXS_BYTES_4: "5034198464"
+  DRAFT_FILE: "dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf"
+  DRAFT_URL: "https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF/resolve/main/dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf"
+  DRAFT_BYTES: "10896057440"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppdsv4flash0731one
+  name: llamacppdsv4flash0731one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppdsv4flash0731one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppdsv4flash0731one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppdsv4flash0731one
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eu
+              log() { echo "$(date -Iseconds) [dsv4flash:init] $*" >&2; }
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+
+              BOOT_COUNT_FILE="$SHARED_DIR/.dsv4flash0731-init-boot-count"
+              BOOT_LOG_FILE="$SHARED_DIR/.dsv4flash0731-init-boot.log"
+              BOOT_N=1
+              if [ -f "$BOOT_COUNT_FILE" ]; then
+                BOOT_N="$(cat "$BOOT_COUNT_FILE" 2>/dev/null | tr -d ' \n' || echo 1)"
+                BOOT_N=$((BOOT_N + 1))
+              fi
+              echo "$BOOT_N" > "$BOOT_COUNT_FILE"
+              RUN_ID="init-boot${BOOT_N}-$(date +%Y%m%d%H%M%S)"
+              log "======== RUN START id=$RUN_ID attempt=$BOOT_N ========"
+              log "why: model-downloader init started (pod create/restart/recreate OR previous init failed)"
+              log "hostname=$(hostname 2>/dev/null || echo unknown) pwd=$(pwd)"
+              log "SHARED_DIR=$SHARED_DIR listing (top):"
+              ls -la "$SHARED_DIR" 2>/dev/null | head -40 | while IFS= read -r line; do log "  $line"; done || log "  (empty or unreadable)"
+              echo "$(date -Iseconds) START $RUN_ID attempt=$BOOT_N" >> "$BOOT_LOG_FILE"
+              trap 'ec=$?; log "======== RUN END id=$RUN_ID exit=$ec ========"; echo "$(date -Iseconds) END $RUN_ID exit=$ec" >> "$BOOT_LOG_FILE"; exit $ec' EXIT
+
+              # busybox wget: -T network timeout (sec); outer retries + stall kill
+              WGET_TIMEOUT="${WGET_TIMEOUT:-60}"
+              WGET_MAX_ATTEMPTS="${WGET_MAX_ATTEMPTS:-12}"
+              # N × 30s of +0B progress → kill wget and retry (default 2 min)
+              WGET_STALL_LIMIT="${WGET_STALL_LIMIT:-4}"
+              log "wget knobs: timeout=${WGET_TIMEOUT}s max_attempts=${WGET_MAX_ATTEMPTS} stall_limit=${WGET_STALL_LIMIT}x30s"
+
+              if [ -n "${HF_TOKEN:-}" ]; then
+                log "HF_TOKEN set=yes len=${#HF_TOKEN}"
+              else
+                log "HF_TOKEN set=no (public repo OK; rate-limit / CDN stalls more likely)"
+              fi
+              if [ -n "${HF_ENDPOINT:-}" ]; then
+                _ep="${HF_ENDPOINT%/}"
+                _host="$(printf '%s' "$_ep" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/.*||')"
+                case "$_host" in
+                  huggingface.co|www.huggingface.co)
+                    log "HF_ENDPOINT=${HF_ENDPOINT} (= huggingface.co, no rewrite)"
+                    ;;
+                  *)
+                    log "HF_ENDPOINT=${HF_ENDPOINT} (rewrite huggingface.co → mirror)"
+                    ;;
+                esac
+              else
+                log "HF_ENDPOINT unset — downloading from huggingface.co"
+              fi
+
+              # Rewrite https://huggingface.co → HF_ENDPOINT (e.g. https://hf-mirror.com)
+              # Skip if unset or already huggingface.co (trailing slash OK)
+              hf_url() {
+                local url="$1" ep host
+                ep="${HF_ENDPOINT:-}"
+                ep="${ep%/}"
+                if [ -z "$ep" ]; then
+                  printf '%s\n' "$url"
+                  return 0
+                fi
+                case "$ep" in
+                  http://*|https://*) ;;
+                  *) ep="https://${ep}" ;;
+                esac
+                host="$(printf '%s' "$ep" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/.*||')"
+                case "$host" in
+                  huggingface.co|www.huggingface.co)
+                    printf '%s\n' "$url"
+                    return 0
+                    ;;
+                esac
+                printf '%s\n' "$url" | sed \
+                  -e "s|https://huggingface.co|${ep}|g" \
+                  -e "s|http://huggingface.co|${ep}|g"
+              }
+
+              bytes_of() { stat -c%s "$1" 2>/dev/null || ls -ln "$1" | awk '{print $5}'; }
+
+              # busybox `[ -eq ]` / $(( )) can mis-handle >2GB sizes — compare via awk
+              size_eq() { awk -v a="$1" -v b="$2" 'BEGIN{exit !(a==b)}'; }
+              size_ge() { awk -v a="$1" -v b="$2" 'BEGIN{exit !(a+0>=b+0)}'; }
+              size_lt() { awk -v a="$1" -v b="$2" 'BEGIN{exit !(a+0<b+0)}'; }
+              pct995() { awk -v e="$1" 'BEGIN{printf "%.0f", e*995/1000}'; }
+
+              file_ok() {
+                local f min_bytes exact_bytes size stamp
+                f="$1"; min_bytes="$2"; exact_bytes="${3:-}"
+                [ -f "$f" ] || return 1
+                stamp="${f}.ok"
+                size=$(bytes_of "$f")
+                [ -n "$size" ] || return 1
+
+                if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                  if size_eq "$size" "$exact_bytes"; then
+                    echo "$exact_bytes" > "$stamp"
+                    return 0
+                  fi
+                  # tolerate tiny catalog drift: accept >= 99.5% of expected
+                  if size_ge "$size" "$min_bytes"; then
+                    log "ACCEPT $(basename "$f") size=$size (expected $exact_bytes, min $min_bytes)"
+                    echo "$size" > "$stamp"
+                    return 0
+                  fi
+                  if [ -f "$stamp" ]; then
+                    log "stale .ok for $(basename "$f") stamp=$(cat "$stamp" 2>/dev/null | tr -d ' \n') actual=$size"
+                    rm -f "$stamp"
+                  fi
+                  return 1
+                fi
+                size_ge "$size" "$min_bytes"
+              }
+
+              resolve_part() {
+                local dest cand
+                dest="$1"
+                PART_FILE="${dest}.part"
+                for cand in "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp"; do
+                  if [ -f "$cand" ]; then
+                    if [ "$cand" != "$PART_FILE" ]; then
+                      log "migrating incomplete $(basename "$cand") → $(basename "$PART_FILE") size=$(bytes_of "$cand")"
+                      mv -f "$cand" "$PART_FILE"
+                    fi
+                    return 0
+                  fi
+                done
+                return 1
+              }
+
+              promote_part() {
+                local dest label part
+                dest="$1"; label="$2"; part="$3"
+                mv -f "$part" "$dest"
+                log "$label promoted ($(bytes_of "$dest") bytes)"
+              }
+
+              download_one() {
+                local name url min_bytes exact_bytes dest part wget_rc last size delta prog_pid wget_pid
+                local attempt url_eff stalls
+                name="$1"; url="$2"; min_bytes="$3"; exact_bytes="${4:-0}"
+                dest="$SHARED_DIR/$name"
+                if type link_from_comfy_llms >/dev/null 2>&1; then
+                  if link_from_comfy_llms "$dest"; then
+                    if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                      log "ok $name via ComfyUI Common — skip download"
+                      rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" 2>/dev/null || true
+                      return 0
+                    fi
+                    rm -f "$dest"
+                  fi
+                fi
+                url_eff="$(hf_url "$url")"
+
+                if [ -f "$MODELS_DIR/$name" ] && [ ! -f "$dest" ]; then
+                  log "migrate $name from per-app cache"
+                  mv "$MODELS_DIR/$name" "$dest"
+                fi
+
+                # Final already good → drop any .part and skip wget
+                if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                  log "ok $name ($(bytes_of "$dest") bytes) — skip download"
+                  rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp"
+                  return 0
+                fi
+
+                # Only delete final if truly truncated (< 99.5%); never nuke near-complete
+                if [ -f "$dest" ]; then
+                  size=$(bytes_of "$dest")
+                  if size_lt "$size" "$min_bytes"; then
+                    log "REJECT truncated $name size=$size < min=$min_bytes — removing final"
+                    rm -f "$dest" "${dest}.ok"
+                  else
+                    log "KEEP $name size=$size (vs exact=$exact_bytes) — not deleting; drop stale .part"
+                    rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp"
+                    return 0
+                  fi
+                fi
+
+                PART_FILE="${dest}.part"
+                resolve_part "$dest" || true
+                part="$PART_FILE"
+
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  log "$name .part complete — promoting (skip wget)"
+                  promote_part "$dest" "$name" "$part"
+                  echo "${exact_bytes:-$(bytes_of "$dest")}" > "${dest}.ok"
+                  return 0
+                fi
+
+                attempt=1
+                while [ "$attempt" -le "$WGET_MAX_ATTEMPTS" ]; do
+                  if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                    break
+                  fi
+                  if [ -f "$part" ]; then
+                    log "attempt ${attempt}/${WGET_MAX_ATTEMPTS} resume $name from $(bytes_of "$part") bytes → $url_eff"
+                  else
+                    log "attempt ${attempt}/${WGET_MAX_ATTEMPTS} download $name → $url_eff"
+                  fi
+
+                  wget_rc=0
+                  if [ -n "${HF_TOKEN:-}" ]; then
+                    wget -c -T "$WGET_TIMEOUT" \
+                      --header="Authorization: Bearer $HF_TOKEN" \
+                      -O "$part" "$url_eff" &
+                  else
+                    wget -c -T "$WGET_TIMEOUT" -O "$part" "$url_eff" &
+                  fi
+                  wget_pid=$!
+
+                  (
+                    last=0
+                    stalls=0
+                    while kill -0 "$wget_pid" 2>/dev/null; do
+                      sleep 30
+                      kill -0 "$wget_pid" 2>/dev/null || break
+                      [ -f "$part" ] || continue
+                      size=$(bytes_of "$part")
+                      delta=$(awk -v a="$size" -v b="$last" 'BEGIN{print a-b}')
+                      log "progress $name: size=$size (+${delta}B / 30s) stalls=${stalls}/${WGET_STALL_LIMIT}"
+                      if [ "$delta" = "0" ]; then
+                        stalls=$((stalls + 1))
+                        if [ "$stalls" -ge "$WGET_STALL_LIMIT" ]; then
+                          log "STALL $name — no progress ${WGET_STALL_LIMIT}×30s, killing wget pid=$wget_pid"
+                          kill "$wget_pid" 2>/dev/null || true
+                          break
+                        fi
+                      else
+                        stalls=0
+                      fi
+                      last=$size
+                    done
+                  ) &
+                  prog_pid=$!
+
+                  wait "$wget_pid" || wget_rc=$?
+                  kill "$prog_pid" 2>/dev/null || true
+                  wait "$prog_pid" 2>/dev/null || true
+
+                  if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                    if [ "$wget_rc" -ne 0 ]; then
+                      log "$name wget exit=$wget_rc but .part OK — promoting"
+                    fi
+                    promote_part "$dest" "$name" "$part"
+                    echo "${exact_bytes:-$(bytes_of "$dest")}" > "${dest}.ok"
+                    return 0
+                  fi
+
+                  size=$(bytes_of "$part" 2>/dev/null || echo 0)
+                  log "incomplete $name attempt=$attempt wget_rc=$wget_rc size=$size — retry in 5s"
+                  attempt=$((attempt + 1))
+                  sleep 5
+                done
+
+                size=$(bytes_of "$part" 2>/dev/null || echo 0)
+                log "ERROR incomplete $name after ${WGET_MAX_ATTEMPTS} attempts size=$size min=$min_bytes exact=$exact_bytes"
+                exit 1
+              }
+
+              Q="$(echo "${DSV4_QUANT:-iq2_xxs}" | tr '[:upper:]' '[:lower:]' | tr -d ' _')"
+              case "$Q" in
+                ""|iq2|iq2xxs|iq2_xxs|udiq2xxs) KEY=IQ2_XXS ;;
+                iq3|iq3xxs|iq3_xxs|udiq3xxs) KEY=IQ3_XXS ;;
+                *)
+                  log "WARN unknown DSV4_QUANT='$DSV4_QUANT' — fallback iq2_xxs"
+                  KEY=IQ2_XXS
+                  ;;
+              esac
+
+              if [ "$KEY" = "IQ2_XXS" ]; then
+                BASE="${QUANT_IQ2_XXS_BASE}"
+                MODEL_FILE="${QUANT_IQ2_XXS_FILE}"
+                log "quant=IQ2_XXS Unsloth 3-shard → $MODEL_FILE (~90.9 GB)"
+                i=1
+                for idx in 00001 00002 00003; do
+                  fname="DeepSeek-V4-Flash-0731-UD-IQ2_XXS-${idx}-of-00003.gguf"
+                  eval "ebytes=\${QUANT_IQ2_XXS_BYTES_${i}}"
+                  mbytes="$(pct995 "$ebytes")"
+                  download_one "$fname" "${BASE}/${fname}" "$mbytes" "$ebytes"
+                  i=$((i + 1))
+                done
+              else
+                BASE="${QUANT_IQ3_XXS_BASE}"
+                MODEL_FILE="${QUANT_IQ3_XXS_FILE}"
+                log "quant=IQ3_XXS Unsloth 4-shard → $MODEL_FILE (~104 GB — may exceed 96GB RAM)"
+                i=1
+                for idx in 00001 00002 00003 00004; do
+                  fname="DeepSeek-V4-Flash-0731-UD-IQ3_XXS-${idx}-of-00004.gguf"
+                  eval "ebytes=\${QUANT_IQ3_XXS_BYTES_${i}}"
+                  mbytes="$(pct995 "$ebytes")"
+                  download_one "$fname" "${BASE}/${fname}" "$mbytes" "$ebytes"
+                  i=$((i + 1))
+                done
+              fi
+
+              echo "$MODEL_FILE" > "$SHARED_DIR/.dsv4flash0731-active-model"
+              echo "$KEY" > "$SHARED_DIR/.dsv4flash0731-active-quant"
+
+              if [ "${ENABLE_DSPARK:-0}" = "1" ] || [ "${ENABLE_DSPARK:-0}" = "true" ]; then
+                DRAFT_MIN="$(pct995 "$DRAFT_BYTES")"
+                download_one "$DRAFT_FILE" "$DRAFT_URL" "$DRAFT_MIN" "$DRAFT_BYTES"
+              else
+                log "ENABLE_DSPARK!=1 — skip DSpark drafter"
+              fi
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HF_ENDPOINT
+              value: {{ .Values.olaresEnv.HF_ENDPOINT | default "" | quote }}
+            - name: DSV4_QUANT
+              value: {{ .Values.olaresEnv.DSV4_QUANT | default "" | quote }}
+            - name: ENABLE_DSPARK
+              value: {{ .Values.olaresEnv.ENABLE_DSPARK | default "0" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-dsv4flash0731-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export DEBIAN_FRONTEND=noninteractive
+
+              mkdir -p /workspace
+              REPO_DIR="/workspace/llama.cpp"
+              REPO_URL="${LLAMA_CPP_REPO:-https://github.com/ggml-org/llama.cpp}"
+              REPO_REF="${LLAMA_CPP_REF:-27df9199d16c393868d20b3ed28b4f72e30de6bd}"
+              CHART_BOOT="${CHART_BOOT:-1.0.5}"
+              STAMP="/workspace/.llama_cpp_ref"
+              WANT_STAMP="${REPO_REF}|${CHART_BOOT}|ui-disttar|dspark|tarball"
+              BOOT_COUNT_FILE="/workspace/.dsv4flash0731-server-boot-count"
+              BOOT_LOG_FILE="/workspace/.dsv4flash0731-server-boot.log"
+
+              slog() { echo "$(date -Iseconds) [dsv4flash:server] $*" >&2; }
+
+              BOOT_N=1
+              if [ -f "$BOOT_COUNT_FILE" ]; then
+                BOOT_N="$(cat "$BOOT_COUNT_FILE" 2>/dev/null | tr -d ' \n' || echo 1)"
+                BOOT_N=$((BOOT_N + 1))
+              fi
+              echo "$BOOT_N" > "$BOOT_COUNT_FILE"
+              RUN_ID="server-boot${BOOT_N}-$(date +%Y%m%d%H%M%S)"
+              HAVE_BIN=0
+              if [ -x "$REPO_DIR/build/bin/llama-server" ]; then HAVE_BIN=1; fi
+              HAVE_STAMP=0
+              if [ -f "$STAMP" ]; then HAVE_STAMP=1; fi
+              OLD_STAMP="$(cat "$STAMP" 2>/dev/null || echo '(none)')"
+              STAMP_MATCH=0
+              if [ "$HAVE_STAMP" = "1" ] && grep -qxF "$WANT_STAMP" "$STAMP"; then STAMP_MATCH=1; fi
+
+              slog "======== RUN START id=$RUN_ID attempt=$BOOT_N ========"
+              slog "why: main container started (init done → server start, OR crash/OOM/liveness → restart)"
+              slog "hostname=$(hostname 2>/dev/null || echo unknown) chart_boot=$CHART_BOOT"
+              slog "want_stamp=$WANT_STAMP"
+              slog "have_bin=$HAVE_BIN have_stamp=$HAVE_STAMP stamp_match=$STAMP_MATCH"
+              slog "old_stamp=$OLD_STAMP"
+              if [ "$HAVE_BIN" = "1" ] && [ "$STAMP_MATCH" = "1" ]; then
+                slog "path=FAST — binary+stamp OK; skip apt/tarball/cmake"
+              else
+                REASON=""
+                if [ "$HAVE_BIN" = "0" ]; then REASON="${REASON}no_llama-server_binary; "; fi
+                if [ "$HAVE_STAMP" = "0" ]; then REASON="${REASON}no_stamp_file; "; fi
+                if [ "$HAVE_STAMP" = "1" ] && [ "$STAMP_MATCH" = "0" ]; then REASON="${REASON}stamp_mismatch(chart_upgrade_or_pin_change); "; fi
+                slog "path=FULL_BUILD — reason: ${REASON:-unknown}"
+              fi
+              echo "$(date -Iseconds) START $RUN_ID attempt=$BOOT_N have_bin=$HAVE_BIN stamp_match=$STAMP_MATCH old=$OLD_STAMP want=$WANT_STAMP" >> "$BOOT_LOG_FILE"
+              trap 'ec=$?; slog "======== RUN END id=$RUN_ID exit=$ec (non-zero ⇒ crash/OOM/kill/error; k8s will restart) ========"; echo "$(date -Iseconds) END $RUN_ID exit=$ec" >> "$BOOT_LOG_FILE"; exit $ec' EXIT
+
+              if [ "$HAVE_BIN" = "1" ] && [ "$STAMP_MATCH" = "1" ]; then
+                slog "skip apt/src/cmake — reusing $REPO_DIR/build/bin/llama-server"
+                cd "$REPO_DIR"
+              else
+              slog "apt-get update+install (cmake/curl) — build path"
+              apt-get update
+              apt-get install -y --no-install-recommends cmake build-essential ca-certificates curl wget
+              rm -rf /var/lib/apt/lists/*
+              slog "apt done"
+
+              SRC_STAMP="/workspace/.llama_cpp_src"
+              SRC_WANT="${REPO_REF}|tarball"
+              if [ -f "$REPO_DIR/CMakeLists.txt" ] && [ -f "$SRC_STAMP" ] && grep -qxF "$SRC_WANT" "$SRC_STAMP"; then
+                slog "sources OK @ $REPO_REF — skip tarball"
+              else
+                slog "tarball download — wipe old src, curl codeload @ $REPO_REF"
+                rm -rf "$REPO_DIR"
+                mkdir -p "$REPO_DIR" /tmp/llama-src
+                ARCHIVE_URL="https://codeload.github.com/ggml-org/llama.cpp/tar.gz/${REPO_REF}"
+                TARBALL_OK=0
+                for t_try in 1 2 3; do
+                  slog "tarball curl try=${t_try}/3 url=$ARCHIVE_URL"
+                  if curl -fL --retry 5 --retry-delay 5 --connect-timeout 30 --max-time 600 \
+                    "$ARCHIVE_URL" -o /tmp/llama-src/src.tgz; then
+                    TARBALL_OK=1
+                    slog "tarball curl try=${t_try} OK size=$(wc -c </tmp/llama-src/src.tgz)"
+                    break
+                  fi
+                  slog "tarball curl try=${t_try} FAILED — sleep 10s"
+                  sleep 10
+                done
+                if [ "$TARBALL_OK" != "1" ]; then
+                  slog "ERROR: tarball failed after 3 tries — exit 1 ⇒ pod restart"
+                  exit 1
+                fi
+                tar -xzf /tmp/llama-src/src.tgz -C "$REPO_DIR" --strip-components=1
+                rm -rf /tmp/llama-src
+                if [ ! -f "$REPO_DIR/CMakeLists.txt" ]; then
+                  slog "ERROR: tarball missing CMakeLists.txt — exit 1 ⇒ pod restart"
+                  ls -la "$REPO_DIR" || true
+                  exit 1
+                fi
+                echo "$SRC_WANT" > "$SRC_STAMP"
+                slog "sources extracted OK"
+              fi
+              slog "llama.cpp sources @ $REPO_REF chart_boot=$CHART_BOOT"
+
+              UI_DIST="$REPO_DIR/tools/ui/dist"
+              UI_REF="${UI_HF_REF:-latest}"
+              UI_BUCKET="${UI_HF_BUCKET:-ggml-org/llama-ui}"
+              UI_BASE="https://huggingface.co/buckets/${UI_BUCKET}/resolve/${UI_REF}"
+              UI_MARK="$UI_DIST/.ui-dist-stamp"
+              UI_WANT="${UI_REF}|dist.tar.gz|${CHART_BOOT}"
+              need_ui=1
+              if [ -f "$UI_MARK" ] && grep -qxF "$UI_WANT" "$UI_MARK" \
+                && [ -s "$UI_DIST/index.html" ] \
+                && [ -f "$UI_DIST/manifest.webmanifest" ] \
+                && [ -f "$UI_DIST/sw.js" ]; then
+                slog "UI dist already provisioned ($UI_WANT) — skip"
+                need_ui=0
+              fi
+              if [ "$need_ui" = "1" ]; then
+                slog "Downloading UI dist.tar.gz from ${UI_BASE} ..."
+                rm -rf "$UI_DIST"
+                mkdir -p "$UI_DIST" /tmp/llama-ui
+                if ! curl -fL --retry 5 --retry-delay 3 --connect-timeout 30 \
+                  "${UI_BASE}/dist.tar.gz?download=true" -o /tmp/llama-ui/dist.tar.gz; then
+                  echo "ERROR: failed to download UI dist.tar.gz" >&2
+                  exit 1
+                fi
+                if curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 \
+                  "${UI_BASE}/dist.tar.gz.sha256?download=true" -o /tmp/llama-ui/dist.tar.gz.sha256; then
+                  expect=$(awk '{print tolower($1)}' /tmp/llama-ui/dist.tar.gz.sha256 | head -1)
+                  actual=$(sha256sum /tmp/llama-ui/dist.tar.gz | awk '{print tolower($1)}')
+                  if [ -n "$expect" ] && [ "$expect" != "$actual" ]; then
+                    echo "ERROR: UI dist.tar.gz sha256 mismatch" >&2
+                    exit 1
+                  fi
+                fi
+                tar -xzf /tmp/llama-ui/dist.tar.gz -C "$UI_DIST"
+                rm -rf /tmp/llama-ui "$UI_DIST/_gzip"
+                if [ ! -s "$UI_DIST/index.html" ] || [ ! -f "$UI_DIST/manifest.webmanifest" ]; then
+                  echo "ERROR: UI archive missing required assets" >&2
+                  ls -la "$UI_DIST" || true
+                  exit 1
+                fi
+                echo "$UI_WANT" > "$UI_MARK"
+              fi
+
+              cd "$REPO_DIR"
+              rebuild=1
+              if [ -x ./build/bin/llama-server ] && [ -f "$STAMP" ] && grep -qxF "$WANT_STAMP" "$STAMP"; then
+                slog "cmake skip — stamp matches after apt path"
+                rebuild=0
+              fi
+              if [ "$rebuild" = "1" ]; then
+                slog "cmake BUILD start (CUDA) — long; failure ⇒ exit 1 ⇒ restart"
+                rm -rf build
+                cmake -B build \
+                  -DGGML_CUDA=ON \
+                  "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH:-120a}" \
+                  -DLLAMA_BUILD_UI=ON \
+                  -DLLAMA_USE_PREBUILT_UI=ON
+                if ! cmake --build build -j"${BUILD_JOBS:-4}" --target llama-server; then
+                  slog "ERROR: cmake build failed — retry single-job for clear log"
+                  cmake --build build -j1 --target llama-common 2>&1 | tail -80 >&2 || true
+                  slog "cmake FAILED — exit 1 ⇒ pod restart"
+                  exit 1
+                fi
+                echo "$WANT_STAMP" > "$STAMP"
+                slog "cmake BUILD OK — wrote stamp $WANT_STAMP"
+              fi
+              fi  # end else (apt/src/cmake path)
+
+              SHARED="/shared-models/llms"
+              if [ -f "$SHARED/.dsv4flash0731-active-model" ]; then
+                MODEL_FILE="$(cat "$SHARED/.dsv4flash0731-active-model")"
+              else
+                MODEL_FILE="${QUANT_IQ2_XXS_FILE}"
+              fi
+              MODEL="$SHARED/${MODEL_FILE}"
+              DRAFT="$SHARED/${DRAFT_FILE}"
+              echo "model=$MODEL quant_marker=$(cat "$SHARED/.dsv4flash0731-active-quant" 2>/dev/null || echo unknown)"
+              free -h || true
+              nvidia-smi || true
+
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+
+              OFFLOAD_ARGS=()
+              if [ -n "${N_CPU_MOE:-}" ]; then
+                echo "partial expert CPU offload: --n-cpu-moe ${N_CPU_MOE}"
+                OFFLOAD_ARGS+=(--n-cpu-moe "$N_CPU_MOE")
+              elif [ "${ENABLE_CPU_MOE:-1}" = "1" ] || [ "${ENABLE_CPU_MOE:-1}" = "true" ]; then
+                echo "full expert CPU offload: --cpu-moe"
+                OFFLOAD_ARGS+=(--cpu-moe)
+              else
+                echo "WARN: ENABLE_CPU_MOE=0 and N_CPU_MOE empty — model will try GPU; likely OOM on 24GB"
+              fi
+
+              if [ "${ENABLE_NO_MMAP:-0}" = "1" ] || [ "${ENABLE_NO_MMAP:-0}" = "true" ]; then
+                echo "ENABLE_NO_MMAP=1 — adding --no-mmap (forces full RAM load)"
+                OFFLOAD_ARGS+=(--no-mmap)
+              fi
+
+              if [ -n "${OVERRIDE_TENSORS:-}" ]; then
+                IFS=',' read -ra OTS <<< "${OVERRIDE_TENSORS}"
+                for ot in "${OTS[@]}"; do
+                  ot="$(echo "$ot" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+                  [ -n "$ot" ] || continue
+                  echo "override-tensor: $ot"
+                  OFFLOAD_ARGS+=(--override-tensor "$ot")
+                done
+              fi
+
+              NGL="${N_GPU_LAYERS:-${N_GPU_LAYERS_DEFAULT:-99}}"
+              CTX="${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-131072}}"
+              BS="${BATCH_SIZE:-2048}"
+              UBS="${UBATCH_SIZE:-1024}"
+
+              SPEC_ARGS=()
+              if [ "${ENABLE_DSPARK:-0}" = "1" ] || [ "${ENABLE_DSPARK:-0}" = "true" ]; then
+                if [ -f "$DRAFT" ]; then
+                  echo "DSpark ON ($DRAFT) — watch draft acceptance; RAM tight with IQ2+Q8 draft"
+                  SPEC_ARGS+=(-md "$DRAFT" --spec-type draft-dspark)
+                else
+                  echo "WARN: ENABLE_DSPARK=1 but draft missing at $DRAFT"
+                fi
+              else
+                echo "DSpark OFF (default) — set ENABLE_DSPARK=1 to try (~10.9 GB extra)"
+              fi
+
+              slog "mem before load:"; free -h || true
+              slog "exec llama-server — if process dies, RUN END exit!=0 and k8s restarts (attempt bumps)"
+              exec ./build/bin/llama-server \
+                --host 0.0.0.0 --port 8000 \
+                --ui \
+                --model "$MODEL" \
+                --alias "${MODEL_ALIAS}" \
+                --ctx-size "$CTX" \
+                --n-gpu-layers "$NGL" \
+                --threads "${THREADS:-22}" \
+                --cache-type-k q8_0 --cache-type-v q8_0 \
+                --batch-size "$BS" --ubatch-size "$UBS" \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload \
+                --jinja \
+                --temp "${TEMP:-1.0}" --top-p "${TOP_P:-0.95}" \
+                --top-k "${TOP_K:-0}" --min-p "${MIN_P:-0}" \
+                "${OFFLOAD_ARGS[@]}" \
+                "${SPEC_ARGS[@]}" \
+                "${EXTRA_LLM_ARGS[@]}"
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: ENABLE_CPU_MOE
+              value: {{ .Values.olaresEnv.ENABLE_CPU_MOE | default "1" | quote }}
+            - name: N_CPU_MOE
+              value: {{ .Values.olaresEnv.N_CPU_MOE | default "" | quote }}
+            - name: N_GPU_LAYERS
+              value: {{ .Values.olaresEnv.N_GPU_LAYERS | default "" | quote }}
+            - name: ENABLE_DSPARK
+              value: {{ .Values.olaresEnv.ENABLE_DSPARK | default "0" | quote }}
+            - name: ENABLE_NO_MMAP
+              value: {{ .Values.olaresEnv.ENABLE_NO_MMAP | default "" | quote }}
+            - name: OVERRIDE_TENSORS
+              value: {{ .Values.olaresEnv.OVERRIDE_TENSORS | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-dsv4flash0731-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 300
+            timeoutSeconds: 10
+            periodSeconds: 60
+            failureThreshold: 10
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            # ~4h — cmake + ~91GB download + load
+            failureThreshold: 480
+          resources:
+            limits:
+              cpu: "22"
+              memory: 88Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: "8"
+              memory: 8Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/llamacppdsv4flash0731one-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppdsv4flash0731one
+  name: llamacppdsv4flash0731one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppdsv4flash0731one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppdsv4flash0731one
+  name: sharedentrances-llamacppdsv4flash0731one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppdsv4flash0731one

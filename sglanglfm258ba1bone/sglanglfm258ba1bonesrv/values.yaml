@@ -1,0 +1,18 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+# SGLang VRAM tuning for RTX 5090M (24GB) — single-user, leave headroom for other apps.
+sglang:
+  contextLength: "8192"
+  memFractionStatic: "0.70"
+  maxRunningRequests: "1"
+  maxTotalTokens: "16384"
+  chunkedPrefillSize: "2048"
+  disableRadixCache: true

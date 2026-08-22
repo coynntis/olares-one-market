@@ -1,0 +1,23 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  HF_REPO_ID: 'robbyant/lingbot-vision-vit-large'
+  UV_INDEX_URL: ''
+  PIP_INDEX_URL: ''
+  UV_CONCURRENT_DOWNLOADS: '32'
+  LINGBOT_VISION_VARIANT: 'large'
+image:
+  repository: pytorch/pytorch
+  tag: 2.12.0-cuda13.0-cudnn9-devel
+workloads:
+  lingbotvisionone:
+    replicaCount: 1
+  lingbotvisiononecli:
+    replicaCount: 1

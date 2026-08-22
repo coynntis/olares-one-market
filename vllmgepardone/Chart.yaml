@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.5"
+description: Gepard 1.0 streaming TTS via gepard-vLLM — optimized for Olares One
+name: vllmgepardone
+type: application
+version: 1.0.5

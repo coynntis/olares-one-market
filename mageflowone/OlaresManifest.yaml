@@ -1,0 +1,134 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  mageflowone: 1
+  mageflowonecli: 1
+metadata:
+  name: mageflowone
+  icon: https://cdn.olares.com/images/2026/08/2de8d999a88aebfc849687e8e12be8cd.png
+  description: Mage-Flow Turbo + Edit Turbo — T2I and instruction edit on Olares One
+  title: Mage Flow One
+  version: 1.0.7
+  categories:
+    - AI
+sharedEntrances:
+  - name: mageflowone
+    host: sharedentrances-mageflowone
+    port: 0
+    title: Mage Flow API
+    icon: https://cdn.olares.com/images/2026/08/2de8d999a88aebfc849687e8e12be8cd.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: mageflowonecli
+    port: 8080
+    host: mageflowonecli
+    title: Mage Flow One
+    icon: https://cdn.olares.com/images/2026/08/2de8d999a88aebfc849687e8e12be8cd.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.7
+  featuredImage: https://cdn.olares.com/images/2026/08/0c3368cac245b150a2e8607a84d04522.png
+  fullDescription: |
+    Microsoft Mage-Flow (4B) for Olares One — Gradio UI + REST + MCP.
+
+    One chart, pick a checkpoint at runtime (only one loaded — ~18–20 GB peak):
+    - Mage-Flow-Turbo — 4-step text-to-image (default)
+    - Mage-Flow-Edit-Turbo — 4-step instruction edit
+    - Mage-Flow / Mage-Flow-Base — RL / Base T2I (20–30 steps)
+    - Mage-Flow-Edit / Mage-Flow-Edit-Base — RL / Base edit
+
+    UI: / and /ui · REST: POST /api/v1/generate · POST /api/v1/edit
+    MCP: /mcp/mcp · health: GET /health · docs: /docs
+
+    In-cluster MCP: http://mageflowone:7860/mcp/mcp
+    Shared entrance: mageflowone + /mcp/mcp
+
+    Runtime: pytorch/pytorch:2.13.0-cuda13.0-cudnn9-devel + mage-flow from Microsoft/Mage.
+    Soft-ready on :7860 during first-boot uv install. Models cache under /models/huggingface.
+
+    License: MIT. Weights from mage-flow-community mirrors (microsoft/* currently gated).
+  developer: Microsoft / mage-flow-community
+  website: https://huggingface.co/mage-flow-community/Mage-Flow-Turbo
+  sourceCode: https://github.com/microsoft/Mage
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://opensource.org/licenses/MIT
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 80Gi
+      limitedDisk: 200Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.7: force SDPA attn (MAGE_ATTN_TYPE / VF_HF_ATTN_IMPL) — Mage defaults flash2 without flash-attn.
+    v1.0.6: lower CPU request 1→100m (keep limit 12); requiredCpu 2→1.
+    v1.0.5: use mage-flow-community/* mirrors — microsoft/* gated (401→hub 404 without access).
+    v1.0.4: drop CUDA_DEVICE_MEMORY_LIMIT_0 override; keep flash-attn opt-in (SDPA default).
+    v1.0.3: skip flash-attn by default (SDPA).
+    v1.0.2: apt-install curl before uv/Mage bootstrap (pytorch image has no curl).
+    v1.0.1: drop admin-only server template guard (v3 upload needs Deployment mageflowone).
+    v1.0.0: initial Mage-Flow One — Turbo + Edit-Turbo model picker, Gradio, REST, MCP.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: MAGE_DEFAULT_MODEL
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'Mage-Flow-Turbo'
+  - envName: MAGE_PRELOAD
+    required: false
+    editable: true
+    applyOnChange: true
+    value: '0'
+  - envName: MAGE_INSTALL_FLASH_ATTN
+    required: false
+    editable: true
+    applyOnChange: true
+    value: '0'
+  - envName: MAGE_ATTN_TYPE
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'sdpa'
+  - envName: VF_HF_ATTN_IMPL
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'sdpa'
+  - envName: UV_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+    value: ''
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.19
+description: vllmgemma31bitnvfp4one client proxy
+name: vllmgemma31bitnvfp4one
+type: application
+version: 1.0.19

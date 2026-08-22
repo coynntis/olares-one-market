@@ -1,0 +1,114 @@
+{{- $kokoro := .Values.kokoro | default dict -}}
+{{- $olaresEnv := .Values.olaresEnv | default dict -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhikokoro
+  name: pipecatxiaozhikokoro
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.workloads.pipecatxiaozhikokoro.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: pipecatxiaozhikokoro
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: pipecatxiaozhikokoro
+    spec:
+      {{- $token := ($olaresEnv.GITHUB_TOKEN | default "") | trim -}}
+      {{- $repo := $kokoro.repository | default "ghcr.io/remsky/kokoro-fastapi-cpu" -}}
+      {{- $tag := $kokoro.tag | default "latest" -}}
+      {{- $pull := $kokoro.pullPolicy | default "IfNotPresent" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) }}
+      imagePullSecrets:
+        - name: pipecatxiaozhione-ghcr
+      {{- end }}
+      containers:
+        - name: kokoro
+          image: "{{ $repo }}:{{ $tag }}"
+          imagePullPolicy: "{{ $pull }}"
+          ports:
+            - containerPort: 8880
+              name: http
+          env:
+            - name: USE_GPU
+              value: "false"
+            - name: OMP_NUM_THREADS
+              value: "24"
+            - name: MKL_NUM_THREADS
+              value: "24"
+            - name: OPENBLAS_NUM_THREADS
+              value: "24"
+            - name: TORCH_NUM_THREADS
+              value: "24"
+            - name: TORCH_NUM_INTEROP_THREADS
+              value: "4"
+            # Prefer longer smart_split chunks (defaults 175/250/450 sound choppy).
+            - name: TARGET_MIN_TOKENS
+              value: "350"
+            - name: TARGET_MAX_TOKENS
+              value: "450"
+            - name: ABSOLUTE_MAX_TOKENS
+              value: "510"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8880
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8880
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 15
+            failureThreshold: 80
+          resources:
+            limits:
+              cpu: "24"
+              memory: 12Gi
+            requests:
+              cpu: "2"
+              memory: 2Gi
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhikokoro
+  name: pipecatxiaozhikokoro
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 8880
+      targetPort: 8880
+  selector:
+    io.kompose.service: pipecatxiaozhikokoro
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhikokoro
+  name: sharedentrances-pipecatxiaozhikokoro
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "pipecatxiaozhikokoro"
+      port: 80
+      targetPort: 8880
+  selector:
+    io.kompose.service: pipecatxiaozhikokoro

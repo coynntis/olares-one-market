@@ -1,0 +1,11 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+  HF_TOKEN: ""

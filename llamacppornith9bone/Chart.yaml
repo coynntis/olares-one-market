@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.11"
+description: Ornith 1.0 9B Q4_K_M via llama.cpp — compact dense model for Olares One
+name: llamacppornith9bone
+type: application
+version: 1.0.11

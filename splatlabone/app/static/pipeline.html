@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pipeline — SplatLab One</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>SplatLab One</h1>
+    <nav>
+      <a href="/index.html">Dashboard</a>
+      <a href="/import.html">Import</a>
+      <a href="/pipeline.html">Pipeline</a>
+      <a href="/jobs.html">Jobs</a>
+      <a href="/viewer.html">Viewer</a>
+      <a href="/guide.html">Guide</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Dataset</h2>
+      <label>Dataset ID <input type="text" id="dataset-id" style="width:100%" placeholder="ds_..." /></label>
+    </section>
+    <section class="card">
+      <h2>Presets</h2>
+      <div id="preset-grid" class="grid"></div>
+      <p id="estimator" class="hint"></p>
+    </section>
+    <section class="card">
+      <h2>Realtime mode</h2>
+      <label><input type="radio" name="rt" value="none" checked /> None (final export only)</label><br/>
+      <label><input type="radio" name="rt" value="progressive_splat" /> Progressive splat (checkpoint exports)</label><br/>
+      <label><input type="radio" name="rt" value="geometry_preview" /> Geometry preview (geometry only — infer_gs / sparse PLY, skips train)</label>
+      <p class="hint">See <a href="/guide.html#presets">Guide → Presets</a> and <a href="/guide.html#pipeline">Pipeline stages</a> for what each option runs.</p>
+    </section>
+    <details class="accordion">
+      <summary>Advanced overrides</summary>
+      <div class="body">
+        <div class="grid">
+          <label>SfM <select id="ov-sfm"><option value="">(preset)</option><option>glomap</option><option>glomap_calibrated</option><option>colmap</option><option>fastmap</option><option>skip</option></select></label>
+          <label>Geometry <select id="ov-geom"><option value="">(preset)</option><option>none</option><option>vggt_omega</option><option>vggt_x</option><option>da3</option><option>da3_cpp</option><option>lingbot_map</option><option>instant_splat</option><option>gluemap</option></select></label>
+          <label>Matching <select id="ov-match"><option value="">(preset)</option><option>sift</option><option>hloc</option><option>dense_sfm</option><option>none</option></select></label>
+          <label>Representation <select id="ov-repr"><option value="">(preset)</option><option>3dgs</option><option>2dgs</option></select></label>
+          <label>Densification <select id="ov-dens"><option value="">(preset)</option><option>default_adc</option><option>mcmc</option></select></label>
+          <label>Pose opt <select id="ov-pose"><option value="">(preset)</option><option>off</option><option>joint</option></select></label>
+          <label>Iterations <input type="number" id="ov-iters" placeholder="30000" /></label>
+          <label>MCMC noise <input type="number" id="ov-mcmc" step="0.01" placeholder="0.1" /></label>
+          <label>2DGS lambda_dist <input type="number" id="ov-lambda" step="0.001" placeholder="0.01" /></label>
+        </div>
+      </div>
+    </details>
+    <section class="card">
+      <button type="button" id="start-job">Start job</button>
+      <pre id="job-status" class="status"></pre>
+    </section>
+  </main>
+  <script type="module">
+    import { api } from "/js/app.js";
+
+    let selected = "quality";
+    const params = new URLSearchParams(location.search);
+    if (params.get("dataset")) document.getElementById("dataset-id").value = params.get("dataset");
+
+    async function loadPresets() {
+      const data = await api("/api/v1/presets");
+      const grid = document.getElementById("preset-grid");
+      grid.innerHTML = "";
+      for (const p of data.presets || []) {
+        const div = document.createElement("div");
+        div.className = "preset-card" + (p.name === selected ? " selected" : "");
+        const lic = (p.license || "").includes("NC") ? '<span class="badge nc">NC</span>' : '<span class="badge">OSS</span>';
+        const exp = (p.status === "experimental") ? '<span class="badge nc">experimental</span>' : '';
+        div.innerHTML = `<strong>${p.title || p.name}</strong> ${lic}${exp}<p class="hint">${p.summary || ""}</p>
+          <small>~${p.vram_gb || "?"} GB VRAM · ~${p.time_est_min || "?"} min</small>`;
+        div.onclick = () => {
+          selected = p.name;
+          document.querySelectorAll(".preset-card").forEach((c) => c.classList.remove("selected"));
+          div.classList.add("selected");
+          updateEstimator(p);
+        };
+        grid.appendChild(div);
+        if (p.name === selected) updateEstimator(p);
+      }
+    }
+
+    function updateEstimator(p) {
+      document.getElementById("estimator").textContent =
+        `Est. VRAM ${p.vram_gb} GB · ${p.time_est_min} min · stages: ${JSON.stringify(p.stages || {})}`;
+    }
+
+    document.getElementById("start-job").onclick = async () => {
+      const dataset_id = document.getElementById("dataset-id").value.trim();
+      if (!dataset_id) { alert("Enter dataset ID"); return; }
+      const rt = document.querySelector('input[name="rt"]:checked').value;
+      const overrides = {};
+      const map = [
+        ["sfm", "ov-sfm"], ["geometry", "ov-geom"], ["matching", "ov-match"],
+        ["representation", "ov-repr"],
+        ["densification", "ov-dens"], ["pose_opt", "ov-pose"],
+      ];
+      for (const [k, id] of map) {
+        const v = document.getElementById(id).value;
+        if (v) overrides[k] = v;
+      }
+      const iters = document.getElementById("ov-iters").value;
+      if (iters) overrides.iterations = parseInt(iters, 10);
+      const mcmc = document.getElementById("ov-mcmc").value;
+      if (mcmc) overrides.mcmc_noise = parseFloat(mcmc);
+      const lam = document.getElementById("ov-lambda").value;
+      if (lam) overrides.lambda_dist = parseFloat(lam);
+
+      const body = { dataset_id, preset: selected, realtime_mode: rt, overrides };
+      const res = await api("/api/v1/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      document.getElementById("job-status").textContent = JSON.stringify(res, null, 2);
+      if (res.id) location.href = `/jobs.html?job=${res.id}`;
+    };
+
+    loadPresets();
+  </script>
+</body>
+</html>

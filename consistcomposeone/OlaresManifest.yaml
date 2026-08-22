@@ -1,0 +1,98 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  consistcomposeone: 1
+  consistcomposeonecli: 1
+metadata:
+  name: consistcomposeone
+  icon: https://cdn.olares.com/images/2026/08/cedce30bf28627551b5d5548a3cb828e.png
+  description: ConsistCompose BAGEL-7B-MoT layout compose — NF4 for 24GB
+  title: ConsistCompose One
+  version: 1.0.1
+  categories:
+    - AI
+sharedEntrances:
+  - name: consistcomposeone
+    host: sharedentrances-consistcomposeone
+    port: 0
+    title: ConsistCompose Compose API
+    icon: https://cdn.olares.com/images/2026/08/cedce30bf28627551b5d5548a3cb828e.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: consistcomposeonecli
+    port: 8080
+    host: consistcomposeonecli
+    title: ConsistCompose One
+    icon: https://cdn.olares.com/images/2026/08/cedce30bf28627551b5d5548a3cb828e.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.1
+  featuredImage: https://cdn.olares.com/images/2026/08/64f6ba4ab73bee22b40921b7cb849e85.png
+  fullDescription: |
+    ConsistCompose-BAGEL-7B-MoT layout-controlled multi-instance image composition on Olares One (RTX 5090M 24GB).
+
+    MUST use NF4 / bitsandbytes (BAGEL Gradio mode 2). Full BF16 does NOT fit — weights ~29GB (model.safetensors).
+    For SenseNova-U1 T2I / VQA / editing / interleave generation, install sensenovau1serveone instead.
+    SenseNova-Vision intentionally skipped (CC-BY-NC license).
+
+    Upstream: https://github.com/OpenSenseNova/ConsistCompose (BAGEL-based MoT, LELG layout tokens).
+    Model: sensenova/ConsistCompose-BAGEL-7B-MoT (Apache-2.0).
+    Layout prompts embed normalized boxes as <bbox>[x0, y0, x1, y1]</bbox>; subject-driven mode uses <image> + refs.
+
+    Runtime: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel.
+    Attention: soft-fail flash_attn → SDPA for sm_120 Blackwell — do NOT pin flash_attn==2.5.8.
+    Boot: clone ConsistCompose + snapshot_download into MODEL_DIR under HF_HOME=/models/huggingface.
+    Set LOAD_LAZY=1 to defer download+load until first compose request.
+
+    HTTP:
+      - Gradio UI: /ui (layout prompt + optional refs → composed image)
+      - POST /api/v1/compose  {prompt, mode, images_base64?, vis_bbox?, ...}
+      - GET /health  GET /docs  GET /api/v1/capabilities
+  developer: OpenSenseNova
+  website: https://github.com/OpenSenseNova/ConsistCompose
+  sourceCode: https://github.com/OpenSenseNova/ConsistCompose
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/OpenSenseNova/ConsistCompose/blob/main/LICENSE.txt
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 100Gi
+      limitedDisk: 200Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+        v1.0.0: initial ConsistCompose-BAGEL-7B-MoT layout compose chart (NF4 for 24GB).
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

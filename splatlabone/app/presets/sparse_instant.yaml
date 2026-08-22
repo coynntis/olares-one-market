@@ -1,0 +1,15 @@
+name: sparse
+title: Sparse (InstantSplat)
+summary: 3–12 images with MASt3R-based initialization.
+license: Apache-2.0
+vram_gb: 14
+time_est_min: 15
+iterations: 15000
+checkpoint_interval: 5000
+stages:
+  sfm: skip
+  geometry: instant_splat
+  representation: 3dgs
+  densification: default_adc
+  pose_opt: off
+  repair: none

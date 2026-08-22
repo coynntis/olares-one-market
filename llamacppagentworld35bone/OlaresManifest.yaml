@@ -1,0 +1,146 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppagentworld35bone: 1
+  llamacppagentworld35bonecli: 1
+metadata:
+  name: llamacppagentworld35bone
+  icon: https://cdn.olares.com/images/2026/08/8503bda451e5a6c4edc236b1c07da8b4.png
+  description: "Qwen AgentWorld 35B-A3B — fast long-context text world-model on Olares One"
+  title: AgentWorld 35B One
+  version: 1.0.3
+  categories:
+    - AI Agents
+    - LLM Chat
+  bento:
+    family: qwen
+    size_label: 35B-A3B
+    badge: world model
+    hero:
+      value: 128K ctx
+      label: turbo4 KV fast profile
+    specs:
+      - label: context
+        value: 128K
+      - label: vram
+        value: 22 GB
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: false
+    stack: buun-llama.cpp · UD-Q4_K_XL · turbo4 KV
+sharedEntrances:
+  - name: llamacppagentworld35bone
+    host: sharedentrances-llamacppagentworld35bone
+    port: 0
+    title: AgentWorld 35B API
+    icon: https://cdn.olares.com/images/2026/08/8503bda451e5a6c4edc236b1c07da8b4.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppagentworld35bonecli
+    port: 8080
+    host: llamacppagentworld35bonecli
+    title: AgentWorld 35B One
+    icon: https://cdn.olares.com/images/2026/08/8503bda451e5a6c4edc236b1c07da8b4.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.3
+  featuredImage: https://cdn.olares.com/images/2026/08/f88b2a8dceea1f0eb69b1673020be86e.png
+  upgradeDescription: |
+    v1.0.3: fast long-context tuning — default ctx 131072, batch/ubatch 1024/512, configurable KV cache type envs, persistent crash/restart logs under /shared-models/llms/logs/llamacppagentworld35bone.
+    v1.0.2: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.0: initial release. unsloth/Qwen-AgentWorld-35B-A3B-GGUF UD-Q4_K_XL via buun-llama-cpp with q8_0/turbo4 KV, 64K default context, native llama.cpp web UI. Text-only world model (no mmproj on HF).
+  fullDescription: |
+    Qwen-AgentWorld-35B-A3B — native language world model for agent environment simulation (MCP, Search, Terminal, SWE, Android, Web, OS).
+
+    Stack (Olares One RTX 5090M 24GB):
+    - Image: aamsellem/buun-llama-cpp:87c351d2
+    - Model: unsloth/Qwen-AgentWorld-35B-A3B-GGUF → UD-Q4_K_XL (~22.3 GB)
+    - KV: q8_0 keys + turbo4 values (TurboQuant) for long-context headroom
+    - Default context 128K (override via LLM_CONTEXT_WINDOW; native up to 262K)
+    - Entrance opens native llama.cpp web UI on the client proxy
+
+    Text-only — no mmproj in this GGUF repo (world-model simulator, not VLM).
+    First launch downloads ~22 GB to /olares/share/ai/model/llms/.
+  developer: coynntis
+  website: https://huggingface.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: "2"
+      limitedCpu: "13"
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 30Gi
+      limitedDisk: 40Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_BATCH_SIZE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_UBATCH_SIZE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_K
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_V
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PARALLEL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  LLMGatewaySupported: true
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

@@ -1,0 +1,470 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-tbonsai27-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_REPO: "prism-ml/Ternary-Bonsai-27B-gguf"
+  # Official demo quant (not F16 / Q2_g64 / PQ2_0)
+  MODEL_FILE: "Ternary-Bonsai-27B-Q2_0.gguf"
+  MODEL_URL: "https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/Ternary-Bonsai-27B-Q2_0.gguf"
+  # Exact HF size 7165121600 — reject truncated downloads
+  MODEL_MIN_BYTES: "7160000000"
+  MMPROJ_FILE: "Ternary-Bonsai-27B-mmproj-Q8_0.gguf"
+  MMPROJ_URL: "https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/Ternary-Bonsai-27B-mmproj-Q8_0.gguf"
+  MMPROJ_MIN_BYTES: "620000000"
+  DRAFT_FILE: "Ternary-Bonsai-27B-dspark-Q4_1.gguf"
+  DRAFT_URL: "https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/Ternary-Bonsai-27B-dspark-Q4_1.gguf"
+  DRAFT_MIN_BYTES: "1940000000"
+  # Off by default — DSpark disables prompt-cache reuse (Bonsai-demo SPECULATIVE.md)
+  ENABLE_DSPARK: ""
+  MODEL_ALIAS: "ternary-bonsai-27b"
+  # q4 KV + ~8GB weights → 131K comfortable on 24GB (262K native; override via LLM_CONTEXT_WINDOW)
+  CONTEXT_SIZE: "131072"
+  N_GPU_LAYERS: "99"
+  THREADS: "16"
+  BUILD_JOBS: "8"
+  # Blackwell 5090M: mxfp4 MMA needs sm_120a, not sm_120
+  CUDA_ARCH: "120a"
+  # PrismML-Eng/llama.cpp default branch is `prism` (not master).
+  # Pin past Jul 2026 DSpark tap-capture (#67) + IGPU/DSpark GPU path (#88).
+  LLAMA_CPP_REPO: "https://github.com/PrismML-Eng/llama.cpp"
+  LLAMA_CPP_REF: "7529fdaaf99ffdc5ca71ace9c7409a56b27ad92f"
+  # Bump forces cmake rebuild when chart logic changes (UI embed fix, etc.)
+  CHART_BOOT: "1.0.3"
+  # Prebuilt Web UI from ggml HF bucket (no npm in container). Without these,
+  # llama-server has no LLAMA_UI_HAS_ASSETS → GET / returns JSON 404 File Not Found.
+  # Use b9596 flat layout (bundle.js/css) — matches PrismML pin era. `latest` is SvelteKit hashed paths.
+  UI_HF_BASE: "https://huggingface.co/buckets/ggml-org/llama-ui/resolve/b9596"
+  # PrismML 27B thinking-mode sampling (README + start_llama_server.sh)
+  TEMP: "0.7"
+  TOP_P: "0.95"
+  TOP_K: "20"
+  MIN_P: "0"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacpptbonsai27bone
+  name: llamacpptbonsai27bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacpptbonsai27bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacpptbonsai27bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacpptbonsai27bone
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eu
+              log() { echo "$(date -Iseconds) [tbonsai27:init] $*"; }
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+
+              file_ok() {
+                dest="$1"
+                min_bytes="$2"
+                [ -f "$dest" ] || return 1
+                size=$(wc -c < "$dest" | tr -d ' ')
+                [ "$size" -ge "$min_bytes" ]
+              }
+              promote_tmp() {
+                dest="$1"
+                label="$2"
+                mv "$dest.tmp" "$dest"
+                log "$label promoted ($(wc -c < "$dest" | tr -d ' ') bytes)"
+              }
+              download_one() {
+                name="$1"
+                url="$2"
+                min_bytes="$3"
+                dest="$SHARED_DIR/$name"
+                if type link_from_comfy_llms >/dev/null 2>&1; then
+                  if link_from_comfy_llms "$dest"; then
+                    if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                      log "ok $name via ComfyUI Common — skip download"
+                      rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" 2>/dev/null || true
+                      return 0
+                    fi
+                    rm -f "$dest"
+                  fi
+                fi
+                if [ -f "$MODELS_DIR/$name" ] && [ ! -f "$dest" ]; then
+                  log "migrate $name from per-app cache"
+                  mv "$MODELS_DIR/$name" "$dest"
+                fi
+                if file_ok "$dest" "$min_bytes"; then
+                  log "ok $name ($(wc -c < "$dest" | tr -d ' ') bytes)"
+                  rm -f "$dest.tmp"
+                  return 0
+                fi
+                if [ -f "$dest" ]; then
+                  log "truncated $name — remove final, keep .tmp for resume"
+                  rm -f "$dest"
+                fi
+                # Complete .tmp: promote — do NOT re-wget (busybox wget -c → HTTP 416 under set -e)
+                if file_ok "$dest.tmp" "$min_bytes"; then
+                  log "$name .tmp complete — promoting (skip wget)"
+                  promote_tmp "$dest" "$name"
+                  return 0
+                fi
+                if [ -f "$dest.tmp" ]; then
+                  log "resuming $name from $(wc -c < "$dest.tmp" | tr -d ' ') bytes"
+                else
+                  log "downloading $url"
+                fi
+                (
+                  last=0
+                  while true; do
+                    sleep 15
+                    [ -f "$dest.tmp" ] || continue
+                    size=$(wc -c < "$dest.tmp" | tr -d ' ')
+                    delta=$((size - last))
+                    log "progress $name: size=$size (+${delta}B / 15s)"
+                    last=$size
+                  done
+                ) &
+                prog_pid=$!
+                wget_rc=0
+                if [ -n "${HF_TOKEN:-}" ]; then
+                  wget -c --header="Authorization: Bearer $HF_TOKEN" -O "$dest.tmp" "$url" || wget_rc=$?
+                else
+                  wget -c -O "$dest.tmp" "$url" || wget_rc=$?
+                fi
+                kill "$prog_pid" 2>/dev/null || true
+                wait "$prog_pid" 2>/dev/null || true
+                if file_ok "$dest.tmp" "$min_bytes"; then
+                  if [ "$wget_rc" -ne 0 ]; then
+                    log "$name wget exit=$wget_rc but .tmp OK — promoting"
+                  fi
+                  promote_tmp "$dest" "$name"
+                  return 0
+                fi
+                size=$(wc -c < "$dest.tmp" 2>/dev/null | tr -d ' ' || echo 0)
+                log "ERROR incomplete $name wget_rc=$wget_rc size=$size min=$min_bytes"
+                exit 1
+              }
+
+              download_one "$MODEL_FILE" "$MODEL_URL" "$MODEL_MIN_BYTES"
+              download_one "$MMPROJ_FILE" "$MMPROJ_URL" "$MMPROJ_MIN_BYTES"
+              if [ "${ENABLE_DSPARK:-0}" = "1" ]; then
+                download_one "$DRAFT_FILE" "$DRAFT_URL" "$DRAFT_MIN_BYTES"
+              else
+                log "ENABLE_DSPARK!=1 — skip DSpark drafter"
+              fi
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: ENABLE_DSPARK
+              value: {{ .Values.olaresEnv.ENABLE_DSPARK | default "0" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-tbonsai27-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends git cmake build-essential ca-certificates curl wget
+              rm -rf /var/lib/apt/lists/*
+
+              mkdir -p /workspace
+              REPO_DIR="/workspace/llama.cpp"
+              REPO_URL="${LLAMA_CPP_REPO:-https://github.com/PrismML-Eng/llama.cpp}"
+              # Pin: DSpark tap capture + #88 (2026-07-20). Branch default is `prism`.
+              REPO_REF="${LLAMA_CPP_REF:-7529fdaaf99ffdc5ca71ace9c7409a56b27ad92f}"
+              CHART_BOOT="${CHART_BOOT:-1.0.3}"
+              STAMP="/workspace/.llama_cpp_ref"
+              WANT_STAMP="${REPO_REF}|${CHART_BOOT}|ui"
+
+              need_clone=0
+              if [ ! -d "$REPO_DIR/.git" ]; then
+                need_clone=1
+              fi
+              if [ -e "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+                ts="$(date +%Y%m%d%H%M%S)"
+                mv "$REPO_DIR" "${REPO_DIR}.bak.${ts}"
+                need_clone=1
+              fi
+              if [ "$need_clone" = "1" ]; then
+                git clone --branch prism --single-branch "$REPO_URL" "$REPO_DIR"
+              fi
+              git -C "$REPO_DIR" remote set-url origin "$REPO_URL"
+              git -C "$REPO_DIR" fetch --tags --prune origin
+              git -C "$REPO_DIR" checkout --force "$REPO_REF"
+              git -C "$REPO_DIR" reset --hard "$REPO_REF"
+              echo "PrismML llama.cpp @ $(git -C "$REPO_DIR" rev-parse HEAD) chart_boot=$CHART_BOOT"
+
+              # Provision embedded Web UI assets into tools/ui/dist (priority-1 for ui-assets.cmake).
+              # Container has no npm; cmake HF fetch is flaky → GET / becomes JSON 404 File Not Found.
+              UI_DIST="$REPO_DIR/tools/ui/dist"
+              UI_BASE="${UI_HF_BASE:-https://huggingface.co/buckets/ggml-org/llama-ui/resolve/b9596}"
+              mkdir -p "$UI_DIST"
+              ui_ok=1
+              for asset in index.html bundle.js bundle.css loading.html; do
+                # Re-fetch if missing or looks like an HTML error page (< 1KB for JS/CSS)
+                need=0
+                if [ ! -s "$UI_DIST/$asset" ]; then
+                  need=1
+                elif [ "$asset" != "index.html" ] && [ "$asset" != "loading.html" ]; then
+                  sz=$(wc -c < "$UI_DIST/$asset" | tr -d ' ')
+                  if [ "$sz" -lt 10000 ]; then need=1; fi
+                fi
+                if [ "$need" = "0" ]; then
+                  echo "UI asset present: $asset ($(wc -c < "$UI_DIST/$asset" | tr -d ' ') bytes)"
+                  continue
+                fi
+                echo "Downloading UI asset $asset from $UI_BASE ..."
+                rm -f "$UI_DIST/$asset"
+                if ! curl -fL --retry 5 --retry-delay 3 --connect-timeout 30 \
+                  "${UI_BASE}/${asset}?download=true" -o "$UI_DIST/$asset"; then
+                  echo "ERROR: failed to download UI asset $asset" >&2
+                  ui_ok=0
+                  continue
+                fi
+                sz=$(wc -c < "$UI_DIST/$asset" | tr -d ' ')
+                if [ "$sz" -lt 100 ]; then
+                  echo "ERROR: UI asset $asset too small ($sz bytes)" >&2
+                  ui_ok=0
+                fi
+              done
+              if [ "$ui_ok" != "1" ]; then
+                echo "ERROR: Web UI assets incomplete — refusing to start without UI" >&2
+                ls -la "$UI_DIST" || true
+                exit 1
+              fi
+              ls -lh "$UI_DIST"
+
+              cd "$REPO_DIR"
+              rebuild=1
+              if [ -x ./build/bin/llama-server ] && [ -f "$STAMP" ] && grep -qxF "$WANT_STAMP" "$STAMP"; then
+                echo "llama-server already built for $WANT_STAMP — skip cmake"
+                rebuild=0
+              fi
+              if [ "$rebuild" = "1" ]; then
+                rm -rf build
+                cmake -B build \
+                  -DGGML_CUDA=ON \
+                  "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH:-120a}" \
+                  -DLLAMA_BUILD_UI=ON \
+                  -DLLAMA_USE_PREBUILT_UI=ON
+                cmake --build build -j"${BUILD_JOBS:-8}" --target llama-server
+                # Sanity: ui.h must define LLAMA_UI_HAS_ASSETS or / will 404
+                if ! grep -q 'LLAMA_UI_HAS_ASSETS' build/tools/ui/ui.h 2>/dev/null \
+                  && ! grep -Rq 'LLAMA_UI_HAS_ASSETS' build/tools/ui/ 2>/dev/null; then
+                  echo "WARN: LLAMA_UI_HAS_ASSETS not found in build/tools/ui — checking generated headers"
+                  find build/tools/ui -name 'ui.h' -print -exec head -20 {} \; 2>/dev/null || true
+                fi
+                echo "$WANT_STAMP" > "$STAMP"
+              fi
+
+              SHARED="/shared-models/llms"
+              MODEL="$SHARED/${MODEL_FILE}"
+              MMPROJ="$SHARED/${MMPROJ_FILE}"
+              DRAFT="$SHARED/${DRAFT_FILE}"
+
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+
+              CTX="${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-131072}}"
+              SPEC_ARGS=()
+              if [ "${ENABLE_DSPARK:-0}" = "1" ] && [ -f "$DRAFT" ]; then
+                echo "DSpark speculative decode ON ($DRAFT) — n-max must be 4 (drafter block size)"
+                # Matches Bonsai-demo SPECULATIVE.md / start_llama_server.sh
+                SPEC_ARGS+=(-md "$DRAFT" --spec-type draft-dspark --spec-draft-n-max 4 -ngld 999 -np 1)
+                # Spec path re-prefills every request; give room to think.
+                if [ -z "${LLM_CONTEXT_WINDOW:-}" ]; then
+                  CTX=16384
+                fi
+              fi
+
+              exec ./build/bin/llama-server \
+                --host 0.0.0.0 --port 8000 \
+                --ui \
+                --model "$MODEL" \
+                --mmproj "$MMPROJ" \
+                --alias "${MODEL_ALIAS}" \
+                --ctx-size "$CTX" \
+                --n-gpu-layers "${N_GPU_LAYERS:-99}" \
+                --threads "${THREADS:-16}" \
+                --cache-type-k q4_0 --cache-type-v q4_0 \
+                --batch-size 512 --ubatch-size 512 \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload \
+                --jinja \
+                --temp "${TEMP:-0.7}" --top-p "${TOP_P:-0.95}" \
+                --top-k "${TOP_K:-20}" --min-p "${MIN_P:-0}" \
+                "${SPEC_ARGS[@]}" \
+                "${EXTRA_LLM_ARGS[@]}"
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: ENABLE_DSPARK
+              value: {{ .Values.olaresEnv.ENABLE_DSPARK | default "0" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-tbonsai27-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/llamacpptbonsai27bone-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacpptbonsai27bone
+  name: llamacpptbonsai27bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacpptbonsai27bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacpptbonsai27bone
+  name: sharedentrances-llamacpptbonsai27bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpptbonsai27bone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacpptbonsai27bone

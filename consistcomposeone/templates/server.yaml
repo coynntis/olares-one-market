@@ -1,0 +1,205 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: consistcompose-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_REPO: "sensenova/ConsistCompose-BAGEL-7B-MoT"
+  MODEL_DIR: "/models/ConsistCompose-BAGEL-7B-MoT"
+  MODEL_PRECISION: {{ .Values.model.precision | quote }}
+  SERVER_PORT: "7860"
+  HF_HOME: "/models/huggingface"
+  LOG_LEVEL: "INFO"
+  CONSIST_COMPOSE_ROOT: "/workspace/ConsistCompose"
+  OUT_IMG_DIR: "/output/consistcompose"
+  OFFLOAD_DIR: "/workspace/offload"
+  GRADIO_TEMP_DIR: "/output/gradio"
+  # sdpa default (Blackwell). auto|flash soft-fails via patched navit — no flash_attn==2.5.8 pin.
+  ATTENTION_BACKEND: {{ .Values.attention.backend | quote }}
+  INSTALL_FLASH_ATTN: {{ ternary "1" "0" .Values.attention.installFlashAttn | quote }}
+  # 0 = download+load at boot (startupProbe waits). 1 = first compose request.
+  LOAD_LAZY: "0"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: consistcomposeone
+  name: consistcomposeone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+spec:
+  replicas: {{ .Values.workloads.consistcomposeone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: consistcomposeone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: consistcomposeone
+    spec:
+      initContainers:
+        - name: volume-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              chmod -R 777 /models /workspace /output || true
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+          securityContext:
+            runAsUser: 0
+      containers:
+        - name: consistcompose-serve
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export PIP_DISABLE_PIP_VERSION_CHECK=1
+              mkdir -p "${HF_HOME}" /workspace/app /workspace/offload /output/gradio /output/consistcompose
+              cp /app-src/app.py /workspace/app/app.py
+              cp /app-src/requirements.txt /workspace/app/requirements.txt
+              cp /app-src/patch_flash_sdpa.py /workspace/app/patch_flash_sdpa.py
+              cd /workspace/app
+
+              python -m pip install --upgrade pip --break-system-packages
+              # Image already has torch/torchvision/cuda — do not reinstall torch from ConsistCompose pins.
+              python -m pip install --break-system-packages -r requirements.txt
+
+              # Optional flash_attn: soft-fail only. Do NOT pin ancient 2.5.8 (breaks sm_120).
+              if [ "${INSTALL_FLASH_ATTN:-0}" = "1" ]; then
+                python -m pip install --break-system-packages packaging ninja wheel || true
+                python -m pip install --break-system-packages flash-attn --no-build-isolation \
+                  || echo "[warn] flash-attn install failed; will use SDPA fallback"
+              fi
+
+              # Clone ConsistCompose (prefer tarball — no git required in pytorch image).
+              CC_ROOT="${CONSIST_COMPOSE_ROOT:-/workspace/ConsistCompose}"
+              if [ ! -f "${CC_ROOT}/consist_compose/bagel.py" ]; then
+                rm -rf "${CC_ROOT}" /tmp/ConsistCompose-main
+                curl -fsSL -o /tmp/consistcompose.tgz \
+                  https://github.com/OpenSenseNova/ConsistCompose/archive/refs/heads/main.tar.gz
+                tar -xzf /tmp/consistcompose.tgz -C /tmp
+                mv /tmp/ConsistCompose-main "${CC_ROOT}"
+                rm -f /tmp/consistcompose.tgz
+              fi
+              python /workspace/app/patch_flash_sdpa.py "${CC_ROOT}"
+              export PYTHONPATH="${CC_ROOT}:${PYTHONPATH:-}"
+
+              exec python -m uvicorn app:app --host 0.0.0.0 --port "${SERVER_PORT}" --app-dir /workspace/app
+          envFrom:
+            - configMapRef:
+                name: consistcompose-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+            - mountPath: "/output"
+              name: output
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/consistcomposeone-workspace"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+        - name: app-source
+          configMap:
+            name: consistcomposeone-source
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/consistcomposeone-output"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: consistcomposeone
+  name: consistcomposeone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: consistcomposeone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: consistcomposeone
+  name: sharedentrances-consistcomposeone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "consistcomposeone"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: consistcomposeone

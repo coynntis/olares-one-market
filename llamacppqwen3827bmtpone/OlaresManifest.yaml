@@ -1,0 +1,221 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppqwen3827bmtpone: 1
+  llamacppqwen3827bmtponecli: 1
+metadata:
+  name: llamacppqwen3827bmtpone
+  icon: https://cdn.olares.com/images/2026/08/d5ec62e46ce5d08755b6ff8bbe569094.png
+  description: Qwen3.8 27B MTP + Vision — Unsloth UD-Q3 default, optional abliterated 12GB / Q4 / Ridge
+  title: Qwen38 27B MTP Vision One
+  version: 1.0.13
+  categories:
+    - LLM Chat
+    - AI Agents
+    - Vision
+  bento:
+    family: qwen
+    size_label: 27B
+    badge: mtp · vision
+    hero:
+      value: Unsloth UD-Q3
+      label: Dynamic 3.0 · optional abliterated 12GB / Q4 / Ridge
+    specs:
+      - label: context
+        value: 192K
+      - label: vram
+        value: ~20 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: true
+    stack: buun-llama.cpp 87c351d2 · UD-Q3_K_XL · Unsloth MTP draft · turbo4 · reasoning medium
+sharedEntrances:
+  - name: llamacppqwen3827bmtpone
+    host: sharedentrances-llamacppqwen3827bmtpone
+    port: 0
+    title: Qwen38 27B MTP Vision API
+    icon: https://cdn.olares.com/images/2026/08/d5ec62e46ce5d08755b6ff8bbe569094.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppqwen3827bmtponecli
+    port: 8080
+    host: llamacppqwen3827bmtponecli
+    title: Qwen38 27B MTP Vision
+    icon: https://cdn.olares.com/images/2026/08/d5ec62e46ce5d08755b6ff8bbe569094.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.13
+  featuredImage: https://cdn.olares.com/images/2026/08/2b070c466d844c5055e53936800a0560.png
+  upgradeDescription: |
+    v1.0.13: abliterated KV back to q8_0/turbo4 (was q4_0 from upstream recipe). All variants use turbo4-V on One.
+    v1.0.12: fix CrashLoop OOM — Unsloth MTP/mtp-*-Q4_0.gguf auto-detects as DFlash and allocates a second full KV (~12GiB @ 196K) under HAMI 30GB. Default LLM_MTP_SOURCE=embedded (use GGUF-baked MTP, no --model-draft). Opt-in draft/dflash caps ctx to 65536 unless LLM_CONTEXT_WINDOW set.
+    v1.0.9: always download Unsloth MTP draft `MTP/mtp-Qwen3.8-27B-Q4_0.gguf` (~1.37 GB) and pass `--model-draft` by default. Toggle via LLM_MTP_SOURCE=draft|embedded|off.
+    v1.0.8: default Unsloth Dynamic 3.0 UD-Q3_K_XL (was Ridge). Add QWEN38_VARIANT=abliterated (soyaakinohara 3.69bpw ~12GB MTP) + ud_q4_k_xl. Always inject chat_template_kwargs reasoning_effort=medium by default (official jinja xhigh can loop); override via LLM_REASONING_EFFORT. Ridge kept as optional.
+    v1.0.7: replace mistaken froggeric Qwen3.6 v20 "bundled" file with official Qwen/Qwen3.8-27B chat_template.jinja (enable_thinking + reasoning_effort xhigh|medium|low). LLM_CHAT_TEMPLATE_SOURCE=bundled (default) | froggeric | url. Add LLM_REASONING_EFFORT.
+    v1.0.6: remove hardcoded --reasoning off — LLM_REASONING on|off|auto (default on). Bundled Qwen3.8 chat_template.jinja default via LLM_CHAT_TEMPLATE_SOURCE=bundled|froggeric|url; LLM_ENABLE_THINKING / LLM_PRESERVE_THINKING for --chat-template-kwargs.
+    v1.0.5: persistent crash/restart logging — wrap llama-server stdout/stderr into /olares/share/ai/model/llms/logs/.../server.<ts>.log and write last-exit.txt on non-0 rc.
+    v1.0.4: flip default `QWEN38_VARIANT` to `ridge_3_7bpw`. Goal: keep Q3-class footprint with slightly more architecture-aware quant mix for Qwen3.8 hybrid attention, while avoiding Q4_K_M long-context pressure on 24GB.
+    v1.0.3: add `QWEN38_VARIANT` selector for `ud_q3_k_xl` (default), `ud_q4_k_m`, or `ridge_3_7bpw`. Q4 gets safer defaults on 24GB (`ctx=131072`, `draft_n=3`) to reduce long-context first-token stalls / MTP buffer pressure. Research note updated: z-lab Qwen3.8 DFlash2 exists now, but as safetensors for vLLM/SGLang, not llama.cpp GGUF.
+    v1.0.2: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.0: initial release. Qwen3.8-27B (dense VLM, 256K native) via Unsloth Dynamic V3 GGUF + embedded MTP.
+
+    Research (2026-08-15):
+    - Unsloth: unsloth/Qwen3.8-27B-GGUF (UD-Q3_K_XL / UD-Q4_K_M + mmproj-BF16). config has unsloth_fixed_mtp + mtp_num_hidden_layers=1 — --spec-type draft-mtp works without --model-draft.
+    - Ridge: empero-ai/Qwen3.8-27B-Ridge-GGUF keeps native MTP head, trims weight footprint to ~12.6 GB while staying in Q3-class size.
+    - DFlash2: z-lab/Qwen3.8-27B-DFlash2 now exists, but repo is safetensors draft for vLLM/SGLang (`model.safetensors`), not llama.cpp GGUF.
+    - Alternate MTP donor a4lg/Qwen3.8-27B-MTP-ONLY-GGUF only needed for finetunes missing MTP tensors — not used here.
+
+    Stack for Olares One (RTX 5090M 24GB):
+    - Image: aamsellem/buun-llama-cpp:87c351d2 (--mmproj-gpu-swap + turbo4)
+    - Target default: Unsloth Qwen3.8-27B-UD-Q3_K_XL.gguf (~13.1 GB) Dynamic 3.0 + embedded MTP
+    - Compact: soyaakinohara abliterated 3.69bpw ~12.6 GB MTP (QWEN38_VARIANT=abliterated) + Unsloth mmproj
+    - Alternate: UD-Q4_K_M / UD-Q4_K_XL (lower ctx/draft on 24GB); Ridge 3.7bpw optional
+    - Vision: mmproj-BF16.gguf + --mmproj-gpu-swap
+    - Spec: --spec-type draft-mtp --spec-draft-n-max 4 on Unsloth Q3 (editable)
+    - KV: q8_0-K + turbo4-V; default ctx 192K (Q4 defaults 128K)
+    - Thinking: LLM_REASONING on + reasoning_effort medium by default (not xhigh)
+
+    Pick vs siblings:
+    - Max speed MoE + vision @ 128K → llamacppqwen36a3bdflashone (DFlash ~302 t/s)
+    - Max context MoE + vision @ 262K → llamacppqwen36a3bone (MTP ~243 t/s)
+    - Newest dense Qwen3.8 + vision + MTP → this chart
+  fullDescription: |
+    Qwen3.8-27B dense vision-language model with Multi-Token Prediction speculative decoding on Olares One.
+
+    Default: Unsloth Dynamic 3.0 UD-Q3_K_XL (embedded MTP). Optional compact abliterated 3.69bpw MTP GGUF, Unsloth Q4, or Empero Ridge.
+
+    Stack:
+      - buun-llama-cpp:87c351d2
+      - Default: unsloth/Qwen3.8-27B-GGUF UD-Q3_K_XL + mmproj-BF16
+      - Optional: QWEN38_VARIANT=abliterated | ud_q4_k_m | ud_q4_k_xl | ridge_3_7bpw
+      - --spec-type draft-mtp (default n=4 on Unsloth Q3)
+      - q8_0 / turbo4 KV, --mmproj-gpu-swap, 192K default context
+      - Official Qwen3.8 chat template; reasoning_effort medium by default
+
+    OpenAI-compatible API via nginx client (:8080 → :8000) and sharedEntrances for LLM gateway.
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/Qwen/Qwen3.8-27B/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 30Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_SPEC_DRAFT_N_MAX
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MTP_SOURCE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_K
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_V
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_TEMPERATURE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_TOP_P
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_TOP_K
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MIN_P
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PRESENCE_PENALTY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_REPETITION_PENALTY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: QWEN38_VARIANT
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_REASONING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CHAT_TEMPLATE_SOURCE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CHAT_TEMPLATE_URL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_ENABLE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PRESERVE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_REASONING_EFFORT
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

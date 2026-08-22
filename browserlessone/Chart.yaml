@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.38"
+description: Headless Chromium via Browserless for Puppeteer and Playwright on Olares One
+name: browserlessone
+type: application
+version: 1.0.38

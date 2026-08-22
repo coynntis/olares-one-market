@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.3
+description: llamacppgemma412agent1 shared server
+name: llamacppgemma412agent1srv
+type: application
+version: 1.0.3

@@ -1,0 +1,11 @@
+metadata:
+  description: "DeepSeek Harness Web UI — upgrade dsh from Settings without a chart bump"
+  title: DeepSeek Harness One
+spec:
+  fullDescription: |
+    DeepSeek Harness (dsh) Web UI on Olares One. Harness version is DSH_VERSION in
+    app Settings (default 0.1.0-rc.7). applyOnChange restarts and runs
+    npx -y @deepseek-ai/dsh@<version> web — no chart bump to upgrade dsh.
+    Runtime image is Node + git/python only. Sessions persist on appData.
+    Configure models in the Web UI; optional DeepSeek / OpenAI / Anthropic keys
+    from Olares user env, or a custom OpenAI-compatible gateway (local llama.cpp).

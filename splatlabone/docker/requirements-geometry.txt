@@ -1,0 +1,33 @@
+# Geometry backends + gsplat Viser viewer deps (python-builder stage)
+# numpy pinned in Dockerfile (do not add loose numpy here — causes 1.x↔2.x thrash)
+httpx>=0.27.0
+huggingface_hub>=0.23.0
+modelscope>=1.9.0
+viser>=0.2.0
+nerfview>=0.1.0
+einops>=0.7.0
+safetensors>=0.4.0
+opencv-python-headless>=4.8.0
+timm>=0.9.0
+trimesh>=4.0.0
+pillow>=10.0.0
+scipy>=1.11.0
+websockets>=12.0
+# HLoc / FastMap / GlueMap extras
+pycolmap>=0.4.0
+pyceres==2.6
+kornia>=0.6.11
+h5py>=3.10.0
+tqdm>=4.36.0
+loguru>=0.7.0
+prettytable>=3.0.0
+dacite>=1.8.0
+psutil>=5.9.0
+pyyaml>=6.0
+# GlueMap build backend (also installed early in Dockerfile before -e)
+scikit-build-core>=0.10
+pybind11>=3.0
+# DA3 API path (keep --no-deps on editable install; list real needs here)
+omegaconf>=2.3.0
+plyfile>=1.0.0
+

@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.20
+description: sglangminicpm51bone shared server
+name: sglangminicpm51bonesrv
+type: application
+version: 1.0.20

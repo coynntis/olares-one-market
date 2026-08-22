@@ -1,7 +1,18 @@
-admin: ""
+admin: ''
 bfl:
-  username: ""
+  username: ''
 userspace:
-  appData: ""
-  appCache: ""
-  userData: ""
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+workloads:
+  llamacppqwen3627btq34sone:
+    replicaCount: 1
+  llamacppqwen3627btq34sonecli:
+    replicaCount: 1

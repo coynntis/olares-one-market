@@ -1,0 +1,184 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: dockerbuilderone
+  name: dockerbuilderone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.workloads.dockerbuilderone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: dockerbuilderone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: dockerbuilderone
+      annotations:
+        olares.one/config-revision: "{{ .Chart.Version }}"
+    spec:
+      initContainers:
+        - name: fix-appdata-perms
+          image: docker.io/beclab/aboveos-busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - chmod -R 777 /data
+          volumeMounts:
+            - mountPath: /data
+              name: data
+        - name: install-kaniko
+          image: "{{ .Values.builder.kanikoImage }}"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              mkdir -p /tools/kaniko
+              cp -a /kaniko/. /tools/kaniko/
+              chmod +x /tools/kaniko/executor
+          volumeMounts:
+            - mountPath: /tools
+              name: build-tools
+      containers:
+        - name: builder
+          image: "{{ .Values.builder.pytorchImage }}"
+          command:
+            - sh
+            - -c
+          args:
+            - |
+              set -e
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y -qq --no-install-recommends unzip curl ca-certificates
+              rm -rf /var/lib/apt/lists/*
+
+              mkdir -p /workspace/dockerbuilderone/static /data/projects /data/kaniko-cache
+              cp /app-src/main.py /app-src/builder.py /app-src/deps.py /app-src/mcp_server.py /app-src/requirements.txt /workspace/dockerbuilderone/
+              cp /app-src/static__index.html /workspace/dockerbuilderone/static/index.html
+              cp /app-src/static__styles.css /workspace/dockerbuilderone/static/styles.css
+              cp /app-src/static__app.js /workspace/dockerbuilderone/static/app.js
+              cd /workspace/dockerbuilderone
+
+              python3 -m pip install --break-system-packages --upgrade pip
+              python3 -m pip install --break-system-packages -r requirements.txt
+
+              export DATA_DIR=/data
+              export STATIC_DIR=/workspace/dockerbuilderone/static
+              export KANIKO_EXECUTOR=/tools/kaniko/executor
+              exec python3 -m uvicorn main:app --host 0.0.0.0 --port {{ .Values.builder.port }}
+          env:
+            - name: GITHUB_TOKEN
+              value: "{{ .Values.olaresEnv.GITHUB_TOKEN }}"
+            - name: GHCR_USER
+              value: "{{ .Values.olaresEnv.GHCR_USER }}"
+{{- if gt (int .Values.builder.gpuCount) 0 }}
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,utility"
+{{- else }}
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "void"
+            - name: CUDA_VISIBLE_DEVICES
+              value: ""
+{{- end }}
+            - name: DATA_DIR
+              value: "/data"
+            - name: KANIKO_EXECUTOR
+              value: "/tools/kaniko/executor"
+            - name: KANIKO_SNAPSHOT_MODE
+              value: "time"
+            - name: KANIKO_IMAGE_DOWNLOAD_RETRY
+              value: "5"
+            - name: MCP_CORS_ORIGIN
+              value: "*"
+          ports:
+            - containerPort: {{ .Values.builder.port }}
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: {{ .Values.builder.port }}
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 240
+          # No livenessProbe: Kaniko layer snapshot after huge CUDA builds can stall the
+          # process long enough for kubelet to EOF /health|/livez and kill the pod
+          # ("Build interrupted"). startupProbe is enough for boot; readiness gates traffic.
+          readinessProbe:
+            httpGet:
+              path: /livez
+              port: {{ .Values.builder.port }}
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 15
+            failureThreshold: 6
+          resources:
+            limits:
+              cpu: "4"
+              memory: 48Gi
+{{- if gt (int .Values.builder.gpuCount) 0 }}
+              nvidia.com/gpu: "{{ .Values.builder.gpuCount }}"
+{{- end }}
+            requests:
+              cpu: 250m
+              memory: 4Gi
+{{- if gt (int .Values.builder.gpuCount) 0 }}
+              nvidia.com/gpu: "{{ .Values.builder.gpuCount }}"
+{{- end }}
+          volumeMounts:
+            - mountPath: /data
+              name: data
+            - mountPath: /app-src
+              name: app-source
+            - mountPath: /tools
+              name: build-tools
+      volumes:
+        - name: data
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/dockerbuilder"
+            type: DirectoryOrCreate
+        - name: app-source
+          configMap:
+            name: dockerbuilderone-source
+        - name: build-tools
+          emptyDir: {}
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: dockerbuilderone
+  name: dockerbuilderone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.builder.port }}
+      targetPort: {{ .Values.builder.port }}
+  selector:
+    io.kompose.service: dockerbuilderone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: dockerbuilderone
+  name: sharedentrances-dockerbuilderone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: {{ .Values.builder.port }}
+  selector:
+    io.kompose.service: dockerbuilderone

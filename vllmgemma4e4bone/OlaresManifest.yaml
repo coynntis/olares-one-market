@@ -1,0 +1,140 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllmgemma4e4bone: 1
+  vllmgemma4e4bonecli: 1
+metadata:
+  name: vllmgemma4e4bone
+  icon: https://cdn.olares.com/images/2026/08/3ce574b9870166bcff48e4629ced8d16.png
+  description: Gemma 4 E4B (Vision + Audio) via vLLM — optimized for Olares One
+  title: Gemma 4 E4B Voice One
+  version: 1.0.44
+  categories:
+    - Vision
+    - Audio
+    - LLM Chat
+  bento:
+    family: gemma
+    size_label: E4B
+    badge: voice mtp
+    hero:
+      value: 178 t/s
+      label: speed
+    specs:
+      - label: context
+        value: 32K
+      - label: vram
+        value: 11 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: true
+      mtp:
+        enabled: true
+        accept: 77
+    stack: vLLM · Gemma4MTP · centroids
+sharedEntrances:
+  - name: vllmgemma4e4bone
+    host: sharedentrances-vllmgemma4e4bone
+    port: 0
+    title: Gemma 4 E4B Voice API
+    icon: https://cdn.olares.com/images/2026/08/3ce574b9870166bcff48e4629ced8d16.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmgemma4e4bonecli
+    port: 8080
+    host: vllmgemma4e4bonecli
+    title: Gemma 4 E4B Voice One
+    icon: https://cdn.olares.com/images/2026/08/3ce574b9870166bcff48e4629ced8d16.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.44
+  featuredImage: https://cdn.olares.com/images/2026/08/3b1de19b9677190f2d8daf4c6dcfccc9.png
+  upgradeDescription: |2
+        v1.0.41: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.40: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.39: fix launcher.py IndentationError in health().
+    v1.0.38: HF token env + hf_transfer; bootstrap 6h default; health hf_token_set.
+    v1.0.37: log explicit HF blob paths at vLLM start; health paths.main_model_blobs.
+    v1.0.36: HF cache progress in /health + [vllm] log relay; stale download WARN; HF_HUB_VERBOSITY=info.
+    v1.0.35: bootstrap wait 3h (was 30m); readiness via /v1/models; progress logs every 5m.
+    v1.0.34: chart bump — launcher /docs redirect + speech stack release.
+    v1.0.33: fix app entrance 404 — launcher redirects GET / to /docs. FastAPI catch-all did not match root path.
+
+    v1.0.32: fix fast-ready launcher crash — broken start-vllm.sh heredoc (trailing backslash swallowed SHEOF delimiter). Pod should stay up; /health 200 while vLLM loads on :8001.
+
+    v1.0.31: fast-ready launcher — /health returns 200 on :8000 immediately; pip + vLLM start in background on :8001 with proxy when ready. Fixes Olares install timeout (30m).
+
+    v1.0.29: fix manifest accuracy — bento vision true, VRAM 11 GB, add Vision category, coynntis icon URL.
+
+    v1.0.12: align chart with validated MTP bench (178 t/s avg, 77% draft acceptance, first public Blackwell consumer mobile result for Gemma 4 E4B MTP). Image bumped to `vllm/vllm-openai:nightly-1acd67a795ebccdf9b9db7697ae9082058301657` (built post vLLM PR #41745 merge on 2026-05-06, native Gemma4MTP + Gemma4Proposer + centroids masking with CUDA graph capture). Adds `--speculative-config` with `google/gemma-4-E4B-it-assistant` MTP drafter (num_speculative_tokens=3). max-model-len 4K → 32K. gpu-memory-utilization 0.75 → 0.85.
+  fullDescription: |
+    Google Gemma 4 E4B (8B params, 4.5B effective) with native audio + vision input + MTP speculative decoding — served via vLLM, optimized for Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Native audio understanding: ask questions about audio, transcribe speech, summarize conversations.
+    Native vision: analyze images, read documents, understand screenshots.
+    Multi-Token Prediction speculative decoding: 178 t/s avg (77% draft acceptance) on Olares One (validated 2026-05-07).
+    BF16 precision (~10GB VRAM model + 0.5 GB MTP drafter). 32K context.
+    gpu-memory-utilization 0.85 — leaves room for TTS alongside.
+    OpenAI-compatible API with audio_url support in chat completions.
+    Apache 2.0 license. Thinking mode with tool calling.
+    Downloads model on first launch (~10GB) and caches it.
+    Exposes an OpenAI-compatible API on port 8000.
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 20Gi
+      limitedDisk: 30Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: VLLM_BOOTSTRAP_TIMEOUT_SEC
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

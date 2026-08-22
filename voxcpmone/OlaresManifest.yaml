@@ -1,0 +1,119 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  voxcpmone: 1
+  voxcpmonecli: 1
+metadata:
+  name: voxcpmone
+  icon: https://cdn.olares.com/images/2026/08/07512f5c198a957d7141600ee5c82c65.png
+  description: VoxCPM2 TTS — multilingual tokenizer-free speech, voice clone
+  title: VoxCPM2 TTS One
+  version: 1.0.14
+  categories:
+    - TTS
+  bento:
+    family: other
+    size_label: VoxCPM2
+    badge: tts
+    hero:
+      value: 30 lang
+      label: multilingual
+    specs:
+      - label: params
+        value: 2.3B
+      - label: vram
+        value: 4-6 GB
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: true
+      mtp:
+        enabled: false
+    stack: PyTorch · VoxCPM2
+sharedEntrances:
+  - name: voxcpmone
+    host: sharedentrances-voxcpmone
+    port: 0
+    title: VoxCPM2 TTS API
+    icon: https://cdn.olares.com/images/2026/08/07512f5c198a957d7141600ee5c82c65.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: voxcpmonecli
+    port: 8080
+    host: voxcpmonecli
+    title: VoxCPM2 TTS One
+    icon: https://cdn.olares.com/images/2026/08/07512f5c198a957d7141600ee5c82c65.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.14
+  featuredImage: https://cdn.olares.com/images/2026/08/e92ef9eb624082049f9819114c376b56.png
+  fullDescription: |
+    VoxCPM2 tokenizer-free TTS (openbmb/VoxCPM2) — 30 languages, voice cloning.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    ~4-6 GB VRAM. Alternative TTS to cosyvoice2yueone; best for zh/en multilingual.
+    For dedicated Cantonese use cosyvoice2yueone; VoxCPM2 handles Mandarin/Cantonese text but is not yue-specialized.
+    OpenAI-compatible /v1/audio/speech (optional prompt_audio clone).
+
+    In-cluster: http://voxcpmone:8000
+
+    curl -X POST http://voxcpmone:8000/v1/audio/speech \
+      -H "Content-Type: application/json" \
+      -d '{"input":"Hello from VoxCPM2"}' -o out.wav
+
+    VRAM budget with vllmgemma4e4bone (~11 GB): run one TTS at a time or use sensevoiceone on CPU.
+
+    Shared HF cache: /olares/share/ai/model/speech/huggingface (shared with all STT/TTS apps).
+    LLM GGUF cache: /olares/share/ai/model/llms/ (separate category).
+  upgradeDescription: |2
+        v1.0.11: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.10: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.9: fix model load: optimize=False disables torch.compile (no C compiler in runtime image); TORCHDYNAMO_DISABLE.
+    v1.0.8: venv gate on bin/pip not bin/python; ensurepip fallback.
+    v1.0.7: fix broken venv: recreate if bin/pip missing; add python3-venv.
+    v1.0.6: init: visible logs + chmod speech dirs only.
+    v1.0.5: chart bump — Gradio test UI at /.
+    v1.0.4: Gradio test UI at / (app entrance). TTS test when ready. Delete models/venv before upgrade.
+    v1.0.3: fast-ready bootstrap — /health returns 200 immediately; pip + model load run in background. Fixes Olares install timeout (30m). API returns 503 until ready.
+    v1.0.2: pytorch CUDA base + persisted venv (no silent pip on python:slim), model preload before /health 200, visible logs, shared HF cache, HAMi VRAM cap.
+    If v1.0.1 left a broken install, delete app Settings → Application data folder models/venv before upgrade.
+  developer: coynntis
+  website: https://huggingface.co/openbmb/VoxCPM2
+  sourceCode: https://github.com/OpenBMB/VoxCPM
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/OpenBMB/VoxCPM/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 17Gi
+      requiredDisk: 12Gi
+      limitedDisk: 25Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 8Gi
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

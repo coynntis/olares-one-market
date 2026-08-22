@@ -1,0 +1,11 @@
+metadata:
+  description: "Nanbeige4.2-3B Q8_0 agent LLM — Nanbeige llama.cpp on Olares One"
+  title: Nanbeige 4-2 3B One
+spec:
+  fullDescription: |
+    Nanbeige4.2-3B via Nanbeige/llama.cpp @ nanbeige42 on Olares One.
+    Andgihat Q8_0 GGUF (~4.43 GB). Default ctx 131K, q8 KV.
+    Embedded llama.cpp Web UI from ggml-org/llama-ui latest dist.tar.gz (SvelteKit).
+    Sampling: temp 0.6 top_p 0.95 top_k 20 (Nanbeige reasoning defaults).
+    Stock ggml-org / Ollama cannot load arch=nanbeige yet (upstream PR open).
+    OpenAI-compatible API on port 8000; client entrance proxies on 8080.

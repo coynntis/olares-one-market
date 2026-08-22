@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.39"
+description: Ideogram 4 NF4 + fal Instant text-to-image Gradio UI for Olares One
+name: ideogram4nf4one
+type: application
+version: 1.0.39

@@ -1,0 +1,209 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-nemodiff-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  TARGET_URL: "https://huggingface.co/spiritbuun/Nemotron-Labs-Diffusion-14B-Q8_0-GGUF/resolve/main/nemotron-diffusion-14b-Q8_0.gguf"
+  TARGET_FILE: "nemotron-diffusion-14b-Q8_0.gguf"
+  MODEL_ALIAS: "nemotron-diffusion-14b"
+  CTX_SIZE: "16384"
+  THREADS: "16"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppnemotrondiffusion14b1
+  name: llamacppnemotrondiffusion14b1
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppnemotrondiffusion14b1.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppnemotrondiffusion14b1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppnemotrondiffusion14b1
+    spec:
+      containers:
+        - name: nemodiff-server
+          image: "docker.io/aamsellem/buun-llama-cpp:316e88e"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              MODELS_DIR=${MODELS_DIR:-/models}
+              SHARED_DIR=${SHARED_DIR:-/shared-models/llms}
+              mkdir -p "$MODELS_DIR" "$SHARED_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              HF_AUTH=""
+              if [ -n "$HF_TOKEN" ]; then HF_AUTH="-H \"Authorization: Bearer $HF_TOKEN\""; fi
+              # Migrate $TARGET_FILE from old per-app dir to shared if needed
+              if [ -s "$MODELS_DIR/$TARGET_FILE" ] && [ ! -f "$SHARED_DIR/$TARGET_FILE.ok" ]; then
+                echo "==> Migrating $TARGET_FILE from per-app → shared"
+                mv "$MODELS_DIR/$TARGET_FILE" "$SHARED_DIR/$TARGET_FILE"
+                touch "$SHARED_DIR/$TARGET_FILE.ok"
+              fi
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                if link_from_comfy_llms "$SHARED_DIR/$TARGET_FILE"; then
+                  if [ -s "$SHARED_DIR/$TARGET_FILE" ]; then
+                    echo "[comfy-reuse] $TARGET_FILE present — stamp .ok" >&2
+                    if [ -n "${REV:-}" ]; then
+                      echo "$REV" > "$SHARED_DIR/$TARGET_FILE.ok"
+                    else
+                      touch "$SHARED_DIR/$TARGET_FILE.ok"
+                    fi
+                  fi
+                fi
+              fi
+              if [ ! -f "$SHARED_DIR/$TARGET_FILE.ok" ]; then
+                echo "==> Downloading $TARGET_FILE (~15 GB)"
+                eval curl -fL -C - --retry 20 --retry-delay 15 --retry-all-errors --connect-timeout 30 $HF_AUTH \
+                  "$TARGET_URL" -o "$SHARED_DIR/$TARGET_FILE"
+                touch "$SHARED_DIR/$TARGET_FILE.ok"
+              fi
+              cd /app
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              exec ./llama-server \
+                --model "$SHARED_DIR/$TARGET_FILE" \
+                --alias "$MODEL_ALIAS" \
+                --host 0.0.0.0 --port 8000 \
+                -ngl 99 \
+                --ctx-size "${LLM_CONTEXT_WINDOW:-${CTX_SIZE:-16384}}" \
+                --threads "${THREADS:-16}" \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload \
+                --reasoning-format none --reasoning off \
+                --jinja \
+                "${EXTRA_LLM_ARGS[@]}"
+          envFrom:
+            - configMapRef:
+                name: llamacpp-nemodiff-env
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN | default "" }}"
+            - name: MODELS_DIR
+              value: "/models"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "30000m"
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 600
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 720
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppnemotrondiffusion14b1
+  name: llamacppnemotrondiffusion14b1
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "nemodiff"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppnemotrondiffusion14b1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppnemotrondiffusion14b1
+  name: sharedentrances-llamacppnemotrondiffusion14b1
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppnemotrondiffusion14b1"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppnemotrondiffusion14b1

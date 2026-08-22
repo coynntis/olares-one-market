@@ -1,0 +1,10 @@
+workloads:
+  vllmgemma426ba4bvisionone:
+    replicaCount: 1
+  vllmgemma426ba4bvisiononecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

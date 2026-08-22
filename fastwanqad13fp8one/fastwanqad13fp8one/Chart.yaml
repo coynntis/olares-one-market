@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.9
+description: fastwanqad13fp8one client proxy
+name: fastwanqad13fp8one
+type: application
+version: 1.0.9

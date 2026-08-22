@@ -1,0 +1,8 @@
+**/__pycache__
+**/*.pyc
+**/.venv
+**/service.log
+**/.service.pid
+**/model
+**/voices
+.git

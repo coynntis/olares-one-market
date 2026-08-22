@@ -1,0 +1,349 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-bonsai27-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_REPO: "prism-ml/Bonsai-27B-gguf"
+  MODEL_FILE: "Bonsai-27B-Q1_0.gguf"
+  MODEL_URL: "https://huggingface.co/prism-ml/Bonsai-27B-gguf/resolve/main/Bonsai-27B-Q1_0.gguf"
+  # ~3.8 GB — reject truncated downloads
+  MODEL_MIN_BYTES: "3500000000"
+  MMPROJ_FILE: "Bonsai-27B-mmproj-Q8_0.gguf"
+  MMPROJ_URL: "https://huggingface.co/prism-ml/Bonsai-27B-gguf/resolve/main/Bonsai-27B-mmproj-Q8_0.gguf"
+  MMPROJ_MIN_BYTES: "500000000"
+  DRAFT_FILE: "Bonsai-27B-dspark-Q4_1.gguf"
+  DRAFT_URL: "https://huggingface.co/prism-ml/Bonsai-27B-gguf/resolve/main/Bonsai-27B-dspark-Q4_1.gguf"
+  DRAFT_MIN_BYTES: "1800000000"
+  # Off by default in values/olaresEnv ENABLE_DSPARK. ConfigMap leaves empty for env override.
+  ENABLE_DSPARK: ""
+  MODEL_ALIAS: "bonsai-27b"
+  CONTEXT_SIZE: "32768"
+  N_GPU_LAYERS: "99"
+  THREADS: "16"
+  BUILD_JOBS: "8"
+  # Blackwell 5090M: mxfp4 MMA needs sm_120a, not sm_120 (ptxas block_scale/mxf4).
+  CUDA_ARCH: "120a"
+  # PrismML 27B sampling defaults
+  TEMP: "0.7"
+  TOP_P: "0.95"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppbonsai27bone
+  name: llamacppbonsai27bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppbonsai27bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppbonsai27bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppbonsai27bone
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eu
+              log() { echo "$(date -Iseconds) [bonsai27:init] $*"; }
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+
+              download_one() {
+                name="$1"
+                url="$2"
+                min_bytes="$3"
+                dest="$SHARED_DIR/$name"
+                if type link_from_comfy_llms >/dev/null 2>&1; then
+                  if link_from_comfy_llms "$dest"; then
+                    if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                      log "ok $name via ComfyUI Common — skip download"
+                      rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" 2>/dev/null || true
+                      return 0
+                    fi
+                    rm -f "$dest"
+                  fi
+                fi
+                if [ -f "$MODELS_DIR/$name" ] && [ ! -f "$dest" ]; then
+                  log "migrate $name from per-app cache"
+                  mv "$MODELS_DIR/$name" "$dest"
+                fi
+                sz=0
+                if [ -f "$dest" ]; then
+                  sz=$(wc -c < "$dest" | tr -d ' ')
+                fi
+                if [ -f "$dest" ] && [ "$sz" -ge "$min_bytes" ]; then
+                  log "ok $name ($sz bytes)"
+                  ls -lh "$dest"
+                  return 0
+                fi
+                if [ -f "$dest" ]; then
+                  log "truncated $name ($sz < $min_bytes) — re-download"
+                  rm -f "$dest" "$dest.tmp"
+                fi
+                log "downloading $url"
+                if [ -n "${HF_TOKEN:-}" ]; then
+                  wget --header="Authorization: Bearer $HF_TOKEN" -O "$dest.tmp" "$url"
+                else
+                  wget -O "$dest.tmp" "$url"
+                fi
+                sz=$(wc -c < "$dest.tmp" | tr -d ' ')
+                if [ "$sz" -lt "$min_bytes" ]; then
+                  log "download too small ($sz < $min_bytes)"
+                  exit 1
+                fi
+                mv "$dest.tmp" "$dest"
+                log "done $name"
+                ls -lh "$dest"
+              }
+
+              download_one "$MODEL_FILE" "$MODEL_URL" "$MODEL_MIN_BYTES"
+              download_one "$MMPROJ_FILE" "$MMPROJ_URL" "$MMPROJ_MIN_BYTES"
+              if [ "${ENABLE_DSPARK:-0}" = "1" ]; then
+                download_one "$DRAFT_FILE" "$DRAFT_URL" "$DRAFT_MIN_BYTES"
+              else
+                log "ENABLE_DSPARK!=1 — skip DSpark drafter"
+              fi
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: ENABLE_DSPARK
+              value: {{ .Values.olaresEnv.ENABLE_DSPARK | default "0" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-bonsai27-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends git cmake build-essential ca-certificates curl wget
+              rm -rf /var/lib/apt/lists/*
+
+              mkdir -p /workspace
+              REPO_DIR="/workspace/llama.cpp"
+              REPO_URL="https://github.com/PrismML-Eng/llama.cpp"
+
+              if [ -d "$REPO_DIR/.git" ]; then
+                echo "Repo exists at $REPO_DIR — fetch/pull"
+                git -C "$REPO_DIR" remote set-url origin "$REPO_URL" || true
+                git -C "$REPO_DIR" fetch --tags --prune origin || true
+                git -C "$REPO_DIR" pull --ff-only || true
+              elif [ -e "$REPO_DIR" ]; then
+                ts="$(date +%Y%m%d%H%M%S)"
+                mv "$REPO_DIR" "${REPO_DIR}.bak.${ts}"
+                git clone "$REPO_URL" "$REPO_DIR"
+              else
+                git clone "$REPO_URL" "$REPO_DIR"
+              fi
+
+              cd "$REPO_DIR"
+              rm -rf build
+              cmake -B build -DGGML_CUDA=ON "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH:-120a}"
+              cmake --build build -j"${BUILD_JOBS:-8}"
+
+              SHARED="/shared-models/llms"
+              MODEL="$SHARED/${MODEL_FILE}"
+              MMPROJ="$SHARED/${MMPROJ_FILE}"
+              DRAFT="$SHARED/${DRAFT_FILE}"
+
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+
+              CTX="${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-32768}}"
+              SPEC_ARGS=()
+              if [ "${ENABLE_DSPARK:-0}" = "1" ] && [ -f "$DRAFT" ]; then
+                echo "DSpark speculative decode ON ($DRAFT)"
+                SPEC_ARGS+=(-md "$DRAFT" --spec-type draft-dspark --spec-draft-n-max 4 -ngld 999)
+                # Spec path re-prefills every request; give room to think.
+                if [ -z "${LLM_CONTEXT_WINDOW:-}" ] && [ "${CONTEXT_SIZE}" = "32768" ]; then
+                  CTX=16384
+                fi
+              fi
+
+              exec ./build/bin/llama-server \
+                --host 0.0.0.0 --port 8000 \
+                --model "$MODEL" \
+                --mmproj "$MMPROJ" \
+                --alias "${MODEL_ALIAS}" \
+                --ctx-size "$CTX" \
+                --n-gpu-layers "${N_GPU_LAYERS:-99}" \
+                --threads "${THREADS:-16}" \
+                --cache-type-k q4_0 --cache-type-v q4_0 \
+                --batch-size 512 --ubatch-size 512 \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload \
+                --jinja \
+                --temp "${TEMP:-0.7}" --top-p "${TOP_P:-0.95}" \
+                "${SPEC_ARGS[@]}" \
+                "${EXTRA_LLM_ARGS[@]}"
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: ENABLE_DSPARK
+              value: {{ .Values.olaresEnv.ENABLE_DSPARK | default "0" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-bonsai27-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/llamacppbonsai27bone-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppbonsai27bone
+  name: llamacppbonsai27bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppbonsai27bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppbonsai27bone
+  name: sharedentrances-llamacppbonsai27bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppbonsai27bone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppbonsai27bone

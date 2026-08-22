@@ -1,0 +1,100 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sglangkrea2turboone: 1
+  sglangkrea2turboonecli: 1
+metadata:
+  name: sglangkrea2turboone
+  icon: https://cdn.olares.com/images/2026/08/36686f93922097a01f850e61732025fd.png
+  description: Krea-2-Turbo via SGLang Diffusion — layerwise DiT offload for 24GB
+  title: SGLang Krea 2 Turbo
+  version: 1.0.0
+  categories:
+    - AI
+sharedEntrances:
+  - name: sglangkrea2turboone
+    host: sharedentrances-sglangkrea2turboone
+    port: 0
+    title: SGLang Krea Turbo API
+    icon: https://cdn.olares.com/images/2026/08/36686f93922097a01f850e61732025fd.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sglangkrea2turboonecli
+    port: 8080
+    host: sglangkrea2turboonecli
+    title: SGLang Krea 2 Turbo
+    icon: https://cdn.olares.com/images/2026/08/36686f93922097a01f850e61732025fd.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.0
+  featuredImage: https://cdn.olares.com/images/2026/08/d054de11da8534547ef0c58d83cec49c.png
+  fullDescription: |
+    SGLang Diffusion serving krea/Krea-2-Turbo (8-step distilled T2I) on Olares One.
+    Sibling of Gradio chart krea2turboone — this path uses SGLang kernels + OpenAI-compatible API.
+
+    Image: lmsysorg/sglang:dev-cu13. Boot clones sgl-project/sglang and pip installs python[diffusion].
+
+    24GB VRAM profile (default):
+      sglang serve --model-path krea/Krea-2-Turbo
+        --dit-layerwise-offload
+        --vae-tiling --vae-cpu-offload --text-encoder-cpu-offload
+        --pin-cpu-memory --trust-remote-code
+        --host 0.0.0.0 --port 30000
+
+    Cache-DiT is NOT enabled (incompatible with dit-layerwise-offload).
+    Override model via Settings env SGLANG_MODEL_PATH.
+
+    API: POST /v1/images/generations (OpenAI-compatible). Docs via SGLang server.
+  developer: sgl-project / Krea.ai
+  website: https://huggingface.co/krea/Krea-2-Turbo
+  sourceCode: https://github.com/sgl-project/sglang
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Krea 2 Community License
+      url: https://huggingface.co/krea/Krea-2-Turbo
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 80Gi
+      limitedDisk: 150Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.0: initial SGLang Diffusion chart for Krea-2-Turbo with DiT layerwise + VAE/TE CPU offload.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: SGLANG_MODEL_PATH
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'krea/Krea-2-Turbo'
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

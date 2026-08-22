@@ -1,0 +1,18 @@
+admin: ''
+bfl:
+  username: ''
+domain:
+  llamacppdiffusiongemma26a4boneclient: ''
+userspace:
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+workloads:
+  vllm:
+    replicaCount: 1
+  vllmdiffusiongemma26a4bcli:
+    replicaCount: 1

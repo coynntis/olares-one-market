@@ -1,0 +1,237 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-qwable-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  TARGET_MODEL: "lordx64/Qwable-v1-GGUF"
+  TARGET_FILE: "Qwable-v1.IQ4_XS.gguf"
+  MODEL_ALIAS: "qwable-v1"
+  CTX_SIZE: "196608"
+  THREADS: "16"
+  SPEC_DRAFT_N_MAX: "3"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppqwable35bone
+  name: llamacppqwable35bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppqwable35bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppqwable35bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppqwable35bone
+    spec:
+      initContainers:
+        # Fix hostPath perms — /olares/share/ai/model is created uid 1000 mode 755 on fresh
+        # Olares installs; non-root appuser in the main image can't write to it.
+        # Use beclab/aboveos-busybox (trusted; allowed runAsUser:0 per Olares OPA policy).
+        - name: fix-shared-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command: ["sh", "-c", "mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo perms-fixed"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-mtp-server
+          image: "docker.io/aamsellem/buun-llama-cpp:87c351d2"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              MODELS_DIR=${MODELS_DIR:-/models}
+              SHARED_DIR=${SHARED_DIR:-/shared-models/llms}
+              mkdir -p "$MODELS_DIR" "$SHARED_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              HF_AUTH=""
+              if [ -n "$HF_TOKEN" ]; then HF_AUTH="-H \"Authorization: Bearer $HF_TOKEN\""; fi
+              # Migrate $TARGET_FILE from old per-app dir to shared if needed
+              if [ -f "$MODELS_DIR/$TARGET_FILE" ] && [ ! -f "$SHARED_DIR/$TARGET_FILE.ok" ]; then
+                echo "==> Migrating $TARGET_FILE from per-app → shared"
+                mv "$MODELS_DIR/$TARGET_FILE" "$SHARED_DIR/$TARGET_FILE"
+                [ -f "$MODELS_DIR/$TARGET_FILE.ok" ] && mv "$MODELS_DIR/$TARGET_FILE.ok" "$SHARED_DIR/$TARGET_FILE.ok" || touch "$SHARED_DIR/$TARGET_FILE.ok"
+              fi
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                if link_from_comfy_llms "$SHARED_DIR/$TARGET_FILE"; then
+                  if [ -s "$SHARED_DIR/$TARGET_FILE" ]; then
+                    echo "[comfy-reuse] $TARGET_FILE present — stamp .ok" >&2
+                    if [ -n "${REV:-}" ]; then
+                      echo "$REV" > "$SHARED_DIR/$TARGET_FILE.ok"
+                    else
+                      touch "$SHARED_DIR/$TARGET_FILE.ok"
+                    fi
+                  fi
+                fi
+              fi
+              if [ ! -f "$SHARED_DIR/$TARGET_FILE.ok" ]; then
+                echo "==> Downloading $TARGET_MODEL/$TARGET_FILE (~19 GB)"
+                eval curl -fL -C - --retry 20 --retry-delay 15 --retry-all-errors --connect-timeout 30 $HF_AUTH \
+                  "https://huggingface.co/${TARGET_MODEL}/resolve/main/${TARGET_FILE}" \
+                  -o "$SHARED_DIR/$TARGET_FILE"
+                touch "$SHARED_DIR/$TARGET_FILE.ok"
+              fi
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              REASONING_ARGS=()
+              REASONING_MODE="$(echo "${LLM_REASONING:-on}" | tr '[:upper:]' '[:lower:]')"
+              case "$REASONING_MODE" in
+                off|0|false|no) REASONING_ARGS=(--reasoning off) ;;
+                auto) REASONING_ARGS=(--reasoning auto) ;;
+                *) REASONING_ARGS=(--reasoning on) ;;
+              esac
+
+              exec /app/llama-server \
+                --model "$SHARED_DIR/$TARGET_FILE" \
+                --alias "$MODEL_ALIAS" \
+                --host 0.0.0.0 --port 8000 \
+                --ctx-size "${LLM_CONTEXT_WINDOW:-${CTX_SIZE:-196608}}" \
+                --batch-size 512 --ubatch-size 512 \
+                --n-gpu-layers 99 \
+                --threads "${THREADS:-16}" \
+                --cache-type-k q8_0 --cache-type-v turbo4 \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload \
+                "${REASONING_ARGS[@]}" \
+                --spec-type draft-mtp \
+                --spec-draft-n-max "${SPEC_DRAFT_N_MAX:-3}" \
+                "${EXTRA_LLM_ARGS[@]}"
+          envFrom:
+            - configMapRef:
+                name: llamacpp-qwable-env
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN | default "" }}"
+            - name: MODELS_DIR
+              value: "/models"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "30000m"
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: LLM_REASONING
+              value: {{ .Values.olaresEnv.LLM_REASONING | default "" | quote }}
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 600
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 720
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppqwable35bone
+  name: llamacppqwable35bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp-mtp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppqwable35bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppqwable35bone
+  name: sharedentrances-llamacppqwable35bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppqwable35bone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppqwable35bone

@@ -1,0 +1,15 @@
+admin: ""
+userspace:
+  appData: ""
+prefetchModels: true
+prefetchModelKeys: "vggt_omega,da3,lingbot,mast3r"
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+  MCP_CORS_ORIGIN: "*"
+image:
+  repository: ghcr.io/coynntis/splatlabone
+  tag: "1.1.14"
+  pullPolicy: IfNotPresent

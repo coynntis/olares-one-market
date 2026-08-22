@@ -7,7 +7,6 @@ spec:
     SGLang server running Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers for OpenAI-compatible image generation on Olares One.
     RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
     Uses official diffusion-ready container image: lmsysorg/sglang:dev-cu13.
-    Bootstraps SGLang source by cloning https://github.com/sgl-project/sglang.git in the container.
     Installs diffusion dependencies at startup with:
       pip install -e "python[diffusion]"
     Serves on port 30000 using:

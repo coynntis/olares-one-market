@@ -1,0 +1,16 @@
+name: stream
+title: Stream geometry
+summary: Video chunks with geometry preview; optional full train after.
+license: Apache-2.0
+vram_gb: 12
+time_est_min: 5
+iterations: 7000
+checkpoint_interval: 2000
+chunk_size: 16
+stages:
+  sfm: skip
+  geometry: da3
+  representation: 3dgs
+  densification: default_adc
+  pose_opt: off
+  repair: none

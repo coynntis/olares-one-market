@@ -1,0 +1,133 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllmqwen3627bnvfp4one: 1
+  vllmqwen3627bnvfp4onecli: 1
+metadata:
+  name: vllmqwen3627bnvfp4one
+  icon: https://cdn.olares.com/images/2026/08/734498f3c909f978a06ef19106bcefc2.png
+  description: Qwen3.6 27B NVFP4 vision — vLLM TurboQuant KV + llama.cpp web UI on Olares One
+  title: Qwen3.6 27B NVFP4 One
+  version: 1.0.16
+  categories:
+    - Vision
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: 27B
+    badge: NVFP4
+    hero:
+      value: 8K
+      label: fp8 KV
+    specs:
+      - label: context
+        value: 8K
+      - label: vram
+        value: 24 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: false
+    stack: vLLM 0.25.1 cu13 · NVFP4 · fp8 KV · llama.cpp UI
+sharedEntrances:
+  - name: vllmqwen3627bnvfp4one
+    host: sharedentrances-vllmqwen3627bnvfp4one
+    port: 0
+    title: Qwen36 27B NVFP4 API
+    icon: https://cdn.olares.com/images/2026/08/734498f3c909f978a06ef19106bcefc2.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmqwen3627bnvfp4onecli
+    port: 8080
+    host: vllmqwen3627bnvfp4onecli
+    title: Qwen36 27B NVFP4
+    icon: https://cdn.olares.com/images/2026/08/734498f3c909f978a06ef19106bcefc2.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.16
+  featuredImage: https://cdn.olares.com/images/2026/08/62991d610f811e33f69b10040c77c8b5.png
+  upgradeDescription: |
+    v1.0.16: keep PIECEWISE cudagraphs; drop max_model_len 8192→7168 and util 0.95→0.97 so KV fits after torch.compile (was 0.43 GiB vs 0.43 needed).
+    v1.0.15: match Unsloth HF recipe — image v0.25.1-x86_64 (CUDA 13, not cu129) + pip flashinfer-python>=0.6.13 nvidia-cutlass-dsl>=4.5.2 compressed-tensors>=0.17.
+    v1.0.6: probe QuantizationArgs / null actorder fallback for old CT.
+    v1.0.5: pin v0.25.1 (wrong cu129 variant).
+    v1.0.4: --kv-cache-dtype fp8 (nightly had no fp8).
+    v1.0.3: helm render fix — remove curly braces from Python docstring.
+    v1.0.2: sanitize llama.cpp webui→vLLM requests; wrap upstream errors.
+    v1.0.1: soft-ready /v1/models while loading; stub /cors-proxy.
+    v1.0.0: initial release.
+
+  fullDescription: |
+    Unsloth Qwen3.6-27B-NVFP4 (multimodal VLM, ~23.5 GB) on Olares One RTX 5090M.
+    
+    Stack:
+    - Image: vllm/vllm-openai:v0.25.1-x86_64 (CUDA 13) + Unsloth pip deps
+    - --kv-cache-dtype fp8 (~2.6x KV) + flash_attn_version 2
+    - --limit-mm-per-prompt image=1 (native vision — no GGUF mmproj; projector baked into checkpoint)
+    - MTP off on 24GB VRAM (weights fill GPU; re-enable on 32GB+)
+    - hermes tool parser + qwen3 reasoning parser
+    - Default max_model_len 7168 (override via LLM_CONTEXT_WINDOW; 24GB tight with cudagraphs)
+    
+    Entrance serves the real llama.cpp web UI (tools/server/public @ b8740) with /props stub + /v1 proxy to vLLM — same chat UI you know from llama-server.
+  developer: coynntis
+  website: https://huggingface.co/unsloth/Qwen3.6-27B-NVFP4
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: "2"
+      limitedCpu: "13"
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 40Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  LLMGatewaySupported: true
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

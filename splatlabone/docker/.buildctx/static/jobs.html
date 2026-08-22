@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jobs — SplatLab One</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>SplatLab One</h1>
+    <nav>
+      <a href="/index.html">Dashboard</a>
+      <a href="/import.html">Import</a>
+      <a href="/pipeline.html">Pipeline</a>
+      <a href="/jobs.html">Jobs</a>
+      <a href="/viewer.html">Viewer</a>
+      <a href="/guide.html">Guide</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Jobs</h2>
+      <button type="button" id="refresh-jobs" class="secondary">Refresh</button>
+      <table id="jobs-table"><thead><tr><th>ID</th><th>Preset</th><th>State</th><th>Stage</th><th>Progress</th><th></th></tr></thead><tbody></tbody></table>
+    </section>
+    <section class="card" id="detail-card" hidden>
+      <h2>Job <code id="detail-id"></code></h2>
+      <div class="progress"><span id="detail-progress"></span></div>
+      <button type="button" id="cancel-job" class="secondary">Cancel</button>
+      <button type="button" id="view-splat">Open viewer</button>
+      <pre id="job-log" class="status" style="max-height:400px"></pre>
+    </section>
+  </main>
+  <script type="module">
+    import { api } from "/js/app.js";
+
+    let focusJob = new URLSearchParams(location.search).get("job");
+    let es = null;
+
+    async function refreshJobs() {
+      const data = await api("/api/v1/jobs");
+      const tbody = document.querySelector("#jobs-table tbody");
+      tbody.innerHTML = "";
+      for (const j of data.jobs || []) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td><code>${j.id}</code></td><td>${j.preset}</td><td>${j.state}</td><td>${j.stage}</td>
+          <td>${Math.round((j.progress || 0) * 100)}%</td>
+          <td><a href="?job=${j.id}">Details</a></td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function appendLog(line) {
+      const el = document.getElementById("job-log");
+      el.textContent += line + "\n";
+      el.scrollTop = el.scrollHeight;
+    }
+
+    async function showJob(id) {
+      focusJob = id;
+      document.getElementById("detail-card").hidden = false;
+      document.getElementById("detail-id").textContent = id;
+      document.getElementById("job-log").textContent = "";
+      if (es) es.close();
+      es = new EventSource(`/api/v1/jobs/${id}/events`);
+      es.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data.type === "log") appendLog(data.line);
+          if (data.progress != null) {
+            document.getElementById("detail-progress").style.width = `${Math.round(data.progress * 100)}%`;
+          }
+          if (data.type === "checkpoint_ready") appendLog(`[checkpoint] iter=${data.iteration} splat=${data.splat}`);
+          if (data.type === "job_complete") appendLog("[complete]");
+          if (data.type === "error") appendLog("[error] " + data.message);
+        } catch (_) {}
+      };
+      const j = await api(`/api/v1/jobs/${id}`);
+      document.getElementById("detail-progress").style.width = `${Math.round((j.progress || 0) * 100)}%`;
+    }
+
+    document.getElementById("refresh-jobs").onclick = refreshJobs;
+    document.getElementById("cancel-job").onclick = async () => {
+      if (!focusJob) return;
+      await api(`/api/v1/jobs/${focusJob}/cancel`, { method: "POST" });
+    };
+    document.getElementById("view-splat").onclick = () => {
+      if (focusJob) location.href = `/viewer.html?job=${focusJob}`;
+    };
+
+    refreshJobs().then(() => { if (focusJob) showJob(focusJob); });
+    setInterval(refreshJobs, 8000);
+  </script>
+</body>
+</html>

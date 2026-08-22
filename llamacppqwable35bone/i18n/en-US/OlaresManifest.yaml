@@ -1,0 +1,14 @@
+metadata:
+  title: Qwable 35B One
+  description: "Qwable-v1 IQ4_XS MoE — Opus+Fable distill, buun MTP, GGUF embedded template, text-only 192K"
+
+spec:
+  fullDescription: |
+    Qwable-v1 IQ4_XS MoE (Opus+Fable distill) served via buun-llama-cpp on Olares One — text-only.
+
+    Stack:
+    - lordx64/Qwable-v1-GGUF Qwable-v1.IQ4_XS.gguf (~19 GB)
+    - buun-llama-cpp:87c351d2 with --spec-type draft-mtp --spec-draft-n-max 3
+    - Asymmetric KV: q8_0 keys + turbo4 values
+    - 192K default context, GGUF embedded chat template, --reasoning off
+    - OpenAI-compatible API on port 8000 via nginx client proxy on port 8080.

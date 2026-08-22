@@ -1,0 +1,113 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhimelo
+  name: pipecatxiaozhimelo
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.workloads.pipecatxiaozhimelo.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: pipecatxiaozhimelo
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: pipecatxiaozhimelo
+    spec:
+      {{- $olaresEnv := .Values.olaresEnv | default dict -}}
+      {{- $melo := .Values.melo | default dict -}}
+      {{- $token := ($olaresEnv.GITHUB_TOKEN | default "") | trim -}}
+      {{- $repo := $melo.repository | default "ghcr.io/alvaroemtnez/melotts-fastapi" -}}
+      {{- $tag := $melo.tag | default "latest" -}}
+      {{- $pull := $melo.pullPolicy | default "IfNotPresent" -}}
+      {{- $digest := $melo.digest | default "sha256:899d49d3890f49b29f89e48b670fa306e5ba7f598a56528e7fa7eccc0a1b669b" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) }}
+      imagePullSecrets:
+        - name: pipecatxiaozhione-ghcr
+      {{- end }}
+      containers:
+        - name: melotts
+          {{- if $digest }}
+          image: "{{ $repo }}@{{ $digest }}"
+          {{- else }}
+          image: "{{ $repo }}:{{ $tag }}"
+          {{- end }}
+          imagePullPolicy: "{{ $pull }}"
+          ports:
+            - containerPort: 8000
+          env:
+            - name: MELOTTS_DEVICE
+              value: "cpu"
+            - name: MELOTTS_MODELS
+              value: {{ $melo.models | default "EN,ZH" | quote }}
+            - name: OMP_NUM_THREADS
+              value: "24"
+            - name: MKL_NUM_THREADS
+              value: "24"
+            - name: OPENBLAS_NUM_THREADS
+              value: "24"
+            - name: TORCH_NUM_THREADS
+              value: "24"
+            - name: TORCH_NUM_INTEROP_THREADS
+              value: "4"
+          livenessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 15
+            failureThreshold: 40
+          resources:
+            limits:
+              cpu: "24"
+              memory: 12Gi
+            requests:
+              cpu: "2"
+              memory: 2Gi
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhimelo
+  name: pipecatxiaozhimelo
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: pipecatxiaozhimelo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhimelo
+  name: sharedentrances-pipecatxiaozhimelo
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "pipecatxiaozhimelo"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: pipecatxiaozhimelo

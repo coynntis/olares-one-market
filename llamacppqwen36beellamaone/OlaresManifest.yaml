@@ -1,0 +1,147 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppqwen36beellamaone: 1
+  llamacppqwen36beellamaonecli: 1
+metadata:
+  name: llamacppqwen36beellamaone
+  icon: https://cdn.olares.com/images/2026/08/d5b1891ed81feac357e3d2772e326d4e.png
+  description: Qwen3.6 27B fastest + longest local — 106 t/s @ FULL 262K via BeeLlama.cpp 0.1.3-rc3 + DFlash + turbo3 KV
+  title: Qwen36 27B BeeLlama One
+  version: 1.0.31
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: 27B
+    badge: beellama
+    hero:
+      value: 106 t/s
+      label: speed @ 262K
+    specs:
+      - label: context
+        value: 262K
+      - label: vram
+        value: 20 GB
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: false
+        accept: 25
+    stack: BeeLlama 0.1.3-rc3 · DFlash · turbo3 KV
+sharedEntrances:
+  - name: llamacppqwen36beellamaone
+    host: sharedentrances-llamacppqwen36beellamaone
+    port: 0
+    title: Qwen36 27B BeeLlama API
+    icon: https://cdn.olares.com/images/2026/08/d5b1891ed81feac357e3d2772e326d4e.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppqwen36beellamaonecli
+    port: 8080
+    host: llamacppqwen36beellamaonecli
+    title: Qwen36 27B BeeLlama
+    icon: https://cdn.olares.com/images/2026/08/d5b1891ed81feac357e3d2772e326d4e.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.31
+  featuredImage: https://cdn.olares.com/images/2026/08/6a028adc0eb3dd87fee483275b2e4b2d.png
+  upgradeDescription: |2
+    v1.0.29: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.27: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.26: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.4: swap to `aamsellem/beellama-cpp:0.1.3-rc3` — built from Anbeeld HEAD `0ef12a52c3` (2026-05-17) **without** the `-lcuda` linker-flag workaround used in rc2. Validates Anbeeld's upstream CMake fix for `ggml-cuda` driver propagation: `target_link_libraries(ggml-cuda INTERFACE $<LINK_ONLY:CUDA::cuda_driver>)` (commit `2b9aa77aa6`, closes issue [#18](https://github.com/Anbeeld/beellama.cpp/issues/18)). Also picks up LPFchan PR #19 / commit `e50d29eed4` (DFlash GPU ring hang fix on turbo4 — sync ggml backend after decode). No behavioral or perf change expected vs rc2 (same binary semantics, cleaner build configuration). Same target/drafter/KV stack + `LLAMA_ARG_SPEC_DM_ADAPTIVE=true` env var as v1.0.3.
+
+    v1.0.3: upgrade to BeeLlama.cpp HEAD commit `2661abf270` (2026-05-16, built as `aamsellem/beellama-cpp:0.1.3-rc2`). Pulls in 3 post-v0.1.2 commits: `185bc3de` (Fix op table drift, harden GDN kernels, stream-safe DFlash replay), `f1d9677c` (partial revert), `2661abf2` (.kld baseline truncation fix). Critically: re-enables `LLAMA_ARG_SPEC_DM_ADAPTIVE=true` — v1.0.2 had to disable the adaptive profit controller via the env var to work around the HAMI-core UINT64 underflow under sustained agentic load (~50-99K active context). With the stream-safe DFlash replay fix in HEAD, the adaptive controller's allocation pattern should no longer drift the HAMi memory counter. Build also includes upstream CMake fix for `target_link_libraries(ggml-cuda PRIVATE CUDA::cuda_driver)` scope (reported upstream as issue #18; current build uses an equivalent `-DCMAKE_EXE_LINKER_FLAGS="-lcuda"` workaround). Same target/drafter/KV stack as v1.0.2.
+
+    v1.0.2: upgrade to BeeLlama.cpp v0.1.2 (commit 633cd34fb, released 2026-05-13). Key fix from release notes: "Fixed the adaptive profit controller's no-spec baseline path. Profit mode now seeds baseline samples before positive-depth warmup, can shut DFlash fully off when the measured baseline wins, and no longer makes speculative decisions from draft-only telemetry." Also fixes multi-GPU DFlash (correctness fallback), EOS handling in reasoning mode, ROCm 7 build. Custom amd64+CUDA13+sm_120 image rebuilt as aamsellem/beellama-cpp:0.1.2. Same config Qwen3.6 27B UD-Q3_K_XL + DFlash drafter q8_0 + turbo3 KV @ 262K. Bench in progress (will update once validated).
+    v1.0.1: bump CTX_SIZE 96000 → 262144 (FULL native Qwen3.6 context). Validated 2026-05-14 night: 106.23 t/s AVG (5 clean runs, range 101.34-111.28) at FULL 262K context. Beats llamacppqwen36mtpone v1.0.8 by +47% (72.75 → 106.23 t/s) at same 262K context. Full sweep: 96K=107, 128K=116, 200K=108, 262K=106 — flat performance across context sizes confirms turbo3 KV cache scales gracefully and DFlash drafter doesn't bottleneck. ZERO CUDA OOM tested across all context sizes. This is now the **fastest AND longest-context** Qwen3.6 27B path on Olares One.
+    v1.0.0: initial release. Qwen3.6 27B served via Anbeeld/beellama.cpp v0.1.1 fork (built from spiritbuun/buun-llama-cpp + MTP + CopySpec + reasoning-loop protection + TurboQuant turbo3 KV). First public bench on RTX 5090M Blackwell consumer mobile sm_120 — **107 t/s AVG (10 clean runs, range 98-115)** @ 96K context. Stack: unsloth/Qwen3.6-27B-GGUF Q3_K_XL (14.5 GB) + spiritbuun/Qwen3.6-27B-DFlash-GGUF dflash-draft-3.6-q8_0 (1.85 GB) + turbo3 KV (3-bit Walsh-Hadamard) + DFlash spec + batch 2048/ubatch 256 + flash-attn. Custom Docker image aamsellem/beellama-cpp:0.1.1 (build from v0.1.1 source for amd64+CUDA 13+sm_120). +40% vs llamacppqwen36dflashone (76 t/s @ 96K), +27% vs vllmqwen36turbo27bone (88 t/s @ 88K). No degradation cycle, no CUDA OOM, no Genesis patches needed.
+  fullDescription: |
+    Qwen3.6 27B fastest local inference path on Olares One — 106 t/s AVG @ full 262K context.
+    RTX 5090M (24 GB GDDR7, sm_120 Blackwell mobile) + 96 GB DDR5 + Core Ultra 9 275HX.
+
+    Stack:
+      - Image: aamsellem/beellama-cpp:0.1.3-rc3 (Anbeeld/beellama.cpp, amd64+CUDA 13+sm_120)
+      - Target: unsloth/Qwen3.6-27B-GGUF UD-Q3_K_XL (14.5 GB, non-MTP variant — BeeLlama uses DFlash, not MTP)
+      - Drafter: spiritbuun/Qwen3.6-27B-DFlash-GGUF dflash-draft-3.6-q8_0 (1.85 GB)
+      - Spec method: --spec-type dflash with --spec-dflash-cross-ctx 1024
+      - KV cache: turbo3 (3-bit Walsh-Hadamard rotated, ~25% smaller than q4_0)
+      - Context: 262K default (262144 tokens)
+      - batch-size 2048, ubatch-size 256, flash-attn on, mlock, no-mmap
+
+    BeeLlama.cpp adds over upstream / spiritbuun fork:
+      - DFlash spec decoding (inherited)
+      - TurboQuant turbo2/3/4 KV cache types (inherited from TheTom fork)
+      - CopySpec: model-free speculation via rolling-hash suffix matching
+      - Reasoning-loop protection (Qwen think-loop guard)
+
+    Performance on Olares One (validated 2026-05-14):
+      - 106 t/s AVG @ 262K context (5 clean runs, range 101-111 t/s)
+      - Flat performance across context sizes: 96K=107, 128K=116, 200K=108, 262K=106
+      - ZERO CUDA OOM, NO degradation cycle
+      - +40% vs llamacppqwen36dflashone (76 t/s @ 96K)
+      - +47% vs llamacppqwen36mtpone (72.75 t/s @ 262K MTP)
+
+    First launch downloads ~16 GB target + ~2 GB drafter from HuggingFace.
+    OpenAI-compatible API on port 8000 via nginx client proxy on port 8080.
+
+    Fork chain: ggml-org/llama.cpp → TheTom/llama-cpp-turboquant → spiritbuun/buun-llama-cpp → Anbeeld/beellama.cpp
+  developer: aamsellem
+  website: https://github.com/Anbeeld/beellama.cpp
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/ggml-org/llama.cpp/blob/master/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 25Gi
+      limitedDisk: 40Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

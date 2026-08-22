@@ -1,9 +1,11 @@
 metadata:
-  description: "Gemma 4 31B IT NVFP4 via vLLM modelopt on Olares One"
+  description: "Gemma 4 31B IT NVFP4 Turbo via vLLM modelopt on Olares One"
   title: Gemma 4 31B NVFP4 One
 spec:
   fullDescription: |
-    NVIDIA optimized Gemma 4 31B IT NVFP4 checkpoint served via vLLM on Olares One.
-    Startup command: vllm serve /models/gemma-4-31b-it-nvfp4 --quantization modelopt
-    Ensure model files are available at /models/gemma-4-31b-it-nvfp4 before startup.
+    LilaRest Gemma 4 31B IT NVFP4 Turbo checkpoint served via vLLM on Olares One.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Text-only generation — no vision or audio input.
+    Startup command: vllm serve LilaRest/gemma-4-31B-it-NVFP4-turbo --quantization modelopt --max-model-len 16384
+    16K default context window. Model files download from Hugging Face into /models at startup.
     Apache 2.0 license.

@@ -1,0 +1,19 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  LLM_API_KEY: ''
+  COLIBRI_RAM_GB: '48'
+  COLIBRI_REF: ''
+workloads:
+  colibridsv4flash0731one:
+    replicaCount: 1
+  colibridsv4flash0731onecli:
+    replicaCount: 1

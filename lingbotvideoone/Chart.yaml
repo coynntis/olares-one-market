@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.8"
+description: T2V / TI2V Gradio (Dense 1.3B single-GPU)
+name: lingbotvideoone
+type: application
+version: 1.0.8

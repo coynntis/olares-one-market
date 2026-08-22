@@ -1,0 +1,219 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppqwable35bone: 1
+  llamacppqwable35bonecli: 1
+metadata:
+  name: llamacppqwable35bone
+  icon: https://cdn.olares.com/images/2026/08/c18bcfb02c6e54f722828d631a5ca327.png
+  description: Qwable-v1 IQ4_XS MoE — Opus+Fable distill, buun MTP, GGUF embedded template, text-only 192K
+  title: Qwable 35B One
+  version: 1.0.13
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: 35B-A3B
+    badge: champion text
+    hero:
+      value: 243 t/s
+      label: champion text @ 192K
+    specs:
+      - label: context
+        value: 192K
+      - label: vram
+        value: 19 GB
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: true
+        accept: 86.6
+    stack: buun-llama.cpp 87c351d2 · IQ4_XS · draft-mtp n=3
+sharedEntrances:
+  - name: llamacppqwable35bone
+    host: sharedentrances-llamacppqwable35bone
+    port: 0
+    title: Qwable 35B-A3B MTP API
+    icon: https://cdn.olares.com/images/2026/08/c18bcfb02c6e54f722828d631a5ca327.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppqwable35bonecli
+    port: 8080
+    host: llamacppqwable35bonecli
+    title: Qwable 35B-A3B MTP
+    icon: https://cdn.olares.com/images/2026/08/c18bcfb02c6e54f722828d631a5ca327.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.13
+  featuredImage: https://cdn.olares.com/images/2026/08/8053a00007127d6862782349a6824f3c.png
+  upgradeDescription: |
+    v1.0.13: LLM_REASONING on|off|auto env — no more hardcoded --reasoning off.
+    v1.0.12: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.10: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+    v1.0.9: trim CPU/memory requests for denser multi-app packing (llm).
+    v1.0.8: clarify chmod init uses beclab/aboveos-busybox (not alpine).
+    v1.0.6: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.5: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.3: fix potential ????/ //// garbage — drop lordx64 external jinja (redacted_im_end
+    breaks peg-native); use GGUF embedded template + --reasoning off (same fix as Qwythos v1.0.6).
+    v1.0.2: attempted lordx64 jinja override (same class of bug).
+    v2.0.8: **fix CrashLoopBackOff on fresh install** (Discord-reported by user eahnlk, 2026-06-09). The chart writes its ~18 GB model cache to `/olares/share/ai/model/llms/` via hostPath. On a fresh Olares install where no other app has written to this path before, the dir is owned uid 1000 mode 755. The buun-llama-cpp image runs as a non-root `appuser` (UID ≠ 1000): can read (755 lets "others" read) but cannot write → curl write fails → container exits within seconds → CrashLoopBackOff. Fix: add a trusted root chmod init (`beclab/aboveos-busybox:1.37.0`; historically alpine) that `chmod -R 777 /olares/share/ai/model` before the main container starts. Same llama-server config otherwise (buun:87c351d2, asym q8_0-K/turbo4-V KV, MTP n=3, mmproj-gpu-swap, 262K context, --reasoning off).
+
+    v2.0.7: **rollback BeeLlama → buun (Hermes tool-calling regression fix)**. v2.0.6 swapped image to `ghcr.io/anbeeld/beellama.cpp:server-cuda13-v0.3.1` for slightly higher MTP accept rate, but a user reported on Discord that their Hermes Agent flow stopped working after the upgrade. BeeLlama v0.3.1 has a chat-parser/tool-call detection behavior difference vs spiritbuun `buun-llama-cpp:87c351d2`. Reverting the image to the known-good `aamsellem/buun-llama-cpp:87c351d2` while keeping everything else identical (asym q8_0-K/turbo4-V KV, MTP n=3, mmproj-gpu-swap, 262K context, `--reasoning off`). Bench unchanged from v2.0.5 (~240 t/s, 84-88% accept). Will re-evaluate BeeLlama once the parser regression is fixed upstream.
+
+    v2.0.6: ~~upgrade to BeeLlama v0.3.1~~ (rolled back in v2.0.7 due to Hermes tool-calling regression).
+
+    v2.0.5: **asymmetric KV cache** (free K quality boost). Image bump 316e88e → 87c351d2 (spiritbuun fused asymmetric flash-attn kernel, 2026-06-04). KV config: symmetric q4_0/q4_0 → asymmetric q8_0-K + turbo4-V. Keys at 8-bit (high attention quality), values at turbo4 (compressed). Native 262K context preserved (smaller Q3_K_XL model has the headroom that abliterated Q4_K does not). Also dropped deprecated `--chat-template-kwargs` for `--reasoning off` flag. Bench Olares One (3 runs Space Invaders): 236.28 / 243.32 / 241.87 t/s = AVG 240.5 t/s with 84-88% MTP accept (vs v1.0.1 baseline 243.59 t/s, -1% speed for measurable K precision uplift). Quality > 1% raw speed for long-context use.
+
+    v2.0.0: **vision UNLOCKED on the champion via spiritbuun `--mmproj-gpu-swap`**. The vision regression from v1.0.4/v1.0.5 that forced us back to text-only in v1.0.6 is now solved by a much cleverer mechanism than "shrink context to make room for mmproj". The new buun-llama-cpp image (`aamsellem/buun-llama-cpp:316e88e`) ships spiritbuun's `--mmproj-gpu-swap` feature: keeps mmproj on CPU at startup, swaps MTP out of VRAM when an image arrives, loads mmproj to GPU for fast encoding (~1-2s), then swaps back. MTP has no persistent state so the swap is lossless.
+
+    **Bench validated 2026-05-24 on Olares One**:
+    - Text decode: **243.59 t/s AVG** (10 runs, range 237.60-251.39) — only -2.8% vs v1.0.6 text-only baseline (250.54)
+    - Vision test: 64×64 PNG → "Red" correct, **1.13s total** for swap + encode + generate
+    - Swap latencies: MTP→mmproj 213ms, mmproj→MTP 540ms (~750ms vision overhead per request)
+    - Auto-fit context: **262K full native** (vs 64K in v1.0.4/v1.0.5 attempts) — `--mmproj-gpu-swap` frees enough VRAM that the full window fits
+
+    **Single endpoint now handles everything**:
+    - Text generation at near-champion speed (243 t/s)
+    - Vision input via OpenAI-compatible `image_url`
+    - Tool calling (Hermes Agent compatible) via `--jinja`
+    - Full 262K context window
+    - MTP at 86.6% draft acceptance
+
+    Stack:
+    - Image: `aamsellem/buun-llama-cpp:316e88e` — spiritbuun fork at upstream-merge commit (post llama.cpp master + mmproj-gpu-swap + GDN tensor-split fixes)
+    - Target model: `lordx64/Qwable-v1-GGUF` UD-Q3_K_XL (17.2 GB)
+    - Vision encoder: `mmproj-BF16.gguf` from same repo (~900 MB, CPU-resident at idle, GPU-resident during image requests)
+    - `--spec-type draft-mtp --spec-draft-n-max 3 --mmproj-gpu-swap`
+    - q4_0 KV cache, flash attention, auto-fit context
+
+    **Why we're confident in this build**: we built it yesterday (`aamsellem/buun-llama-cpp:316e88e`, downstream of spiritbuun commit `316e88e` which adds `--mmproj-gpu-swap` docs after the feature merge at `8e64d7a`). Validated end-to-end today: text decode tight (σ ≈ 4), vision correct on color test, no cycle bug.
+
+    Trade-off vs v1.0.6 text-only: -2.8% throughput + ~750ms per vision request. In exchange: vision + 4× more context. Worth it for any agentic workflow that mixes text and screenshots.
+
+    v1.0.6: **revert to text-only champion config**. v1.0.4/v1.0.5 attempted to add mmproj vision encoder but the MTP + mmproj + 192K/64K ctx combo blew the 24 GB VRAM budget (compute pp buffer alone needed ~4 GB at ubatch 2048). Trade-off was not worth it — text speed dropped, context shrank, and stability was fragile. Back to v1.0.3 config: **262K full native context, 246 t/s MTP champion, no vision**. For vision use cases, use `llamacppqwen36beellamavision1` (Qwen 3.6 27B dense + BeeLlama + mmproj, 106 t/s @ 200K vision) or `vllmgemma426ba4bvisionone` (Gemma 4 + native multimodal, 135 t/s but lower tool-calling reliability).
+
+    v1.0.4: **vision unlocked** (rolled back in v1.0.6). Add `--mmproj /models/mmproj-BF16.gguf` (~900 MB, downloaded automatically from `lordx64/Qwable-v1-GGUF`). Qwen 3.6 35B-A3B is natively multimodal (vision encoder shipped by Alibaba) and llama.cpp mainline supports `--spec-type draft-mtp` + `--mmproj` together since the MTP merge (b9274+).
+
+    **Why this matters for agentic use**: Hermes-Agent style tool calling can now consume images directly through the same endpoint that already wins on BFCL/SWE-bench. No more split between a Qwen text agent and a Gemma vision sibling — one model, one GPU slot, full vision + text + tool calling.
+
+    Args changes vs v1.0.3:
+    - `--mmproj $MODELS_DIR/mmproj-BF16.gguf` added
+    - `--ubatch-size 512 → 2048` (mandatory: ubatch must be ≥ image_max_tokens or vision encoder asserts per PR #21550)
+    - `--batch-size 512 → 2048` (matches ubatch)
+    - `CTX_SIZE 262144 → 196608` (192K — gives ~1 GB headroom for mmproj VRAM on 24 GB GPU)
+
+    VRAM budget @ 64K (corrected in v1.0.5, then reverted in v1.0.6):
+    - Model Q3_K_XL: 17.2 GB
+    - mmproj BF16: 1.0 GB
+    - KV q4_0 @ 64K: 0.8 GB
+    - MTP draft buffer @ n_max=1: ~1.3 GB
+    - Compute pp buffer @ ubatch 2048: ~2.0 GB
+    - **Total: ~22.3 GB / 23.4 GB usable** (fit but very tight, abandoned in v1.0.6)
+
+    Image input via OpenAI-compatible `image_url` (base64 data URI or URL). Expected perf: ~240-245 t/s text decode (down from 249, the 2048 ubatch costs ~2% on pure text but is required once mmproj is loaded). Vision prompt processing on mmproj BF16: tested on Olares One in prior Qwen vision work, comfortable headroom.
+
+    v1.0.3: bump image `aamsellem/llama-cpp-mtp:master-ad27757` → `master-bb28c1f`. Picks up am17an's PR [#23461](https://github.com/ggml-org/llama.cpp/pull/23461) "server: free draft/MTP resources on sleep to fix VRAM leak" (community Reddit thread confirms necessity on b9274) + #23433 "mtp: use inp_out_ids for skipping logit computation" + #23131 SWA null-buffer fix. Bench re-validated 2026-05-22: 250.08 t/s AVG (10 runs, +0.3% vs ad27757 — noise). Real value is sustained-load stability (VRAM leak fix matters for agentic sessions hours-long).
+
+    v1.0.2: bump default `CTX_SIZE` from 32K to **262144 (full native Qwen3.6 35B-A3B context window)**. Context sweep validated 2026-05-21 on Olares One showing essentially zero throughput regression across context sizes:
+
+    | Context | t/s AVG | runs | delta vs 32K |
+    |---------|--------:|-----:|-------------:|
+    | 32K | 249.30 | 10 | baseline |
+    | 64K | 252.64 | 5 | +1.3% (noise) |
+    | 128K | 250.39 | 5 | +0.4% (noise) |
+    | **262K (full native)** | **245.71** | 5 | -1.4% |
+
+    Memory budget at 262K Q3_K_XL + q4_0 KV + MTP draft buffer:
+    - Model: 17.2 GB
+    - q4_0 KV @ 262K (32 layers × 262K × 2 KV): ~3.2 GB
+    - MTP draft compute buffer: ~1 GB
+    - Compute buffer: ~0.5 GB
+    - Total: ~21.9 GB / 23.42 GB usable on 24 GB GPU (HAMi overhead-accounted)
+
+    Comfortable headroom. Full 262K context is essentially free on this stack — the MoE-A3B + MTP path doesn't have the per-token cost scaling with context that dense models exhibit (Mamba-like state-space layers carry constant per-token cost regardless of position).
+
+    Practically: this app is now **fastest AND longest-context** Qwen3.6 27B/35B path on Olares One. Beats `llamacppqwen36beellamaone` v1.0.4 (107 t/s @ 262K, dense + DFlash) by **+130%** at the same context window. Beats `llamacppqwen36mtpone` v1.0.9 (74 t/s @ 262K, dense + MTP) by **+232%**. Same image as both (`aamsellem/llama-cpp-mtp:master-ad27757`), different model + architecture pays off entirely.
+
+    v1.0.1: complete rebuild. Switch to MTP path with `aamsellem/llama-cpp-mtp:master-ad27757` (ggml-org/llama.cpp master HEAD with PR #22673 MTP + #23269 cleanup + #23287 NVIDIA backend sampling + #22522 PDL Hopper+). Swap target from `unsloth/Qwen3.6-35B-A3B-GGUF` Q4_K_XL → `lordx64/Qwable-v1-GGUF` Q3_K_XL (Q4_K_XL=22 GB OOMs with KV at 24 GB; Q3_K_XL=17.2 GB fits comfortably). Args: `--spec-type draft-mtp --spec-draft-n-max 3 --ctx-size 32768 --cache-type-k q4_0 --cache-type-v q4_0 --batch-size 512 --ubatch-size 512 --parallel 1 --flash-attn on --chat-template-kwargs '{"enable_thinking": false}'`.
+
+    **Bench validated 2026-05-21 on Olares One**: **249.30 t/s AVG** (10 runs, range 10.15, σ ≈ 3.0), **86.6% draft acceptance** (range 83.8–89.0%). NEW absolute champion on Olares One:
+    - +37% vs Nemotron-Labs 30B-A3B NVFP4 + vLLM #40082 (182.14 t/s)
+    - +83% vs Gemma 4 26B-A4B vLLM (135.97 t/s)
+    - +132% vs BeeLlama Qwen3.6 27B + DFlash (107.54 t/s)
+    - +236% vs Qwen3.6 27B dense MTP same image (74.28 t/s)
+
+    Why so fast: MoE-A3B = only ~3B params active per token (per-token compute is roughly that of a 3B model) + MTP at 86.6% accept (drafts almost always validate) + NVIDIA backend sampling moves draft sampling onto CUDA backend (fewer host roundtrips). Effective: "3B-active speed with 35B-breadth quality." Context limited to 32K because KV cache + MTP draft buffer fits on 24 GB; higher contexts would need IQ4_XS or larger memory.
+
+    Title renamed "Qwen 36B-A3B One" → "Qwen36 35B-A3B MTP" for clarity. Port 8080 → 8000 (matches llama-server default in our master image).
+
+    v1.0.0: initial release. Qwen3.6-35B-A3B (Apache 2.0, April 2026). Same hybrid SSM/MoE architecture as 3.5 — reuses proven Olares One config (llama.cpp b8740, UD-Q4_K_XL, KV q4_0 with Hadamard rotation, batch 2048/ubatch 1024, 64K ctx). SWE-bench 70.0→73.4, Terminal-Bench 40.5→51.5.
+  fullDescription: |
+    Qwable-v1 IQ4_XS MoE (Opus+Fable distill) served via buun-llama-cpp on Olares One — text-only, no vision encoder.
+
+    Stack:
+      - Image: docker.io/aamsellem/buun-llama-cpp:87c351d2
+      - Target: lordx64/Qwable-v1-GGUF Qwable-v1.IQ4_XS.gguf (~19 GB)
+      - Spec: --spec-type draft-mtp --spec-draft-n-max 3
+      - KV cache: q8_0 keys + turbo4 values (asymmetric)
+      - Context: 192K default (196608 tokens)
+      - Chat template: GGUF embedded (no external jinja), --reasoning off
+
+    Olares One optimized. OpenAI-compatible API on port 8000 (llama-server) via nginx client proxy on port 8080.
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/Qwen/Qwen3.6-35B-A3B/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 30Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_REASONING
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

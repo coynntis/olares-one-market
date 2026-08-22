@@ -1,0 +1,102 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppgemma412agent1: 1
+  llamacppgemma412agent1cli: 1
+metadata:
+  name: llamacppgemma412agent1
+  icon: https://cdn.olares.com/images/2026/08/c6a523fac72e8ab17cb6c5514e9aa4d0.png
+  description: Gemma4-12B agentic Fable5 v2 Q4_K_M — tool calling, llama.cpp b8740
+  title: Gemma 4 12B Agentic One
+  version: 1.0.10
+  categories:
+    - AI
+sharedEntrances:
+  - name: llamacppgemma412agent1
+    host: sharedentrances-llamacppgemma412agent1
+    port: 0
+    title: Gemma 4 12B Agentic v2 API
+    icon: https://cdn.olares.com/images/2026/08/c6a523fac72e8ab17cb6c5514e9aa4d0.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppgemma412agent1cli
+    port: 8080
+    host: llamacppgemma412agent1cli
+    title: Gemma 4 12B Agentic v2 One
+    icon: https://cdn.olares.com/images/2026/08/c6a523fac72e8ab17cb6c5514e9aa4d0.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.10
+  featuredImage: https://cdn.olares.com/images/2026/08/7346feb42752127c66958afb4fc6ce22.png
+  fullDescription: |
+    Gemma 4 12B agentic Fable5 Composer 2.5 v2 Q4_K_M — tool-calling tuned for agent workflows.
+
+    Model: yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF (Q4_K_M, ~7 GB).
+    Image: ghcr.io/ggml-org/llama.cpp:server-cuda13-b8740. Default context 128K (131072 tokens).
+    q4_0 KV cache, batch/ubatch 512, --jinja, slot-save-path for session persistence.
+    Olares One optimized. OpenAI-compatible API on port 8080 via client proxy.
+    Optional LLM_CONTEXT_WINDOW, LLM_MAX_OUTPUT_TOKENS, LLM_API_KEY in app settings.
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 15Gi
+      limitedDisk: 20Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+    v1.0.8: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.4: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.3: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

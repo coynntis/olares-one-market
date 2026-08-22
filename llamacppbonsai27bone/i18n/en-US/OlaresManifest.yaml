@@ -1,0 +1,8 @@
+metadata:
+  description: "Bonsai-27B Q1_0 VLM — dense 27B + vision at ~4.5GB VRAM"
+  title: Bonsai 27B One
+spec:
+  fullDescription: |
+    Bonsai-27B via PrismML llama.cpp on Olares One.
+    Q1_0 language (~3.8 GB) + mmproj Q8_0 (~0.63 GB). Optional DSpark with ENABLE_DSPARK=1.
+    OpenAI-compatible API on port 8000; client entrance proxies on 8080.

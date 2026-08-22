@@ -1,10 +1,10 @@
 metadata:
   title: Bonsai 8B One
-  description: "Bonsai-8B minimal CUDA dev pod on Olares One"
+  description: "Bonsai-8B llama-server API — CUDA 13.1, PrismML source build on Olares One"
 
 spec:
   fullDescription: |
-    Minimal Bonsai-8B workspace on Olares One.
-    On first launch, downloads Bonsai-8B.gguf from Hugging Face into /models.
-    Build workspace is persisted so the PrismML llama.cpp checkout is reused across restarts when possible.
-    The CUDA devel container prints a short readiness banner and then sleeps (intended for kubectl exec / debugging workflows).
+    Bonsai-8B served via llama-server on Olares One.
+    Downloads Bonsai-8B.gguf from prism-ml/Bonsai-8B-gguf on first launch.
+    Compiles PrismML-Eng/llama.cpp from source in a persisted workspace (CUDA 13.1 devel), then runs llama-server on port 8000.
+    OpenAI-compatible API via shared entrance and nginx client proxy on port 8080.

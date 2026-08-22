@@ -1,0 +1,150 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhisherpa
+  name: pipecatxiaozhisherpa
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.workloads.pipecatxiaozhisherpa.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: pipecatxiaozhisherpa
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: pipecatxiaozhisherpa
+    spec:
+      {{- $olaresEnv := .Values.olaresEnv | default dict -}}
+      {{- $sherpa := .Values.sherpa | default dict -}}
+      {{- $token := ($olaresEnv.GITHUB_TOKEN | default "") | trim -}}
+      {{- $repo := $sherpa.repository | default "ghcr.io/ptbsare/home-assistant-addons/amd64-addon-sherpa-onnx-tts-stt" -}}
+      {{- $tag := $sherpa.tag | default "latest" -}}
+      {{- $pull := $sherpa.pullPolicy | default "IfNotPresent" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) }}
+      imagePullSecrets:
+        - name: pipecatxiaozhione-ghcr
+      {{- end }}
+      initContainers:
+        # TTS model hostPath only — STT skipped via CUSTOM_STT_MODEL_EVAL=None.
+        - name: fix-sherpa-model-dirs
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              TTS=/shared-models/speech/sherpa-tts
+              mkdir -p "$TTS"
+              chmod -R 777 "$TTS"
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: sherpa-onnx
+          image: "{{ $repo }}:{{ $tag }}"
+          imagePullPolicy: "{{ $pull }}"
+          ports:
+            - containerPort: 10400
+              name: wyoming
+            - containerPort: 10500
+              name: openai
+          env:
+            - name: LANGUAGE
+              value: {{ $sherpa.language | default "zh-CN" | quote }}
+            # Skip Sherpa STT — bridge uses its own STT. Addon crash-loops on corrupt
+            # hostPath ONNX ("No graph was found in the protobuf"); CUSTOM eval None
+            # loads TTS only (initialize_models allows stt_model=None if tts loads).
+            - name: CUSTOM_STT_MODEL_EVAL
+              value: "None"
+            # v0.3.7 only auto-downloads when CUSTOM_*_MODEL is set (not null).
+            - name: CUSTOM_TTS_MODEL
+              value: {{ $sherpa.ttsModel | default "kokoro-int8-multi-lang-v1_1" | quote }}
+            # Must match models/tts/<name>.py in the addon — wrong name → tts_model=None → generate crash
+            - name: TTS_MODEL
+              value: {{ $sherpa.ttsModel | default "kokoro-int8-multi-lang-v1_1" | quote }}
+            - name: TTS_THREAD_NUM
+              value: {{ $sherpa.ttsThreads | default "24" | quote }}
+            - name: TTS_SPEAKER_SID
+              value: {{ $sherpa.ttsSpeakerSid | default "2" | quote }}
+            - name: DEBUG
+              value: "True"
+            - name: OMP_NUM_THREADS
+              value: "24"
+            - name: MKL_NUM_THREADS
+              value: "24"
+          volumeMounts:
+            - mountPath: /tts-models
+              name: shared-models
+              subPath: speech/sherpa-tts
+            # EmptyDir: avoid hostPath STT leftovers (unused — STT skipped).
+            - mountPath: /stt-models
+              name: sherpa-stt-empty
+          livenessProbe:
+            tcpSocket:
+              port: 10500
+            initialDelaySeconds: 90
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            tcpSocket:
+              port: 10500
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 15
+            failureThreshold: 120
+          resources:
+            limits:
+              cpu: "24"
+              memory: 8Gi
+            requests:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: sherpa-stt-empty
+          emptyDir: {}
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhisherpa
+  name: pipecatxiaozhisherpa
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: openai
+      port: 10500
+      targetPort: 10500
+    - name: wyoming
+      port: 10400
+      targetPort: 10400
+  selector:
+    io.kompose.service: pipecatxiaozhisherpa
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhisherpa
+  name: sharedentrances-pipecatxiaozhisherpa
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "pipecatxiaozhisherpa"
+      port: 80
+      targetPort: 10500
+  selector:
+    io.kompose.service: pipecatxiaozhisherpa

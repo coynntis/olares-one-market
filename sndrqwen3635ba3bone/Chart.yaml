@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.7"
+description: "EXPERIMENTAL — prefer llamacppqwen36a3bone. SNDR FP8 35B no MTP on 1x24GB"
+name: sndrqwen3635ba3bone
+type: application
+version: 1.0.7

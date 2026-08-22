@@ -1,0 +1,37 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+image:
+  repository: lightx2v/lightllm_lightx2v
+  tag: '20260407'
+  pullPolicy: IfNotPresent
+model:
+  repo: sensenova/SenseNova-U1-8B-MoT
+  dir: /models/SenseNova-U1-8B-MoT
+server:
+  port: 8000
+  tp: 1
+  memFraction: '0.68'
+  maxReqTotalLen: 65536
+  x2iDeployMode: colocate
+  x2iUsedGpus: 1
+  x2vGenConfig: neopp_dense.json
+  x2iUseNaiveImpl: false
+repos:
+  lightllmUrl: https://github.com/ModelTC/LightLLM.git
+  lightllmBranch: neo_plus_clean
+  lightx2vUrl: https://github.com/ModelTC/LightX2V.git
+workloads:
+  sensenovau1lightllmone:
+    replicaCount: 1
+  sensenovau1lightllmonecli:
+    replicaCount: 1

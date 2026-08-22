@@ -1,0 +1,17 @@
+# Mage-Flow app deps (torch/torchvision provided by pytorch image — do not list).
+# mage-flow itself installed from Microsoft/Mage git in boot script.
+diffusers>=0.37.0,<0.39
+transformers>=5.3.0,<5.6
+accelerate>=1.0.0
+einops>=0.8.0
+safetensors>=0.4.0
+huggingface_hub>=0.20
+loguru>=0.7.0
+numpy>=1.26
+Pillow>=10.0
+# Gradio 5 works with our FastAPI mount pattern; mage upstream wants 6 — allow both.
+gradio>=5.0.0,<7
+fastapi>=0.115.0,<1.0
+uvicorn[standard]>=0.30.0,<1.0
+pydantic>=2.0,<2.13
+mcp>=1.8.0,<2

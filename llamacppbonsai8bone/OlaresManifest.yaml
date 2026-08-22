@@ -1,51 +1,77 @@
 ---
-olaresManifest.version: '0.10.0'
+olaresManifest.version: 0.12.0
 olaresManifest.type: app
-apiVersion: 'v2'
+apiVersion: v3
+workloadReplicas:
+  llamacppbonsai8bone: 1
+  llamacppbonsai8bonecli: 1
 metadata:
   name: llamacppbonsai8bone
-  icon: https://orales-one-market.aamsellem.workers.dev/icons/llamacppbonsai8bone.png
-  description: "Bonsai-8B minimal CUDA dev pod on Olares One"
-  appid: llamacppbonsai8bone
+  icon: https://cdn.olares.com/images/2026/08/caf27fffd327ed5dda8205c2b4b11d92.png
+  description: Bonsai-8B llama-server API — CUDA 13.1, PrismML source build on Olares One
   title: Bonsai 8B One
-  version: '1.0.0'
+  version: 1.0.21
   categories:
     - AI
+sharedEntrances: []
 spec:
-  versionName: '1.0.0'
+  versionName: 1.0.21
+  featuredImage: https://cdn.olares.com/images/2026/08/3b590a9560e6c7d72c86f00947e3a2ba.png
   fullDescription: |
-    Minimal Bonsai-8B workspace on Olares One.
-    On first launch, downloads Bonsai-8B.gguf from Hugging Face (prism-ml/Bonsai-8B-gguf) into the app models directory.
-    Build workspace is persisted on disk so PrismML llama.cpp is only cloned once (subsequent starts skip clone if the git checkout already exists).
-    The main container is CUDA 13.2 devel and stays running with sleep infinity after printing a short readiness banner (intended for kubectl exec / debugging workflows).
-    GPU is requested on the main container (nvidia.com/gpu=1).
+    Bonsai-8B served via llama-server on Olares One — RTX 5090M (24 GB) + 96 GB DDR5 + Core Ultra 9 275HX.
 
-  developer: aamsellem
-  website: https://github.com/aamsellem/olares-one-market
-  sourceCode: https://github.com/aamsellem/olares-one-market
-  submitter: aamsellem
+    On first launch, downloads Bonsai-8B.gguf from Hugging Face (prism-ml/Bonsai-8B-gguf) into the app models directory.
+    Build workspace is persisted on disk so PrismML-Eng/llama.cpp is only cloned once (subsequent starts skip clone if the git checkout already exists).
+    The container uses nvidia/cuda:13.1.0-devel-ubuntu24.04, compiles llama.cpp from the PrismML source fork with GGML_CUDA=ON, then runs llama-server on port 8000.
+    OpenAI-compatible API exposed via shared entrance and nginx client proxy on port 8080.
+    GPU is requested on the main container (nvidia.com/gpu=1).
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
   locale:
     - en-US
   license:
     - text: MIT
       url: https://github.com/ggerganov/llama.cpp/blob/master/LICENSE
-
-  limitedCpu: 16
-  requiredCpu: 4
-  requiredDisk: 20Gi
-  limitedDisk: 40Gi
-  limitedMemory: 40Gi
-  requiredMemory: 8Gi
-  requiredGpu: 1Gi
-  limitedGpu: 24Gi
-
   supportArch:
     - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 20Gi
+      limitedDisk: 40Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+    v1.0.19: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.16: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.15: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
 permission:
   appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
 options:
+  shared: true
   apiTimeout: 0
   dependencies:
     - name: olares
-      version: '>=1.12.3-0'
+      version: '>=1.12.6-0'
       type: system
+  LLMGatewaySupported: true

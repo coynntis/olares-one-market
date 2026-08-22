@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: splatlabone-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  SPLATLAB_VISER_BASE_PORT: "8780"
+  SPLATLAB_MODEL_CACHE: "/data/splatlab/cache/models"
+  MODELSCOPE_CACHE: "/data/splatlab/cache/modelscope"
+  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
+  NVIDIA_VISIBLE_DEVICES: "all"
+  MCP_CORS_ORIGIN: {{ .Values.olaresEnv.MCP_CORS_ORIGIN | default "*" | quote }}

@@ -98,7 +98,14 @@ done
 [[ -z "$MODEL_ALIAS" ]]  && echo "Error: --model-alias required" && usage
 [[ -z "$MODEL_SOURCE" ]] && echo "Error: --model-source required" && usage
 
-SERVER_ID="${APP_ID}server"
+fit_suffix() {
+  local base="$1" suffix="$2"
+  local allowed=$((30 - ${#suffix}))
+  echo "${base:0:$allowed}${suffix}"
+}
+
+SERVER_ID="$(fit_suffix "$APP_ID" srv)"
+CLIENT_SERVICE="$(fit_suffix "$APP_ID" cli)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="${SCRIPT_DIR}/${APP_ID}"
 
@@ -125,7 +132,6 @@ case "$BACKEND" in
     BACKEND_IMAGE="ghcr.io/ggerganov/llama.cpp:server"
     BACKEND_PORT="8080"
     SERVER_SERVICE="llamacpp"
-    CLIENT_SERVICE="${APP_ID}client"
     HEALTH_PATH="/health"
     ICON="https://raw.githubusercontent.com/ggerganov/llama.cpp/master/docs/images/logo2.png"
     DEVELOPER="ggerganov"
@@ -142,7 +148,6 @@ case "$BACKEND" in
     BACKEND_IMAGE="vllm/vllm-openai:v0.6.6.post1"
     BACKEND_PORT="8000"
     SERVER_SERVICE="vllm"
-    CLIENT_SERVICE="${APP_ID}client"
     HEALTH_PATH="/health"
     ICON="https://docs.vllm.ai/en/latest/_images/vllm-logo-text-light.png"
     DEVELOPER="vLLM Team"
@@ -344,6 +349,7 @@ data:
     server {
 
       listen 8080;
+      server_name _;
       access_log /opt/bitnami/openresty/nginx/logs/access.log;
       error_log  /opt/bitnami/openresty/nginx/logs/error.log;
 
@@ -375,7 +381,7 @@ kind: Deployment
 metadata:
   labels:
     io.kompose.service: ${CLIENT_SERVICE}
-  name: {{ .Release.Name }}
+  name: ${APP_ID}
   namespace: '{{ .Release.Namespace }}'
 spec:
   replicas: 1
@@ -402,9 +408,6 @@ spec:
           ports:
             - containerPort: 8080
               protocol: TCP
-          env:
-            - name: OPENRESTY_CONF_FILE
-              value: /etc/nginx/nginx.conf
           startupProbe:
             tcpSocket:
               port: 8080
@@ -418,9 +421,6 @@ spec:
               cpu: 10m
               memory: 64Mi
           volumeMounts:
-            - name: nginx-config
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
             - name: nginx-config
               mountPath: /opt/bitnami/openresty/nginx/conf/server_blocks/nginx.conf
               subPath: nginx.conf

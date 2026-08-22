@@ -1,0 +1,8 @@
+metadata:
+  title: Nail 35B Vision One
+  description: Nail Qwen3.6-35B-A3B MTP vision profile — fast long context on Olares One
+
+spec:
+  fullDescription: |
+    Nail-Qwen3.6-35B-A3B-GGUF-MTP on buun-llama-cpp with vision enabled.
+    IQ4_XS model + mmproj-F16, MTP enabled, 128K default context, q8_0/turbo4 KV.

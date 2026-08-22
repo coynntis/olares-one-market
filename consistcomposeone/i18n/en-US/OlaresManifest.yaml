@@ -1,0 +1,14 @@
+metadata:
+  title: ConsistCompose One
+  description: "ConsistCompose BAGEL-7B-MoT layout compose — NF4 for 24GB"
+
+spec:
+  fullDescription: |
+    ConsistCompose-BAGEL-7B-MoT layout-controlled multi-instance image composition on Olares One.
+
+    NF4 / bitsandbytes required for 24GB (BF16 weights ~29GB). For U1 gen use sensenovau1serveone.
+    SenseNova-Vision skipped (CC-BY-NC).
+
+    Model: sensenova/ConsistCompose-BAGEL-7B-MoT (Apache-2.0).
+    Runtime: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel, flash_attn soft-fail → SDPA.
+    API: POST /api/v1/compose · Gradio /ui · OpenAPI /docs.

@@ -1,0 +1,763 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: cosyvoice2yueone
+  name: cosyvoice2yueone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.cosyvoice2yueone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: cosyvoice2yueone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: cosyvoice2yueone
+    spec:
+      initContainers:
+        - name: setup-speech-runtime
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              log() { echo "$(date -Iseconds) [cosyvoice2yueone:init] $*"; }
+              log "starting setup-speech-runtime"
+              mkdir -p /shared-models/speech/huggingface /shared-models/speech/modelscope /shared-models/llms
+              log "fixing permissions on speech cache dirs only..."
+              chmod -R 777 /shared-models/speech /shared-models/llms
+              mkdir -p /opt/speech-bin /opt/src
+              if [ -x /opt/speech-bin/ffmpeg ]; then
+                log "ffmpeg already present — skip download"
+              else
+                log "downloading static ffmpeg (~40MB, first boot only)..."
+                wget -O /tmp/ff.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+                log "extracting ffmpeg..."
+                cd /tmp && tar xf ff.tar.xz
+                cp /tmp/ffmpeg-*-static/ffmpeg /tmp/ffmpeg-*-static/ffprobe /opt/speech-bin/
+                chmod 755 /opt/speech-bin/*
+                log "ffmpeg ready"
+              fi
+              log "setup-speech-runtime complete"
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/opt/speech-bin"
+              name: speech-bin
+            - mountPath: "/opt/src"
+              name: app-src
+      containers:
+        - name: cosyvoice2yue
+          image: "pytorch/pytorch:2.12.0-cuda13.0-cudnn9-runtime"
+          command:
+            - bash
+            - '-c'
+            - |
+              set -e
+              export DEBIAN_FRONTEND=noninteractive
+              export PATH="/opt/conda/bin:/opt/speech-bin:$PATH"
+              VENV="/models/venv"
+              REPO="/opt/src/CosyVoice"
+              IMAGE_PYTHON="$(command -v python)"
+              IMAGE_PYVER="$("$IMAGE_PYTHON" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+              log() { echo "$(date -Iseconds) [cosyvoice2yueone] $*"; }
+
+              log "image python ${IMAGE_PYVER} at ${IMAGE_PYTHON}"
+              log "shared cache HF_HOME=$HF_HOME MODELSCOPE_CACHE=$MODELSCOPE_CACHE"
+              ls -la /shared-models/speech/ 2>/dev/null || true
+
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                libsndfile1 git sox build-essential python3-dev python3-venv
+
+              mkdir -p /app
+              venv_ok() {
+                [ -x "$VENV/bin/python" ] || return 1
+                "$VENV/bin/python" -m pip --version >/dev/null 2>&1 || return 1
+                local venv_pyver
+                venv_pyver="$("$VENV/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+                [ "$venv_pyver" = "$IMAGE_PYVER" ] || return 1
+                [ -f "$VENV/.image-python" ] || return 1
+                [ "$(cat "$VENV/.image-python")" = "${IMAGE_PYVER}@${IMAGE_PYTHON}" ] || return 1
+                return 0
+              }
+              create_venv() {
+                rm -rf "$VENV"
+                log "creating venv at $VENV (system-site-packages — image CUDA torch)"
+                if ! "$IMAGE_PYTHON" -m venv --system-site-packages "$VENV"; then
+                  log "venv failed — installing python3.12-venv and retrying..."
+                  apt-get install -y python3.12-venv 2>/dev/null || apt-get install -y python3-venv
+                  "$IMAGE_PYTHON" -m venv --system-site-packages "$VENV"
+                fi
+                if ! "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then
+                  log "pip missing after venv — running ensurepip"
+                  "$VENV/bin/python" -m ensurepip --upgrade
+                fi
+                echo "${IMAGE_PYVER}@${IMAGE_PYTHON}" > "$VENV/.image-python"
+              }
+              if ! venv_ok; then
+                if [ -d "$VENV" ]; then
+                  log "broken/stale venv at $VENV — recreating"
+                fi
+                create_venv
+              else
+                log "reusing venv at $VENV ($("$VENV/bin/python" -m pip --version 2>/dev/null | head -1))"
+              fi
+              if ! venv_ok; then
+                log "FATAL: venv pip not runnable or python mismatch"
+                ls -la "$VENV/bin" 2>/dev/null || true
+                exit 1
+              fi
+              "$VENV/bin/python" -m pip install -q --upgrade pip
+              "$VENV/bin/python" -m pip install -q fastapi uvicorn python-multipart
+              log "fast API deps ready (gradio installs after CosyVoice bootstrap)"
+
+              log "writing bootstrap-deps.sh (runs in background after API is up)..."
+              cat > /app/bootstrap-deps.sh << 'BOOTEOF'
+              #!/bin/bash
+              set -euo pipefail
+              VENV="/models/venv"
+              REPO="/opt/src/CosyVoice"
+              log() { echo "$(date -Iseconds) [cosyvoice2yueone] $*"; }
+              pipx() { "$VENV/bin/python" -m pip "$@"; }
+              export PATH="/opt/conda/bin:$PATH"
+              IMAGE_PYTHON="$(command -v python)"
+              if [ -f "$VENV/.ready-v17" ]; then
+                log "deps already installed — skip"
+                exit 0
+              fi
+              log "first boot: venv + CosyVoice deps (background, persisted under appData)..."
+              PYTAG=$("$VENV/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+              IMG_PYTAG=$("$IMAGE_PYTHON" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+              log "bootstrap python ${PYTAG} ($("$VENV/bin/python" -c 'import sys; print(sys.executable)')) image=${IMG_PYTAG}"
+              if [ "$PYTAG" != "$IMG_PYTAG" ]; then
+                log "ERROR: venv python ${PYTAG} != image ${IMG_PYTAG} — delete models/venv and upgrade"
+                exit 1
+              fi
+              IMAGE_TORCH=$("$VENV/bin/python" -c "import torch; print(torch.__version__.split('+')[0])")
+              log "image torch=${IMAGE_TORCH} — pip must not replace CUDA/NCCL stack"
+              log "checking build toolchain for pyworld (g++)..."
+              if ! command -v g++ >/dev/null 2>&1; then
+                log "ERROR: g++ missing — need build-essential in apt"
+                exit 1
+              fi
+              g++ --version | head -1 || true
+              pipx install --upgrade pip 'setuptools>=69,<=81.0.0' wheel
+              log "pre-installing cython + numpy (pyworld compiles from source)..."
+              pipx install cython numpy
+              if [ ! -d "$REPO/.git" ]; then
+                log "cloning CosyVoice with submodules (Matcha-TTS required)..."
+                git clone --recursive https://github.com/FunAudioLLM/CosyVoice "$REPO"
+              else
+                git -C "$REPO" submodule update --init --recursive
+              fi
+              log "installing CosyVoice python deps (inference only — skip torch/train tooling)..."
+              grep -vE '^(torch|torchaudio|deepspeed|tensorrt|gradio|triton|nvidia-|huggingface-hub|huggingface_hub|tensorboard|grpcio|grpcio-tools|wandb|pytest|pytest-cov|openai-whisper|onnx|onnxruntime-gpu)==|tensorrt-cu12' "$REPO/requirements.txt" \
+                | grep -v '^--extra-index-url' > /tmp/cosyvoice-req.txt
+              log "skipped openai-whisper in requirements.txt (installed separately with --no-deps)"
+              export PIP_CONSTRAINT=/tmp/pip-constraints.txt
+              cat > /tmp/pip-constraints.txt << EOF
+              torch==${IMAGE_TORCH}
+              torchaudio==${IMAGE_TORCH}
+              EOF
+              log "pre-installing grpcio/protobuf wheels (avoid source compile)..."
+              pipx install --only-binary=grpcio 'grpcio>=1.62.2' 'protobuf>=4.25,<5' || pipx install 'grpcio>=1.62.2' 'protobuf>=4.25,<5'
+              pipx install -r /tmp/cosyvoice-req.txt
+              log "onnxruntime-gpu 1.18 needs libcublasLt.so.11 — install CPU onnxruntime (cuda13 image)"
+              pipx uninstall -y onnxruntime-gpu onnxruntime 2>/dev/null || true
+              pipx install 'onnx>=1.16.0' 'onnxruntime>=1.18.0'
+              log "stripping pip-installed torch/CUDA wheels from venv (NCCL mismatch fix)..."
+              for pkg in torch torchaudio triton; do
+                if [ -d "$VENV/lib/python${PYTAG}/site-packages/${pkg}" ] || \
+                   pipx show "$pkg" 2>/dev/null | grep -q "Location:.*${VENV}"; then
+                  log "  uninstall venv ${pkg}"
+                  pipx uninstall -y "$pkg" 2>/dev/null || true
+                fi
+              done
+              pipx list --format=freeze 2>/dev/null | grep -E '^nvidia-' | cut -d= -f1 | while read -r pkg; do
+                log "  uninstall venv ${pkg}"
+                pipx uninstall -y "$pkg" 2>/dev/null || true
+              done
+              "$VENV/bin/python" -c "import torch; print('torch', torch.__version__, 'from', torch.__file__); print('cuda', torch.cuda.is_available())"
+              if [ -d "$REPO/third_party/Matcha-TTS" ]; then
+                log "pre-installing numpy==1.26.4 + matcha build deps..."
+                pipx install 'numpy==1.26.4' cython einops scipy
+                log "installing Matcha-TTS (--no-deps: piper_phonemize has no cp312 linux wheel; unused by CosyVoice)..."
+                unset PIP_CONSTRAINT
+                pipx install --no-deps --no-build-isolation -e "$REPO/third_party/Matcha-TTS"
+              else
+                log "ERROR: Matcha-TTS submodule missing — delete appData/src/CosyVoice and retry"
+                exit 1
+              fi
+              pipx install 'gradio>=5.12,<6.0'
+              log "installing openai-whisper (--no-deps --no-build-isolation: sdist needs pkg_resources)..."
+              pipx install 'setuptools>=69,<=81.0.0' wheel
+              pipx install --no-deps --no-build-isolation 'openai-whisper==20231117'
+              pipx install more-itertools numba tiktoken tqdm
+              "$VENV/bin/python" -c "import whisper; print('whisper ok', hasattr(whisper, 'log_mel_spectrogram'))"
+              "$VENV/bin/python" -c "import transformers, huggingface_hub, gradio; print('transformers', transformers.__version__, 'hf_hub', huggingface_hub.__version__, 'gradio', gradio.__version__)"
+              touch "$VENV/.ready-v17"
+              log "venv install complete"
+              BOOTEOF
+              chmod +x /app/bootstrap-deps.sh
+
+              log "writing API server (fast-ready: /health 200 immediately)..."
+              cat > /app/server.py << 'PYEOF'
+              import asyncio
+              import io
+              import os
+              import subprocess
+              import sys
+              import tempfile
+              import traceback
+              from contextlib import asynccontextmanager
+              from typing import Optional
+
+              from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+              from fastapi.responses import JSONResponse, Response
+              from pydantic import BaseModel
+
+              _model = None
+              _model_error: Optional[str] = None
+              _phase = "starting"
+              _bootstrap_error: Optional[str] = None
+              MODEL_ID = os.environ.get(
+                  "COSYVOICE_MODEL", "ASLP-lab/Cosyvoice2-Yue-ZoengJyutGaai"
+              )
+              SAMPLE_RATE = 22050
+              REPO = "/opt/src/CosyVoice"
+
+
+              def log(msg: str) -> None:
+                  print(f"[cosyvoice2yueone] {msg}", flush=True)
+
+
+              def _setup_pythonpath() -> None:
+                  matcha = f"{REPO}/third_party/Matcha-TTS"
+                  for p in (REPO, matcha):
+                      if p not in sys.path:
+                          sys.path.insert(0, p)
+
+
+              def cache_summary() -> str:
+                  hf = os.environ.get("HF_HOME", "?")
+                  ms = os.environ.get("MODELSCOPE_CACHE", "?")
+                  parts = [f"HF_HOME={hf}", f"MODELSCOPE_CACHE={ms}"]
+                  for label, path in [("hf", hf), ("modelscope", ms)]:
+                      if path and os.path.isdir(path):
+                          try:
+                              n = sum(len(files) for _, _, files in os.walk(path))
+                              parts.append(f"{label}_files={n}")
+                          except OSError:
+                              pass
+                  return " ".join(parts)
+
+
+              def install_deps_sync() -> None:
+                  global _phase, _bootstrap_error
+                  if os.path.isfile("/models/venv/.ready-v17"):
+                      log("deps marker present — skipping pip install")
+                      return
+                  _phase = "installing_deps"
+                  log("background: installing CosyVoice deps (may take 30-60 min first boot)...")
+                  proc = subprocess.run(["/app/bootstrap-deps.sh"], capture_output=False)
+                  if proc.returncode != 0:
+                      _bootstrap_error = f"bootstrap-deps.sh exited {proc.returncode}"
+                      _phase = "error"
+                      raise RuntimeError(_bootstrap_error)
+
+
+              def _patch_onnxruntime_cpu() -> None:
+                  """CosyVoice pins onnxruntime-gpu 1.18 (CUDA 11); cuda13 image lacks libcublasLt.so.11."""
+                  import onnxruntime as ort
+                  _orig = ort.InferenceSession
+
+                  def _session(model_path, sess_options=None, providers=None, provider_options=None, **kwargs):
+                      prov = list(providers) if providers else ["CPUExecutionProvider"]
+                      if prov == ["CUDAExecutionProvider"]:
+                          prov = ["CPUExecutionProvider"]
+                      return _orig(
+                          model_path,
+                          sess_options=sess_options,
+                          providers=prov,
+                          provider_options=provider_options,
+                          **kwargs,
+                      )
+
+                  ort.InferenceSession = _session
+
+
+              def _patch_cosyvoice_checkpoint_load() -> None:
+                  """ASLP fine-tunes save epoch/step in llm.pt; CosyVoice load() uses strict=True."""
+                  import torch
+                  import cosyvoice.cli.model as cosy_model
+
+                  _skip = frozenset(
+                      {"epoch", "step", "optimizer", "optimizer_state_dict", "scheduler", "lr_scheduler", "config"}
+                  )
+
+                  def _load_state(path, device):
+                      sd = torch.load(path, map_location=device, weights_only=True)
+                      if isinstance(sd, dict):
+                          if "state_dict" in sd:
+                              sd = sd["state_dict"]
+                          elif any(k in sd for k in _skip):
+                              sd = {k: v for k, v in sd.items() if k not in _skip}
+                      return sd
+
+                  def _load(self, llm_model, flow_model, hift_model):
+                      self.llm.load_state_dict(_load_state(llm_model, self.device), strict=True)
+                      self.llm.to(self.device).eval()
+                      self.flow.load_state_dict(_load_state(flow_model, self.device), strict=True)
+                      self.flow.to(self.device).eval()
+                      hift_state_dict = {
+                          k.replace("generator.", ""): v for k, v in _load_state(hift_model, self.device).items()
+                      }
+                      self.hift.load_state_dict(hift_state_dict, strict=True)
+                      self.hift.to(self.device).eval()
+
+                  cosy_model.CosyVoiceModel.load = _load
+
+
+              def _patch_load_wav() -> None:
+                  """torchaudio 2.12+ needs torchcodec; use soundfile (wav/flac/ogg) + ffmpeg (mp3/m4a/...)."""
+                  import numpy as np
+                  import soundfile as sf
+                  import torch
+                  import torchaudio
+                  import cosyvoice.utils.file_utils as fu
+
+                  _sf_exts = {".wav", ".flac", ".ogg"}
+                  _ffmpeg = os.environ.get("COSYVOICE_FFMPEG", "ffmpeg")
+
+                  def _load_via_ffmpeg(path, target_sr):
+                      cmd = [
+                          _ffmpeg,
+                          "-nostdin",
+                          "-hide_banner",
+                          "-loglevel",
+                          "error",
+                          "-i",
+                          path,
+                          "-f",
+                          "f32le",
+                          "-acodec",
+                          "pcm_f32le",
+                          "-ac",
+                          "1",
+                          "-ar",
+                          str(target_sr),
+                          "pipe:1",
+                      ]
+                      proc = subprocess.run(cmd, capture_output=True)
+                      if proc.returncode != 0:
+                          err = proc.stderr.decode("utf-8", errors="replace").strip()
+                          raise RuntimeError(f"ffmpeg decode failed for {path}: {err}")
+                      data = np.frombuffer(proc.stdout, dtype=np.float32)
+                      return torch.from_numpy(data).unsqueeze(0)
+
+                  def load_wav(wav, target_sr, min_sr=16000):
+                      if isinstance(wav, torch.Tensor):
+                          speech = wav
+                          if speech.dim() == 1:
+                              speech = speech.unsqueeze(0)
+                          elif speech.dim() == 2 and speech.shape[0] > 1:
+                              speech = speech.mean(dim=0, keepdim=True)
+                          return speech
+                      path = os.fspath(wav)
+                      ext = os.path.splitext(path)[1].lower()
+                      if ext in _sf_exts:
+                          try:
+                              data, sample_rate = sf.read(path, dtype="float32", always_2d=True)
+                              speech = torch.from_numpy(data.T)
+                              if speech.shape[0] > 1:
+                                  speech = speech.mean(dim=0, keepdim=True)
+                              if sample_rate != target_sr:
+                                  assert sample_rate >= min_sr, (
+                                      f"wav sample rate {sample_rate} must be >= {min_sr}"
+                                  )
+                                  speech = torchaudio.transforms.Resample(
+                                      orig_freq=sample_rate, new_freq=target_sr
+                                  )(speech)
+                              return speech
+                          except Exception:
+                              pass
+                      decode_sr = max(target_sr, min_sr)
+                      speech = _load_via_ffmpeg(path, decode_sr)
+                      if decode_sr != target_sr:
+                          speech = torchaudio.transforms.Resample(
+                              orig_freq=decode_sr, new_freq=target_sr
+                          )(speech)
+                      return speech
+
+                  fu.load_wav = load_wav
+
+
+              def load_model_sync():
+                  global _model, _model_error, _phase
+                  if _model is not None or _model_error is not None:
+                      return
+                  import numpy as np
+                  import torch
+
+                  _patch_onnxruntime_cpu()
+                  _setup_pythonpath()
+                  _patch_cosyvoice_checkpoint_load()
+                  _patch_load_wav()
+                  try:
+                      from cosyvoice.cli.cosyvoice import CosyVoice2
+                      from huggingface_hub import snapshot_download
+
+                      hf_cache = os.environ.get("HF_HOME", "/shared-models/speech/huggingface")
+                      _phase = "loading_model"
+                      log(f"downloading {MODEL_ID} — {cache_summary()}")
+                      model_dir = snapshot_download(MODEL_ID, cache_dir=hf_cache)
+                      log(f"snapshot at {model_dir}")
+                      use_fp16 = torch.cuda.is_available()
+                      device = "cuda" if use_fp16 else "cpu"
+                      log(f"loading CosyVoice2 on {device}...")
+                      _model = CosyVoice2(
+                          model_dir,
+                          load_jit=False,
+                          load_trt=False,
+                          fp16=use_fp16,
+                      )
+                      _phase = "ready"
+                      log(f"model ready — {cache_summary()}")
+                      subprocess.run(["du", "-sh", hf_cache], check=False)
+                  except Exception as exc:
+                      _model_error = str(exc)
+                      _phase = "error"
+                      log(f"model load failed: {exc}")
+                      traceback.print_exc()
+
+
+              def bootstrap_sync() -> None:
+                  global _phase, _bootstrap_error
+                  try:
+                      install_deps_sync()
+                      if _phase == "error":
+                          return
+                      load_model_sync()
+                  except Exception as exc:
+                      _bootstrap_error = str(exc)
+                      _phase = "error"
+                      log(f"bootstrap failed: {exc}")
+                      traceback.print_exc()
+
+
+              @asynccontextmanager
+              async def lifespan(app: FastAPI):
+                  log("fast-ready: API listening — bootstrap runs in background")
+                  asyncio.create_task(asyncio.to_thread(bootstrap_sync))
+                  yield
+
+
+              app = FastAPI(title="CosyVoice2 Yue TTS", lifespan=lifespan)
+
+
+              def get_model():
+                  if _bootstrap_error:
+                      raise HTTPException(503, f"bootstrap failed: {_bootstrap_error}")
+                  if _model_error:
+                      raise HTTPException(503, f"model load failed: {_model_error}")
+                  if _model is None:
+                      raise HTTPException(503, f"not ready (phase={_phase})")
+                  return _model
+
+
+              def to_wav_bytes(waveform, sr: int) -> bytes:
+                  import numpy as np
+                  import soundfile as sf
+
+                  if hasattr(waveform, "detach"):
+                      waveform = waveform.detach().cpu().numpy()
+                  audio = np.asarray(waveform)
+                  if audio.ndim > 1:
+                      audio = np.squeeze(audio)
+                  buf = io.BytesIO()
+                  sf.write(buf, audio, sr, format="WAV")
+                  buf.seek(0)
+                  return buf.read()
+
+
+              def load_wav_16k(path: str):
+                  from cosyvoice.utils.file_utils import load_wav
+                  return load_wav(path, 16000)
+
+
+              def synthesize(text: str, ref_path: Optional[str], ref_text: Optional[str], language_id: Optional[str]) -> bytes:
+                  import torch
+
+                  m = get_model()
+                  lang = (language_id or "yue").lower()
+                  if lang in ("yue", "cantonese", "hk"):
+                      if not text.strip().startswith("<|"):
+                          text = f"<|yue|>{text}"
+                  if not ref_path or not ref_text:
+                      raise HTTPException(
+                          400,
+                          "CosyVoice2 Yue zero-shot requires ref_audio and ref_text (3-10s Cantonese sample).",
+                      )
+                  chunks = []
+                  for out in m.inference_zero_shot(text, ref_text, ref_path, stream=False):
+                      chunks.append(out["tts_speech"])
+                  if not chunks:
+                      raise HTTPException(500, "no audio generated")
+                  wav = torch.cat(chunks, dim=-1)
+                  sr = getattr(m, "sample_rate", SAMPLE_RATE)
+                  return to_wav_bytes(wav, sr)
+
+
+              class SpeechRequest(BaseModel):
+                  input: str
+                  model: str = "cosyvoice2-yue"
+                  voice: str = "default"
+                  response_format: str = "wav"
+                  language_id: Optional[str] = "yue"
+                  ref_text: Optional[str] = None
+                  ref_audio_b64: Optional[str] = None
+
+
+              @app.get("/health")
+              async def health():
+                  ready = _model is not None and _phase == "ready"
+                  return JSONResponse(
+                      status_code=200,
+                      content={
+                          "status": _phase,
+                          "ready": ready,
+                          "model": MODEL_ID,
+                          "cache": cache_summary() if ready else None,
+                          "bootstrap_error": _bootstrap_error,
+                          "model_error": _model_error,
+                      },
+                  )
+
+
+              @app.get("/v1/models")
+              async def models():
+                  get_model()
+                  return {"data": [{"id": "cosyvoice2-yue", "object": "model"}]}
+
+
+              @app.post("/v1/audio/speech")
+              async def speech(req: SpeechRequest):
+                  import base64
+                  ref_path = None
+                  try:
+                      if not req.ref_audio_b64:
+                          raise HTTPException(400, "ref_audio_b64 and ref_text required for Cantonese clone TTS")
+                      if not req.ref_text:
+                          raise HTTPException(400, "ref_text required with ref_audio_b64")
+                      raw = base64.b64decode(req.ref_audio_b64)
+                      fd, ref_path = tempfile.mkstemp(suffix=".wav")
+                      os.write(fd, raw)
+                      os.close(fd)
+                      wav = await asyncio.to_thread(
+                          synthesize, req.input, ref_path, req.ref_text, req.language_id
+                      )
+                      return Response(content=wav, media_type="audio/wav")
+                  finally:
+                      if ref_path and os.path.exists(ref_path):
+                          os.remove(ref_path)
+
+
+              @app.post("/v1/audio/clone")
+              async def clone(
+                  text: str = Form(...),
+                  ref_text: str = Form(...),
+                  ref_audio: UploadFile = File(...),
+                  language_id: Optional[str] = Form("yue"),
+              ):
+                  fd, ref_path = tempfile.mkstemp(suffix=".wav")
+                  try:
+                      os.write(fd, await ref_audio.read())
+                      os.close(fd)
+                      wav = await asyncio.to_thread(
+                          synthesize, text, ref_path, ref_text, language_id
+                      )
+                      return Response(content=wav, media_type="audio/wav")
+                  finally:
+                      if os.path.exists(ref_path):
+                          os.remove(ref_path)
+
+
+              def _status_line() -> str:
+                  if _bootstrap_error:
+                      return f"bootstrap failed: {_bootstrap_error}"
+                  if _model_error:
+                      return f"model failed: {_model_error}"
+                  if _phase != "ready":
+                      return f"loading… phase={_phase}"
+                  return "ready"
+
+
+              def _require_ready() -> None:
+                  if _bootstrap_error:
+                      raise RuntimeError(_bootstrap_error)
+                  if _model_error:
+                      raise RuntimeError(_model_error)
+                  if _model is None:
+                      raise RuntimeError(f"not ready (phase={_phase})")
+
+
+              def _bytes_to_audio(wav_bytes: bytes):
+                  import numpy as np
+                  import soundfile as sf
+
+                  data, sr = sf.read(io.BytesIO(wav_bytes))
+                  return (sr, np.asarray(data))
+
+
+              def mount_test_ui() -> None:
+                  try:
+                      import gradio as gr
+                  except ImportError as exc:
+                      log(f"Gradio test UI disabled: {exc}")
+                      return
+
+                  def ui_tts(text, ref_audio_path, ref_text, language):
+                      try:
+                          _require_ready()
+                          if not text or not ref_audio_path or not ref_text:
+                              return None, "need text, reference audio, and ref_text"
+                          wav = synthesize(text, ref_audio_path, ref_text, language)
+                          return _bytes_to_audio(wav), _status_line()
+                      except Exception as exc:
+                          return None, str(exc)
+
+                  with gr.Blocks(title="CosyVoice2 Yue Test") as demo:
+                      gr.Markdown("# CosyVoice2 Yue TTS — test UI (zero-shot clone)")
+                      status = gr.Textbox(label="Status", value=_status_line())
+                      refresh = gr.Button("Refresh status")
+                      text = gr.Textbox(label="Text to speak", lines=3)
+                      ref_audio = gr.Audio(type="filepath", label="Reference audio (3–10s)")
+                      ref_text = gr.Textbox(label="Reference transcription", lines=2)
+                      language = gr.Dropdown(choices=["yue", "zh", "en"], value="yue", label="Language")
+                      out_audio = gr.Audio(label="Output")
+                      go = gr.Button("Synthesize", variant="primary")
+                      refresh.click(lambda: _status_line(), outputs=status)
+                      go.click(
+                          ui_tts,
+                          inputs=[text, ref_audio, ref_text, language],
+                          outputs=[out_audio, status],
+                      )
+
+                  gr.mount_gradio_app(app, demo, path="/")
+
+
+              mount_test_ui()
+              PYEOF
+
+              log "starting uvicorn (fast-ready — deps/model load in background)..."
+              exec "$VENV/bin/python" -m uvicorn server:app --host 0.0.0.0 --port 8000 --app-dir /app --log-level info
+          env:
+            - name: HF_HOME
+              value: "/shared-models/speech/huggingface"
+            - name: TRANSFORMERS_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: MODELSCOPE_CACHE
+              value: "/shared-models/speech/modelscope"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: COSYVOICE_MODEL
+              value: "ASLP-lab/Cosyvoice2-Yue-ZoengJyutGaai"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "24400m"
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            timeoutSeconds: 15
+            periodSeconds: 60
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "12"
+              memory: 16Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/opt/speech-bin"
+              name: speech-bin
+            - mountPath: "/opt/src"
+              name: app-src
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: speech-bin
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/speech-bin"
+            type: DirectoryOrCreate
+        - name: app-src
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/src"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: cosyvoice2yueone
+  name: cosyvoice2yueone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "cosyvoice2yue"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: cosyvoice2yueone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: cosyvoice2yueone
+  name: sharedentrances-cosyvoice2yueone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "cosyvoice2yueone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: cosyvoice2yueone

@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.26
+description: llamacppqwen36beellamavision1 client proxy
+name: llamacppqwen36beellamavision1
+type: application
+version: 1.0.26

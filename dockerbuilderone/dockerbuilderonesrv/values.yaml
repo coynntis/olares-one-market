@@ -1,0 +1,15 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+builder:
+  pytorchImage: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel
+  kanikoImage: docker.io/martizih/kaniko:v1.27.5-debug
+  port: 8080
+  gpuCount: 1

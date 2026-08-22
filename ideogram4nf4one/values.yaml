@@ -1,0 +1,21 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  IDEOGRAM_API_KEY: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+image:
+  repository: ''
+  tag: ''
+workloads:
+  ideogram4nf4one:
+    replicaCount: 1
+  ideogram4nf4onecli:
+    replicaCount: 1

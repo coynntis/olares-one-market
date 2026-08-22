@@ -1,0 +1,175 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  nemotronlabselastic30bnvfp4one: 1
+  nemotronlabselastic30bnvfp4cli: 1
+metadata:
+  name: nemotronlabselastic30bnvfp4one
+  icon: https://cdn.olares.com/images/2026/08/ccf5018aa8b1f558fa61ec485ee770ee.png
+  description: NVIDIA Nemotron-Labs Elastic 30B-A3B NVFP4 — ~181 t/s via vLLM v0.22.1 on Olares One
+  title: Nemotron-Labs 30B NVFP4 One
+  version: 1.0.28
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: nemotron
+    size_label: 30B-A3B
+    badge: nvfp4
+    hero:
+      value: ~181 t/s
+      label: speed
+    specs:
+      - label: context
+        value: 4K
+      - label: vram
+        value: 19 GB
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: false
+    stack: vLLM · NVFP4 native · Blackwell tensor
+sharedEntrances:
+  - name: nemotronlabselastic30bnvfp4one
+    host: sharedentrances-nemotronlabselastic30bnvfp4one
+    port: 0
+    title: Nemotron-Labs 30B NVFP4 API
+    icon: https://cdn.olares.com/images/2026/08/ccf5018aa8b1f558fa61ec485ee770ee.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: nemotronlabselastic30bnvfp4cli
+    port: 8080
+    host: nemotronlabselastic30bnvfp4cli
+    title: Nemotron-Labs 30B NVFP4
+    icon: https://cdn.olares.com/images/2026/08/ccf5018aa8b1f558fa61ec485ee770ee.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.28
+  featuredImage: https://cdn.olares.com/images/2026/08/66022ab20f3addcd1d7af04314da3e50.png
+  upgradeDescription: |2
+        v1.0.25: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.24: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.5: **bench-validated 181.4 t/s** (10 runs Space Invaders @ 2000 tokens). Run 1 = 30 t/s (CUDA graph warmup as documented in v1.0.0). Runs 2-10: 181.01 – 182.17 t/s, AVG **181.40 t/s** — matches v1.0.1 reference (182.14 t/s) within noise. Same hardware (RTX 5090M mobile sm_120), same model (`nvidia/NVIDIA-Nemotron-Labs-3-Elastic-30B-A3B-NVFP4`), now with the v1.0.4 fixes baked in (vLLM v0.22.1 pin + HF_ENDPOINT Helm guard + OLARES_USER_HUGGINGFACE_SERVICE declared in envs).
+
+    Note for users stuck on v1.0.2 / v1.0.3 CrashLoopBackOff: Olares device chart cache may not auto-refresh after a worker bump (see https://github.com/beclab/Olares/issues/3369). Workaround if you hit this: `ssh olares@<box>` then `sudo rm -rf /olares/userdata/Cache/chartrepo/v2/<user>/market.aamsellem/nemotronlabselastic30bnvfp4one*` followed by `kubectl delete pod -n os-framework -l name=chartrepo-deployment` and reinstall via Olares market.
+
+    Bumping to v1.0.5 was a no-op functional change from v1.0.4 (cosmetic version bump to try to force cache refresh; that didn't fix the cache bug, but v1.0.5 IS the version that ships with the validated 181 t/s on a fresh install).
+
+    v1.0.4: **second crash-loop fix** — v1.0.3 (which pinned the vLLM image to v0.22.1 to dodge the floating-tag trap) still crashed at boot with `httpcore.UnsupportedProtocol: Request URL is missing an 'http://' or 'https://' protocol`. Root cause: deployment.yaml referenced `HF_ENDPOINT=` but the chart's `envs:` block never declared `OLARES_USER_HUGGINGFACE_SERVICE` — only the TOKEN. So Helm rendered `HF_ENDPOINT=""` which made `huggingface_hub` try to fetch metadata from an empty URL → crash before model weights download.
+
+    Fix: (a) declare `OLARES_USER_HUGGINGFACE_SERVICE` in `envs:` (matches pattern in `vllmgemma426ba4bvisionone` and other working charts), (b) wrap the `HF_ENDPOINT` env var in a Helm `` guard so it's only set when the user has the proxy configured. Direct `huggingface.co` (the default) is used when no proxy is set.
+
+    This is the real cause Ronny was hitting — v1.0.3's floating-tag fix was correct but masked by this second bug. The chart NEVER worked from a fresh install where the user didn't already have `OLARES_USER_HUGGINGFACE_SERVICE` set in Olares settings.
+
+    Same vLLM v0.22.1 pin as v1.0.3, same args, same bench reference (182 t/s).
+
+    v1.0.3: **fix crash loop on fresh install** — Discord-reported by RonnyPfannschmidt 2026-06-14. Root cause: chart referenced floating tag `vllm/vllm-openai:cu129-nightly-x86_64`, which Docker Hub bumped on 2026-06-14 06:10 UTC to a vLLM v0.23.x post-merge build. v0.23.x includes breaking changes (e.g. PR #43445 Causal DFlash dropped non-causal support — same trap that broke `vllmgemma4dflashone` v1.0.6 a day earlier). The new nightly is no longer compatible with this chart's `--compilation-config` schema / NVFP4 stack.
+
+    Fix: pin to **`vllm/vllm-openai:v0.22.1-x86_64-cu129-ubuntu2404`** (released 2026-06-05, last stable before v0.23.0). v0.22.1 includes PR #40082 (FlashInfer SM120 b12x MoE / FP4 GEMM) which is exactly what gave us the 182 t/s in v1.0.1. Predates the v0.23.0 regressions. Stable tag — no further drift.
+
+    All other config unchanged: same Nemotron NVFP4 model, same `--compilation-config '{"cudagraph_mode": 1, "max_cudagraph_capture_size": 4, "cudagraph_capture_sizes": [1, 2, 4]}'`, same `--max-model-len 4096`, same HAMi cap 30000m.
+
+    Bench reference stays 182 t/s. Lesson: never pin to floating nightly tags in shipped charts.
+
+    v1.0.1: swap image `vllm/vllm-openai:nightly` (v0.19.2rc1, 2026-05-20 06:22 UTC) → `vllm/vllm-openai:cu129-nightly-x86_64` (v0.21.1rc1.dev169+ga6682d1d2, 2026-05-21 07:38 UTC). New nightly includes PR [#40082](https://github.com/vllm-project/vllm/pull/40082) (meena-at-work, NVIDIA): "Integrate flashinfer b12x MoE and FP4 GEMM kernels for SM120/121". **Bench validated 2026-05-21 on Olares One: 182.14 t/s AVG post-warmup** (9 runs, range 181.85–182.65, σ ≈ 0.3 — even tighter than v1.0.0). **+9.8% vs v1.0.0 (165.91 t/s)** — pure FlashInfer SM120 kernel uplift on NVFP4 MoE. Same model, same compilation-config PIECEWISE graphs, same max_model_len=4096. Confirms the kernel-path matters: PR #40082 specifically targets sm_120/121 (Blackwell consumer) FP4 GEMM, and our hardware is exactly the target.
+
+    Trade-off: v0.21 nightly has stricter KV cache memory accounting than v0.19 — Gemma 4 + Q4 AWQ benched -1.5% on same config because v0.21 forces max_model_len from 128K → 8K to leave KV headroom. But the NVFP4-MoE FlashInfer kernels still net +10% throughput on this Nemotron path. For NVFP4 models specifically, v0.21+ is a strict upgrade. For non-NVFP4 (AWQ/GPTQ/GGUF) keep older image.
+
+    v1.0.0: initial release. NVIDIA Nemotron-Labs Elastic 30B-A3B with native NVFP4 quantization. **First public bench on consumer Blackwell mobile (sm_120 / RTX 5090M): 165.91 t/s AVG** (9 runs post-warmup, range 1.37, σ ≈ 0.5). NEW Olares One champion — **+22% vs Gemma 4 26B-A4B** (135.97 prior champion), +55% vs BeeLlama Qwen3.6 27B + DFlash (107.54), +124% vs llama.cpp Qwen3.6 27B + MTP master (74.28).
+
+    Why it's so fast on Blackwell:
+    - Native NVFP4 tensor core path (no dequantize-and-multiply step). vLLM auto-selects `FlashInferCutlassNvFp4LinearKernel` GEMM + `FLASHINFER_CUTLASS` MoE backend.
+    - MoE-A3B routing: 128 experts + 1 shared, only ~3B params active per token — comparable active-compute to a dense 3B model.
+    - Hybrid Mamba+Attention (`NemotronHForCausalLM`): half the layers are linear-cost state-space, half are quadratic attention.
+
+    The CUDA-graph trick: vLLM's default `FULL_AND_PIECEWISE` graph capture reserves ~4 GB on top of the 18.78 GB model weights, OOM'ing on 24 GB GPUs. This chart ships with `--compilation-config '{"cudagraph_mode": 1, "max_cudagraph_capture_size": 4, "cudagraph_capture_sizes": [1, 2, 4]}'` which switches to PIECEWISE-only with restricted capture sizes. CUDA graph pool drops from ~4 GB to **40 MB**, leaving enough headroom for the model + KV cache.
+
+    Constraints:
+    - `max_model_len = 4096` — at 32K context the KV cache wouldn't fit alongside model + graphs. Single-shot Q&A / code completion / agentic calls work fine; long PDFs / multi-turn coding need another app (e.g. `llamacppqwen36beellamaone` at 262K context).
+    - `max_num_seqs = 1` — single-stream, no concurrency. Multi-user case wants the Gemma 4 vision app instead.
+    - First request after pod boot: ~85s (CUDA graph capture + JIT compile). Subsequent requests hit 165 t/s immediately.
+    - NVFP4 quality vs INT4: ModelOpt warns "experimental". Kimi K2.5/K2.6 NVFP4 benches show within-1% MMLU divergence vs INT4 baseline. For this 30B I haven't done quality eval yet — recommended for fast prototyping, not (yet) for hard production tasks.
+
+    Stack:
+    - Image: `vllm/vllm-openai:nightly` (vLLM v0.19.2rc1.dev107+g4eafc7292, pinned in chart)
+    - Model: `nvidia/NVIDIA-Nemotron-Labs-3-Elastic-30B-A3B-NVFP4` (HF, ~19 GB, NVIDIA Open Model License, public download — no HF token required)
+    - First launch downloads ~19 GB of safetensors. OpenAI-compatible chat API on port 8000.
+
+    Reference: [Blog post EN](https://aamsellem.com/blog/en/nemotron-nvfp4-blackwell-mobile-166-tps/) | [FR](https://aamsellem.com/blog/fr/nemotron-nvfp4-blackwell-mobile-166-tps/)
+  fullDescription: |
+    NVIDIA Nemotron-Labs Elastic 30B-A3B NVFP4 — fastest local LLM on Olares One.
+    RTX 5090M (24 GB GDDR7, sm_120 Blackwell consumer mobile) + 96 GB DDR5 + Core Ultra 9 275HX.
+
+    Bench validated 2026-05-21 (10 runs Space Invaders HTML 2000 tokens, single user):
+      - **~181 t/s AVG post-warmup** (runs 2–10: 181.01–182.17 t/s, AVG 181.40 t/s)
+      - First run = ~30 t/s warmup (CUDA graph capture)
+      - All subsequent runs converge to ~181 t/s
+
+    Stack:
+      - Image: vllm/vllm-openai:v0.22.1-x86_64-cu129-ubuntu2404
+      - Model: nvidia/NVIDIA-Nemotron-Labs-3-Elastic-30B-A3B-NVFP4 (~19 GB)
+      - NVFP4 GEMM: FlashInferCutlassNvFp4LinearKernel
+      - MoE backend: FLASHINFER_CUTLASS
+      - Attention backend: FLASH_ATTN v2
+      - CUDA graphs: PIECEWISE mode, capture_sizes [1,2,4] (only 40 MB pool)
+      - max_model_len: 4096 (4K context — KV headroom limited on 24 GB)
+      - max_num_seqs: 1
+
+    Trade-off vs other paths on Olares One:
+      - Use for: pure speed, single-shot Q&A, code completion, agentic calls (4K context fits most)
+      - Don't use for: long-context PDF parsing (use llamacppqwen36beellamaone @ 262K), multi-user concurrency (use vllmgemma426ba4bvisionone), vision (use vllmgemma426ba4bvisionone)
+
+    NVIDIA Open Model License. Tool calling NOT yet wired (no parser config). Thinking mode default ON via model template.
+
+    First launch downloads ~19 GB. OpenAI-compatible API on port 8000.
+  developer: aamsellem
+  website: https://huggingface.co/nvidia/NVIDIA-Nemotron-Labs-3-Elastic-30B-A3B-NVFP4
+  sourceCode: https://github.com/aamsellem/orales-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: NVIDIA Open Model License
+      url: https://huggingface.co/nvidia/NVIDIA-Nemotron-Labs-3-Elastic-30B-A3B-NVFP4/blob/main/LICENSE.md
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 25Gi
+      limitedDisk: 40Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

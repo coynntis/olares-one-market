@@ -1,0 +1,477 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: krea2turboone
+  name: krea2turboone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.krea2turboone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: krea2turboone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: krea2turboone
+    spec:
+      initContainers:
+        - name: volume-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              chmod -R 777 /models /workspace /output || true
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+          securityContext:
+            runAsUser: 0
+      containers:
+        - name: krea2-gradio
+          image: {{ printf "%s:%s" (.Values.image.repository | default "pytorch/pytorch") (.Values.image.tag | default "2.11.0-cuda13.0-cudnn9-devel") | quote }}
+          command:
+            - "bash"
+            - "-lc"
+          args:
+            - |
+              set -euo pipefail
+              APP_DIR="/workspace/krea2turboone"
+              SITE_PKGS="$APP_DIR/site-packages"
+              PHASE_FILE="$APP_DIR/.boot-phase"
+              mkdir -p "$APP_DIR" "$SITE_PKGS" /output/gradio
+              cp /app-src/app.py "$APP_DIR/app.py"
+              cp /app-src/mcp_server.py "$APP_DIR/mcp_server.py"
+              cp /app-src/requirements.txt "$APP_DIR/requirements.txt"
+              cp /app-src/soft_ready.py "$APP_DIR/soft_ready.py"
+              cd "$APP_DIR"
+
+              set_phase() {
+                printf '%s\n' "$1" > "$PHASE_FILE"
+                echo "[krea] phase=$1"
+              }
+
+              # Pick image python with torch — prefer 2.11.x (Sage/nunchaku wheels ABI).
+              # Do NOT put SITE_PKGS on PYTHONPATH yet (may contain a shadowed torch 2.13).
+              rm -rf "$APP_DIR/.venv" "$APP_DIR/venv"
+              BASE_PY=""
+              pick_py() {
+                local want_211="${1:-0}"
+                for c in \
+                  /opt/conda/bin/python \
+                  /opt/conda/bin/python3 \
+                  /usr/local/bin/python \
+                  /usr/local/bin/python3 \
+                  "$(command -v python || true)" \
+                  "$(command -v python3 || true)" \
+                  /usr/bin/python3 \
+                  /usr/bin/python
+                do
+                  [ -n "$c" ] && [ -x "$c" ] || continue
+                  if [ "$want_211" = "1" ]; then
+                    if PYTHONPATH= PYTHONNOUSERSITE=1 "$c" -c "import torch; assert torch.__version__.startswith('2.11')" 2>/dev/null; then
+                      echo "$c"
+                      return 0
+                    fi
+                  else
+                    if PYTHONPATH= PYTHONNOUSERSITE=1 "$c" -c "import torch" 2>/dev/null; then
+                      echo "$c"
+                      return 0
+                    fi
+                  fi
+                done
+                return 1
+              }
+              BASE_PY="$(pick_py 1 || true)"
+              if [ -z "$BASE_PY" ]; then
+                BASE_PY="$(pick_py 0 || true)"
+              fi
+              if [ -z "$BASE_PY" ]; then
+                echo "[krea] FATAL: no python with torch"
+                exit 1
+              fi
+              echo "[krea] base_python=$BASE_PY"
+              PYTHONPATH= PYTHONNOUSERSITE=1 "$BASE_PY" -c "import torch; print('[krea] image torch', torch.__version__, 'cuda', torch.version.cuda, 'file', torch.__file__)"
+
+              # Persistent site-packages for *app* deps only — never torch/torchvision (image owns those).
+              export PYTHONNOUSERSITE=1
+              unset PIP_CACHE_DIR || true
+
+              purge_torch_shadow() {
+                # uv may pull torch 2.13 as a dep into --target; that shadows image 2.11 and
+                # breaks Sage/SA3 wheels (undefined materialize_cow_storage) + torchvision::nms.
+                echo "[krea] purging torch/torchvision/torchaudio/nvidia CUDA stacks from site-packages (must use image)"
+                rm -rf \
+                  "$SITE_PKGS"/torch \
+                  "$SITE_PKGS"/torch-*.dist-info \
+                  "$SITE_PKGS"/torchgen \
+                  "$SITE_PKGS"/functorch \
+                  "$SITE_PKGS"/torchvision \
+                  "$SITE_PKGS"/torchvision-*.dist-info \
+                  "$SITE_PKGS"/torchaudio \
+                  "$SITE_PKGS"/torchaudio-*.dist-info \
+                  "$SITE_PKGS"/triton \
+                  "$SITE_PKGS"/triton-*.dist-info \
+                  "$SITE_PKGS"/nvidia \
+                  "$SITE_PKGS"/nvidia_* \
+                  "$SITE_PKGS"/cuda*path* \
+                  "$SITE_PKGS"/nv* 2>/dev/null || true
+                # Also drop broken sage builds linked against wrong torch ABI (reinstalled below).
+                if [ "${1:-}" = "sage" ]; then
+                  rm -rf \
+                    "$SITE_PKGS"/sageattention \
+                    "$SITE_PKGS"/sageattention-*.dist-info \
+                    "$SITE_PKGS"/sageattn3 \
+                    "$SITE_PKGS"/sageattn3-*.dist-info \
+                    "$SITE_PKGS"/fp4attn_cuda*.so \
+                    "$SITE_PKGS"/fp4attn_cuda*.dist-info 2>/dev/null || true
+                fi
+              }
+
+              # Soft-ready FIRST — bind :7860 before long pip (pass Olares ~30m install gate).
+              export SERVER_PORT="${SERVER_PORT:-7860}"
+              export KREA_BOOT_PHASE_FILE="$PHASE_FILE"
+              set_phase "installing:soft_ready_starting"
+              # soft_ready is stdlib-only — no PYTHONPATH needed
+              PYTHONPATH= "$BASE_PY" "$APP_DIR/soft_ready.py" &
+              SOFT_PID=$!
+              echo "[krea] soft-ready pid=$SOFT_PID"
+              for i in 1 2 3 4 5 6 7 8 9 10; do
+                if kill -0 "$SOFT_PID" 2>/dev/null; then
+                  break
+                fi
+                sleep 0.2
+              done
+
+              stop_soft_ready() {
+                if [ -n "${SOFT_PID:-}" ] && kill -0 "$SOFT_PID" 2>/dev/null; then
+                  echo "[krea] stopping soft-ready pid=$SOFT_PID"
+                  kill "$SOFT_PID" 2>/dev/null || true
+                  wait "$SOFT_PID" 2>/dev/null || true
+                fi
+                if command -v fuser >/dev/null 2>&1; then
+                  fuser -k "${SERVER_PORT}/tcp" 2>/dev/null || true
+                fi
+                sleep 1
+              }
+              trap 'stop_soft_ready' EXIT
+
+              # Strip any previously polluted torch 2.13 from workspace site-packages.
+              purge_torch_shadow sage
+              export PYTHONPATH="$SITE_PKGS${PYTHONPATH:+:$PYTHONPATH}"
+              PYTHONPATH= PYTHONNOUSERSITE=1 "$BASE_PY" -c "import torch; print('[krea] after-purge torch', torch.__version__, torch.__file__)"
+              # Confirm site-packages is not shadowing:
+              "$BASE_PY" -c "import torch; print('[krea] with-PYTHONPATH torch', torch.__version__, torch.__file__)"
+              if ! "$BASE_PY" -c "import torch; assert torch.__version__.startswith('2.11')" 2>/dev/null; then
+                echo "[krea] WARN: torch is not 2.11.x — Sage/nunchaku wheels may soft-fail; pin image to pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel"
+              fi
+
+              # --- uv: faster parallel PyPI downloads; binary + cache persist on workspace ---
+              UV_DIR="$APP_DIR/bin"
+              UV="$UV_DIR/uv"
+              UV_CACHE="$APP_DIR/uv-cache"
+              mkdir -p "$UV_DIR" "$UV_CACHE"
+              export UV_CACHE_DIR="$UV_CACHE"
+              export UV_PYTHON="$BASE_PY"
+              # More parallel fetches (default is already high; bump for slow links).
+              export UV_CONCURRENT_DOWNLOADS="${UV_CONCURRENT_DOWNLOADS:-32}"
+              export UV_CONCURRENT_IMPORTS="${UV_CONCURRENT_IMPORTS:-8}"
+
+              # Optional PyPI mirror — 1MB/s to files.pythonhosted.org is common without one.
+              if [ -z "${UV_INDEX_URL:-}" ] && [ -n "${PIP_INDEX_URL:-}" ]; then
+                export UV_INDEX_URL="$PIP_INDEX_URL"
+              fi
+              if [ -z "${UV_INDEX_URL:-}" ]; then
+                case "${HF_ENDPOINT:-}" in
+                  *hf-mirror*|*huggingface.co.cn*|*hf-mirror.com*)
+                    export UV_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
+                    echo "[krea] HF China mirror detected — UV_INDEX_URL=$UV_INDEX_URL"
+                    ;;
+                esac
+              fi
+              if [ -n "${UV_INDEX_URL:-}" ]; then
+                echo "[krea] using PyPI index $UV_INDEX_URL"
+              fi
+
+              if [ ! -x "$UV" ]; then
+                set_phase "installing:uv"
+                echo "[krea] bootstrapping uv into $UV_DIR"
+                if ! command -v curl >/dev/null 2>&1; then
+                  apt-get update
+                  apt-get install -y --no-install-recommends curl ca-certificates
+                  rm -rf /var/lib/apt/lists/*
+                fi
+                if ! curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$UV_DIR" UV_NO_MODIFY_PATH=1 sh; then
+                  echo "[krea] astral install.sh failed — trying GitHub release tarball"
+                  tmpd="$(mktemp -d)"
+                  curl -fL "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-gnu.tar.gz" -o "$tmpd/uv.tgz"
+                  tar -xzf "$tmpd/uv.tgz" -C "$tmpd"
+                  if [ -x "$tmpd/uv" ]; then
+                    mv "$tmpd/uv" "$UV"
+                  else
+                    find "$tmpd" -type f -name uv -exec mv {} "$UV" \;
+                  fi
+                  rm -rf "$tmpd"
+                  chmod +x "$UV"
+                fi
+              fi
+              if [ ! -x "$UV" ]; then
+                echo "[krea] FATAL: uv binary missing at $UV"
+                exit 1
+              fi
+              echo "[krea] uv=$("$UV" --version 2>&1 | head -1) cache=$UV_CACHE"
+              echo "[krea] site-packages=$SITE_PKGS"
+
+              # uv pip --target avoids PEP 668 / old-pip --break-system-packages entirely.
+              uvpip() {
+                local extra=()
+                if [ -n "${UV_INDEX_URL:-}" ]; then
+                  extra+=(--index-url "$UV_INDEX_URL")
+                fi
+                "$UV" pip install --python "$BASE_PY" --target "$SITE_PKGS" "${extra[@]}" "$@"
+              }
+
+              REQ_HASH="$("$BASE_PY" - <<'PY'
+              import hashlib, pathlib
+              print(hashlib.sha256(pathlib.Path("requirements.txt").read_bytes()).hexdigest()[:16])
+              PY
+              )"
+              DEPS_MARK="$APP_DIR/.deps-ok-v4-$REQ_HASH"
+              echo "[krea] requirements hash=$REQ_HASH"
+
+              deps_ok=0
+              if [ -f "$DEPS_MARK" ]; then
+                if "$BASE_PY" -c "import gradio, fastapi, uvicorn, diffusers, pydantic" 2>/dev/null \
+                  && "$BASE_PY" -c "import torch; assert torch.__version__.startswith('2.11')" 2>/dev/null \
+                  && ! [ -d "$SITE_PKGS/torch" ]; then
+                  deps_ok=1
+                  echo "[krea] deps marker OK — skip uv pip -r requirements.txt"
+                else
+                  echo "[krea] deps marker stale (torch shadow or import fail) — reinstall"
+                  rm -f "$DEPS_MARK"
+                  # Also drop old v1–v3 markers
+                  rm -f "$APP_DIR"/.deps-ok-* 2>/dev/null || true
+                fi
+              else
+                # Migrate off pre-v4 markers that left torch 2.13 in site-packages
+                rm -f "$APP_DIR"/.deps-ok-* 2>/dev/null || true
+              fi
+
+              if [ "$deps_ok" != "1" ]; then
+                set_phase "installing:uv_requirements"
+                # Pin stack first — kill pydantic backtracking vs Gradio 5 (<2.12).
+                uvpip --upgrade \
+                  "pydantic>=2.10,<2.12" "fastapi>=0.115.2,<1.0" "uvicorn[standard]>=0.30.0,<1.0"
+                uvpip --upgrade -r requirements.txt
+                purge_torch_shadow
+                # Re-verify image torch is what we import
+                "$BASE_PY" -c "import torch; print('[krea] post-uv torch', torch.__version__, torch.__file__); assert not torch.__file__.startswith('$SITE_PKGS')"
+                touch "$DEPS_MARK"
+                echo "[krea] wrote $DEPS_MARK"
+              fi
+
+              # Sage wheels — --no-deps so uv does not pull torch again; only if import fails.
+              SAGE_WHL="${SAGEATTENTION_PIP_SPEC:-https://huggingface.co/JahJedi/sageattention-flashattn-blackwell-cu130-torch211-cp312/resolve/main/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl}"
+              if "$BASE_PY" -c "from sageattention import sageattn" 2>/dev/null; then
+                echo "[krea] sageattention already importable — skip"
+              else
+                set_phase "installing:sageattention_sa2"
+                echo "[krea] installing sageattention (SA2) from $SAGE_WHL"
+                rm -rf "$SITE_PKGS"/sageattention "$SITE_PKGS"/sageattention-*.dist-info 2>/dev/null || true
+                if uvpip --upgrade --no-deps "$SAGE_WHL"; then
+                  purge_torch_shadow
+                  "$BASE_PY" - <<'PY' || echo "[krea] sageattention import soft-fail"
+              import importlib.metadata as md
+              import torch
+              try:
+                  from packaging.version import Version
+              except ImportError:
+                  from pip._vendor.packaging.version import Version
+              print(f"[krea] torch={torch.__version__} file={torch.__file__}")
+              ver = md.version("sageattention")
+              print(f"[krea] sageattention {ver}")
+              if Version(ver) < Version("2.1.1"):
+                  raise SystemExit(f"sageattention {ver} < 2.1.1")
+              from sageattention import sageattn  # noqa: F401
+              print("[krea] sageattention import OK")
+              PY
+                else
+                  echo "[krea] sageattention wheel soft-fail — attention falls back to _native_efficient"
+                fi
+              fi
+
+              SA3_WHL="${SAGEATTN3_PIP_SPEC:-https://huggingface.co/sntdismas/Sageattention-3-torch2.11.0-cu130-py312-Blackwell/resolve/main/sageattn3-1.0.0-cp312-cp312-linux_x86_64.whl}"
+              if "$BASE_PY" -c "from sageattn3 import sageattn3_blackwell" 2>/dev/null; then
+                echo "[krea] sageattn3 already importable — skip"
+              else
+                set_phase "installing:sageattn3"
+                echo "[krea] installing sageattn3 (SA3) from $SA3_WHL"
+                rm -rf "$SITE_PKGS"/sageattn3 "$SITE_PKGS"/sageattn3-*.dist-info "$SITE_PKGS"/fp4attn_cuda*.so 2>/dev/null || true
+                if uvpip --upgrade --no-deps "$SA3_WHL"; then
+                  purge_torch_shadow
+                  "$BASE_PY" - <<'PY' || echo "[krea] sageattn3 import soft-fail"
+              import torch
+              print(f"[krea] torch={torch.__version__} file={torch.__file__}")
+              try:
+                  from sageattn3 import sageattn3_blackwell
+                  print("[krea] sageattn3 import OK", sageattn3_blackwell)
+              except Exception as e:
+                  print(f"[krea] sageattn3 import soft-fail: {e}")
+              PY
+                else
+                  echo "[krea] sageattn3 wheel soft-fail — SA3 patch disabled, SA2 still used"
+                fi
+              fi
+
+              set_phase "installing:nunchaku_preflight"
+              "$BASE_PY" - <<'PY' || echo "[krea] nunchaku kernel preflight soft-fail (will retry at model load)"
+              from kernels import get_kernel
+              import torch
+              print(f"[krea] preflight nunchaku-lite-kernels torch={torch.__version__} cuda={torch.version.cuda}")
+              k = get_kernel("rootonchair/nunchaku-lite-kernels", version=2, trust_remote_code=True)
+              print("[krea] nunchaku-lite-kernels OK", type(k), "ops", hasattr(k, "ops"))
+              PY
+
+              set_phase "starting:app"
+              stop_soft_ready
+              trap - EXIT
+              echo "[krea] launching app.py PYTHONPATH=$PYTHONPATH"
+              exec "$BASE_PY" app.py
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: KREA_MODEL_ID
+              value: {{ .Values.olaresEnv.KREA_MODEL_ID | default "krea/Krea-2-Turbo" | quote }}
+            - name: KREA_QUANT
+              value: {{ .Values.olaresEnv.KREA_QUANT | default "nvfp4" | quote }}
+            - name: KREA_ATTENTION
+              value: {{ .Values.olaresEnv.KREA_ATTENTION | default "sage3" | quote }}
+            - name: KREA_SAGE3
+              value: {{ .Values.olaresEnv.KREA_SAGE3 | default "1" | quote }}
+            - name: SAGEATTENTION_PIP_SPEC
+              value: {{ .Values.olaresEnv.SAGEATTENTION_PIP_SPEC | default "https://huggingface.co/JahJedi/sageattention-flashattn-blackwell-cu130-torch211-cp312/resolve/main/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl" | quote }}
+            - name: SAGEATTN3_PIP_SPEC
+              value: {{ .Values.olaresEnv.SAGEATTN3_PIP_SPEC | default "https://huggingface.co/sntdismas/Sageattention-3-torch2.11.0-cu130-py312-Blackwell/resolve/main/sageattn3-1.0.0-cp312-cp312-linux_x86_64.whl" | quote }}
+            - name: KREA_NUNCHAKU_MODEL_ID
+              value: {{ .Values.olaresEnv.KREA_NUNCHAKU_MODEL_ID | default "OzzyGT/Krea_2_Turbo_nunchaku_lite_nvfp4" | quote }}
+            - name: KREA_TRY_FULL_GPU
+              value: {{ .Values.olaresEnv.KREA_TRY_FULL_GPU | default "1" | quote }}
+            - name: KREA_EXTRA_LORAS
+              value: {{ .Values.olaresEnv.KREA_EXTRA_LORAS | default "" | quote }}
+            - name: UV_INDEX_URL
+              value: {{ .Values.olaresEnv.UV_INDEX_URL | default "" | quote }}
+            - name: PIP_INDEX_URL
+              value: {{ .Values.olaresEnv.PIP_INDEX_URL | default "" | quote }}
+            - name: UV_CONCURRENT_DOWNLOADS
+              value: {{ .Values.olaresEnv.UV_CONCURRENT_DOWNLOADS | default "32" | quote }}
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: TORCHDYNAMO_DISABLE
+              value: "1"
+            - name: GRADIO_TEMP_DIR
+              value: "/output/gradio"
+            - name: SERVER_PORT
+              value: "7860"
+            - name: LOG_LEVEL
+              value: "INFO"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 1800
+          livenessProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/output"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+        - name: app-source
+          configMap:
+            name: krea2turboone-source
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: krea2turboone
+  name: krea2turboone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "gradio"
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: krea2turboone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: krea2turboone
+  name: sharedentrances-krea2turboone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "krea2turboone"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: krea2turboone

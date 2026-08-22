@@ -1,0 +1,125 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  ideogram4nf4one: 1
+  ideogram4nf4onecli: 1
+metadata:
+  name: ideogram4nf4one
+  icon: https://cdn.olares.com/images/2026/08/eebbf77dba48420edd02199cc549a2c4.png
+  description: Ideogram 4 NF4 + fal Instant — open text-to-image for Olares One
+  title: Ideogram 4 NF4 One
+  version: 1.0.39
+  categories:
+    - AI
+sharedEntrances:
+  - name: ideogram4nf4one
+    host: sharedentrances-ideogram4nf4one
+    port: 0
+    title: Ideogram 4 NF4 API
+    icon: https://cdn.olares.com/images/2026/08/eebbf77dba48420edd02199cc549a2c4.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: ideogram4nf4onecli
+    port: 8080
+    host: ideogram4nf4onecli
+    title: Ideogram 4 NF4 One
+    icon: https://cdn.olares.com/images/2026/08/eebbf77dba48420edd02199cc549a2c4.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.39
+  featuredImage: https://cdn.olares.com/images/2026/08/e66a817a31e9af4e93636aa6bc9f7a94.png
+  fullDescription: |
+    Gradio UI for Ideogram 4 on Olares One (RTX 5090M 24GB).
+
+    Modes:
+      - Turbo · Instant 8 — fal/ideogram-v4-instant (8-step single-branch, no runtime CFG).
+        BF16 DiT + CPU offload on 24GB; TE/VAE from ideogram-4-nf4-diffusers.
+      - Turbo 12 / Default 20 / Quality 48 — Diffusers NF4 repo (ideogram-4-nf4-diffusers).
+
+    Backend: Diffusers Ideogram4Pipeline (git main) + bitsandbytes NF4;
+    attention backend auto-tries flash/SDPA (IDEOGRAM_ATTENTION_BACKEND).
+
+    Before first run (HF gates + token):
+      1. Accept licenses:
+         - huggingface.co/ideogram-ai/ideogram-4-nf4-diffusers
+         - huggingface.co/fal/ideogram-v4-instant
+         - huggingface.co/diffusers/qwen3-vl-8b-instruct-lm-head (local upsampler)
+      2. HF_TOKEN (OLARES_USER_HUGGINGFACE_TOKEN)
+      3. Optional IDEOGRAM_API_KEY for remote magic-prompt JSON (best with Instant)
+
+    Prompt upsampling:
+      - Ideogram (remote): structured JSON captions (recommended for Instant)
+      - Qwen (local): NF4 modes only
+      - None: raw prompt
+
+    Runtime: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel · Gradio :7860
+  developer: Ideogram AI / fal (Instant)
+  website: https://huggingface.co/ideogram-ai/ideogram-4-nf4
+  sourceCode: https://github.com/ideogram-oss/ideogram4
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Ideogram 4 Non-Commercial
+      url: https://huggingface.co/ideogram-ai/ideogram-4-nf4/blob/main/LICENSE.md
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 80Gi
+      limitedDisk: 150Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.39: VRAM panel — status / force clear / unload; park weights on CPU after generate (default ON); Instant idle-park so VAE not left on GPU (rising OOM).
+    v1.0.38: max sequence length default 512 + Advanced slider (128–2048). Staged VRAM makes 512 fine on 24GB.
+    v1.0.37: Instant staged VRAM on 24GB — NF4 text encoder on GPU for encode (~80s→few s); skip full-GPU OOM + slow accelerate offload. max_seq default 384.
+    v1.0.36: Instant OOM retry — on full-GPU infer OOM, auto-switch to cpu_offload and retry with shorter max_seq=384.
+    v1.0.35: Instant fast path — skip CFG dummy each step; max_seq 512 (vs 2048); offload seq excludes uncond.
+    v1.0.33: Gradio Timing panel (pipeline / upsample / denoise / total) + pod [timing] logs.
+    v1.0.32: show pipeline/upsample/denoise/total timing in Gradio UI.
+    v1.0.31: per-request [timing] logs — pipeline load/switch, upsample, denoise, total.
+    v1.0.30: NF4 full GPU (no cpu_offload) so local Qwen upsample works; offload via IDEOGRAM_CPU_OFFLOAD=1.
+    v1.0.29: local Qwen upsample — move text_encoder+LM head to CUDA under cpu_offload.
+    v1.0.28: Instant CFG shim — Parameter + register after cpu_offload (fix Accelerate StopIteration).
+    v1.0.27: attention `_native_efficient`/`native` (no Diffusers `sdpa` name).
+    v1.0.26: force mask-safe attention — Ideogram block mask breaks flash backends.
+    v1.0.25: unpin nf4-diffusers revision; Hub kernels optional.
+    v1.0.24: load NF4 from ideogram-4-nf4-diffusers (not native fused-qkv).
+    v1.0.23: Diffusers via GitHub zip (no git in image).
+    v1.0.22: prefer /opt/conda/bin/python; pip --break-system-packages.
+    v1.0.19: Turbo · Instant 8 (fal/ideogram-v4-instant).
+    v1.0.16: apiVersion v3 shared chart (Olares 1.12.6+).
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: true
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: IDEOGRAM_API_KEY
+    required: false
+    applyOnChange: true
+    value: ''
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

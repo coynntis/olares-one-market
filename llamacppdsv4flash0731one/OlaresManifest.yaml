@@ -1,0 +1,176 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppdsv4flash0731one: 1
+  llamacppdsv4flash0731onecli: 1
+metadata:
+  name: llamacppdsv4flash0731one
+  icon: https://cdn.olares.com/images/2026/08/7b7b777b8ab6bda55f238ba9a628f7d3.png
+  description: EXPERIMENTAL DeepSeek-V4-Flash-0731 IQ2_XXS — cpu-moe (DSpark off)
+  title: DSV4 Flash cpu-moe
+  version: 1.0.8
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: deepseek
+    size_label: 284B-A21B
+    badge: experimental
+    hero:
+      value: ~91 GB
+      label: UD-IQ2_XXS + cpu-moe
+    specs:
+      - label: context
+        value: 128K
+      - label: vram
+        value: hybrid
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+    stack: llama.cpp · cpu-moe · DSpark optional
+sharedEntrances:
+  - name: llamacppdsv4flash0731one
+    host: sharedentrances-llamacppdsv4flash0731one
+    port: 0
+    title: DSV4 Flash API
+    icon: https://cdn.olares.com/images/2026/08/7b7b777b8ab6bda55f238ba9a628f7d3.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppdsv4flash0731onecli
+    port: 8080
+    host: llamacppdsv4flash0731onecli
+    title: DSV4 Flash cpu-moe
+    icon: https://cdn.olares.com/images/2026/08/7b7b777b8ab6bda55f238ba9a628f7d3.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.8
+  featuredImage: https://cdn.olares.com/images/2026/08/ae51b30d64b6ce4c6853cdcd40b9b86e.png
+  upgradeDescription: |
+    v1.0.8: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.6: DeepSeek defaults — temp 1.0, top_p 0.95, top_k 0, ctx 131072 (128K).
+      Override via LLM_CONTEXT_WINDOW if 128K KV thrash on One.
+    v1.0.5: per-run boot log + attempt counter (init+server).
+    v1.0.4: source via GitHub codeload tarball (not git fetch SHA).
+    v1.0.3: drop git fetch --tags; skip rebuild when binary exists.
+    v1.0.2: awk size compare; never delete near-complete GGUF.
+    v1.0.1: HF_ENDPOINT / wget stall retry.
+    v1.0.0: UD-IQ2_XXS + --cpu-moe experimental.
+  fullDescription: |
+    EXPERIMENTAL — DeepSeek-V4-Flash-0731 (284B total / ~21B activated MoE) via GGUF
+    hybrid offload on Olares One (96GB DDR5 + RTX 5090M 24GB).
+
+      Weights (default): Unsloth UD-IQ2_XXS 3-shard (~90.9 GB) — fits 96GB with tight headroom
+      Optional: UD-IQ3_XXS 4-shard (~104 GB) — may thrash; set DSV4_QUANT=iq3_xxs only if you accept swap
+      Runtime: nvidia/cuda:13.1.0-devel builds ggml-org/llama.cpp (DeepSeek V4 + draft-dspark)
+      Hybrid: --cpu-moe (routed experts in RAM via mmap) + -ngl 99 (attn/shared on GPU)
+      Spec: ENABLE_DSPARK=0 (default) — Q8_0 DSpark ~10.9 GB often blows RAM with IQ2
+        Set ENABLE_DSPARK=1 only with free RAM; watch draft acceptance in logs
+      Defaults (DeepSeek recommended): temp 1.0, top_p 0.95, top_k 0, ctx 131072
+        Override ctx via LLM_CONTEXT_WINDOW if KV thrash
+      Batch 2048 / ubatch 1024; --threads 22; CPU limit 22
+
+    Editable knobs (Settings → Application):
+      LLM_CONTEXT_WINDOW: default 131072 if unset
+      DSV4_QUANT: iq2_xxs (default) | iq3_xxs
+      ENABLE_CPU_MOE: 1 (default)
+      N_CPU_MOE: optional partial --n-cpu-moe N
+      ENABLE_NO_MMAP: 1 only if forced RAM load needed
+      N_GPU_LAYERS: override -ngl (default 99)
+      ENABLE_DSPARK: 0 (default) — downloads dspark-*-Q8_0.gguf when 1
+      OVERRIDE_TENSORS: extra -ot patterns
+      HF_TOKEN / HF_ENDPOINT: user Integration mirror (e.g. https://hf-mirror.com) + token
+
+    Expectation: hybrid MoE disk/RAM-bound TG — not a full-GPU speed chart.
+    HF token + mirror recommended for ~91 GB download (stalls common on huggingface.co).
+
+    License: DeepSeek model license. Engine: MIT (llama.cpp).
+  developer: DeepSeek
+  website: https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
+  sourceCode: https://github.com/ggml-org/llama.cpp
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Model
+      url: https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      # Σ: server 8cpu/8Gi req + 22/88Gi lim; client 10m/64Mi req + 500m/500Mi lim
+      requiredCpu: '9'
+      limitedCpu: '23'
+      requiredMemory: 9Gi
+      limitedMemory: 90Gi
+      requiredDisk: 120Gi
+      limitedDisk: 220Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: ENABLE_CPU_MOE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: N_CPU_MOE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: N_GPU_LAYERS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: DSV4_QUANT
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: ENABLE_DSPARK
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: ENABLE_NO_MMAP
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: OVERRIDE_TENSORS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

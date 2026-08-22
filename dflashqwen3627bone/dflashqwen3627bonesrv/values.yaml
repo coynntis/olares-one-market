@@ -1,0 +1,10 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""

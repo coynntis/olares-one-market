@@ -1,0 +1,25 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  LLM_CONTEXT_WINDOW: ''
+  LLM_MAX_OUTPUT_TOKENS: ''
+  LLM_API_KEY: ''
+  LLM_SPEC_DRAFT_N_MAX: ''
+  LLM_BATCH_SIZE: ''
+  LLM_UBATCH_SIZE: ''
+  LLM_CACHE_TYPE_K: ''
+  LLM_CACHE_TYPE_V: ''
+  LLM_PARALLEL: ''
+workloads:
+  llamacppnail35bone:
+    replicaCount: 1
+  llamacppnail35bonecli:
+    replicaCount: 1

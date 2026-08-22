@@ -1,0 +1,27 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+image:
+  repository: ghcr.io/coynntis/dsh-runtime
+  tag: '22.19-1'
+  pullPolicy: IfNotPresent
+workloads:
+  dshone:
+    replicaCount: 1
+  dshonecli:
+    replicaCount: 1
+olaresEnv:
+  DSH_VERSION: '0.1.0-rc.7'
+  DEEPSEEK_API_KEY: ''
+  OPENAI_API_KEY: ''
+  ANTHROPIC_API_KEY: ''
+  CUSTOM_OPENAI_BASE_URL: ''
+  CUSTOM_OPENAI_API_KEY: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+domain:
+  dshonecli: ''

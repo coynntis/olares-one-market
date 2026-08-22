@@ -1,0 +1,12 @@
+metadata:
+  description: "Xiaozhi voice bridge with Sherpa/Kokoro/Melo CPU TTS, web chat, voice PTT, and settings UI"
+  title: Pipecat Xiaozhi Bridge
+spec:
+  fullDescription: |
+    Built-in web app: Chat, Voice (xiaozhi PTT), Settings.
+    Sherpa-ONNX default TTS: kokoro-int8-multi-lang-v1_1 (v1.1-zh speakers: bf_vale, af_*, zf_*, zm_*).
+    Kokoro-FastAPI CPU sidecar (classic bm_lewis Jarvis). MeloTTS optional.
+    Audio8 TTS Preview 0.6B ONNX INT4 CPU (11 langs + Cantonese; seed voices).
+    Settings: speaking speed + Test connection shows RTF.
+    OmniVoice for clone / Cantonese. Clone UI hidden for CPU providers.
+    ESP32: WebSocket /xiaozhi/v1/.

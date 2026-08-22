@@ -1,0 +1,133 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllmgemma431bnvfp4one: 1
+  vllmgemma431bnvfp4onecli: 1
+metadata:
+  name: vllmgemma431bnvfp4one
+  icon: https://cdn.olares.com/images/2026/08/0064675ae4ff0eebcb0ff9f889441b15.png
+  description: Gemma 4 31B IT NVFP4 vision — vLLM TurboQuant KV + llama.cpp web UI on Olares One
+  title: Gemma 4 31B NVFP4 One
+  version: 1.0.16
+  categories:
+    - Vision
+    - LLM Chat
+  bento:
+    family: gemma
+    size_label: 31B
+    badge: NVFP4
+    hero:
+      value: 16K
+      label: fp8 KV
+    specs:
+      - label: context
+        value: 16K
+      - label: vram
+        value: 24 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: true
+    stack: vLLM 0.25.1 cu13 · NVFP4 · fp8 KV · llama.cpp UI
+sharedEntrances:
+  - name: vllmgemma431bnvfp4one
+    host: sharedentrances-vllmgemma431bnvfp4one
+    port: 0
+    title: Gemma4 31B NVFP4 API
+    icon: https://cdn.olares.com/images/2026/08/0064675ae4ff0eebcb0ff9f889441b15.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmgemma431bnvfp4onecli
+    port: 8080
+    host: vllmgemma431bnvfp4onecli
+    title: Gemma4 31B NVFP4
+    icon: https://cdn.olares.com/images/2026/08/0064675ae4ff0eebcb0ff9f889441b15.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.16
+  featuredImage: https://cdn.olares.com/images/2026/08/df9f2b629adda5353c3beb229bcf86b4.png
+  upgradeDescription: |
+    v1.0.16: keep PIECEWISE cudagraphs; drop max_model_len 8192→7168 and util 0.95→0.97 so KV fits after torch.compile (was 0.43 GiB vs 0.43 needed).
+    v1.0.15: match Unsloth HF recipe — image v0.25.1-x86_64 (CUDA 13, not cu129) + pip flashinfer-python>=0.6.13 nvidia-cutlass-dsl>=4.5.2 compressed-tensors>=0.17.
+    v1.0.6: probe QuantizationArgs / null actorder fallback for old CT.
+    v1.0.5: pin v0.25.1 (wrong cu129 variant).
+    v1.0.4: --kv-cache-dtype fp8.
+    v1.0.3: helm render fix.
+    v1.0.2: sanitize webui→vLLM; wrap errors.
+    v1.0.1: soft-ready /v1/models; stub /cors-proxy.
+    v1.0.0: initial release.
+
+  fullDescription: |
+    Unsloth gemma-4-31B-it-NVFP4 (~24.8 GB on disk) — multimodal Gemma 4 dense IT. Extremely tight on 24GB; default 16K ctx + fp8 + PIECEWISE graphs.
+    
+    Stack:
+    - Image: vllm/vllm-openai:v0.25.1-x86_64 (CUDA 13)
+    - --kv-cache-dtype fp8 for long-context KV budget
+    - Native vision (limit-mm image=1) — vision encoder in checkpoint (not GGUF mmproj)
+    - gemma4 tool-call parser
+    - Default max_model_len 16384
+    
+    Sibling chart vllmgemma31bitnvfp4one uses LilaRest turbo text-only checkpoint; this chart is the Unsloth multimodal NVFP4.
+    
+    Entrance: llama.cpp web UI in front of vLLM.
+  developer: coynntis
+  website: https://huggingface.co/unsloth/gemma-4-31B-it-NVFP4
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: "2"
+      limitedCpu: "13"
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 40Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  LLMGatewaySupported: true
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

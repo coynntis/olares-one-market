@@ -1,0 +1,118 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppqwopus27mtpone: 1
+  llamacppqwopus27mtponecli: 1
+metadata:
+  name: llamacppqwopus27mtpone
+  icon: https://cdn.olares.com/images/2026/08/d6386e5f910d1c5ebb50cdb836d28b07.png
+  description: Qwopus3.6-27B-v2-MTP Q4_K_M — draft-MTP speculative decode, buun, froggeric template
+  title: Qwopus 27B MTP v2 One
+  version: 1.0.8
+  categories:
+    - LLM Chat
+  bento:
+    family: qwen
+    size_label: 27B
+    badge: MTP
+    hero:
+      value: ~1.7x
+      label: vs dense decode
+    specs:
+      - label: context
+        value: 128K
+      - label: vram
+        value: 17 GB
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: true
+        accept: 70
+    stack: buun · Q4_K_M · draft-MTP
+sharedEntrances:
+  - name: llamacppqwopus27mtpone
+    host: sharedentrances-llamacppqwopus27mtpone
+    port: 0
+    title: Qwopus 27B MTP v2 API
+    icon: https://cdn.olares.com/images/2026/08/d6386e5f910d1c5ebb50cdb836d28b07.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppqwopus27mtponecli
+    port: 8080
+    host: llamacppqwopus27mtponecli
+    title: Qwopus 27B MTP v2
+    icon: https://cdn.olares.com/images/2026/08/d6386e5f910d1c5ebb50cdb836d28b07.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.8
+  featuredImage: https://cdn.olares.com/images/2026/08/d05b883f9b23fbd195c3aab0fa55d817.png
+  upgradeDescription: |2
+    v1.0.6: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.4: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.3: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.1: manifest sync — remove incorrect reasoning claim (--reasoning off in deployment); clarify curl HF download, port 8000 llama-server, 128K default ctx.
+  fullDescription: |
+    Qwopus3.6-27B-v2-MTP — draft-MTP speculative decoding (~1.66× decode vs dense).
+
+    Model: `Jackrong/Qwopus3.6-27B-v2-MTP-GGUF` → `Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf` (~17 GB).
+    Image: `aamsellem/buun-llama-cpp:87c351d2` with `--spec-type draft-mtp --spec-draft-n-max 3 --reasoning off`.
+    froggeric Qwen fixed chat template. Pair with `llamacppqwopus27coder1` for SWE-bench coding (no MTP).
+
+    Olares One OpenAI-compatible API on port 8000 (llama-server); client entrance proxies on 8080.
+  developer: Jackrong
+  website: https://huggingface.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF
+  sourceCode: https://huggingface.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/ggml-org/llama.cpp/blob/master/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 25Gi
+      limitedDisk: 40Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

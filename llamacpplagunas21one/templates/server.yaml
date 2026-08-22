@@ -1,0 +1,661 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-lagunas21-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  # Default quant — override via LAGUNA_QUANT (q4_k_m|iq4_xs|q2_k_xl|iq2_m|iq3_xxs)
+  MODEL_ALIAS: "laguna-s-2.1"
+  CONTEXT_SIZE: "16384"
+  N_GPU_LAYERS_DEFAULT: "99"
+  # Core Ultra 9 275HX = 24 cores; cpu-moe experts need them. Leave ~2 for OS/k8s.
+  THREADS: "22"
+  BUILD_JOBS: "4"
+  CUDA_ARCH: "120a"
+  LLAMA_CPP_REPO: "https://github.com/poolsideai/llama.cpp"
+  LLAMA_CPP_REF: "04b2b72cb54048ead292884adbe11f284e3ec950"
+  LLAMA_CPP_BRANCH: "laguna"
+  CHART_BOOT: "1.0.9"
+  # poolside laguna fork expects SvelteKit UI — use dist.tar.gz, not b9596 flat bundle.js
+  UI_HF_REF: "latest"
+  UI_HF_BUCKET: "ggml-org/llama-ui"
+  TEMP: "0.7"
+  TOP_P: "0.95"
+  TOP_K: "20"
+  MIN_P: "0"
+  BATCH_SIZE: "2048"
+  UBATCH_SIZE: "1024"
+
+  # Quant catalog — selected at runtime via LAGUNA_QUANT
+  # IQ4_XS = Unsloth sharded UD-IQ4_XS (NOT Abiray single file — bad split metadata → "invalid split file name")
+  QUANT_IQ4_XS_FILE: "Laguna-S-2.1-UD-IQ4_XS-00001-of-00003.gguf"
+  QUANT_IQ4_XS_BASE: "https://huggingface.co/unsloth/Laguna-S-2.1-GGUF/resolve/main/UD-IQ4_XS"
+  QUANT_IQ4_XS_BYTES_1: "3683648"
+  QUANT_IQ4_XS_BYTES_2: "49820135904"
+  QUANT_IQ4_XS_BYTES_3: "7742884768"
+  QUANT_Q2_K_XL_FILE: "Laguna-S-2.1-UD-Q2_K_XL.gguf"
+  QUANT_Q2_K_XL_URL: "https://huggingface.co/unsloth/Laguna-S-2.1-GGUF/resolve/main/Laguna-S-2.1-UD-Q2_K_XL.gguf"
+  QUANT_Q2_K_XL_BYTES: "39684584480"
+  QUANT_IQ2_M_FILE: "Laguna-S-2.1-UD-IQ2_M.gguf"
+  QUANT_IQ2_M_URL: "https://huggingface.co/unsloth/Laguna-S-2.1-GGUF/resolve/main/Laguna-S-2.1-UD-IQ2_M.gguf"
+  QUANT_IQ2_M_BYTES: "37268665376"
+  QUANT_IQ3_XXS_FILE: "Laguna-S-2.1-UD-IQ3_XXS.gguf"
+  QUANT_IQ3_XXS_URL: "https://huggingface.co/unsloth/Laguna-S-2.1-GGUF/resolve/main/Laguna-S-2.1-UD-IQ3_XXS.gguf"
+  QUANT_IQ3_XXS_BYTES: "44282842016"
+  QUANT_Q4_K_M_FILE: "laguna-s-2.1-Q4_K_M.gguf"
+  QUANT_Q4_K_M_URL: "https://huggingface.co/poolside/Laguna-S-2.1-GGUF/resolve/main/laguna-s-2.1-Q4_K_M.gguf"
+  QUANT_Q4_K_M_BYTES: "96031829760"
+  DRAFT_FILE: "laguna-s-2.1-DFlash-BF16.gguf"
+  DRAFT_URL: "https://huggingface.co/poolside/Laguna-S-2.1-GGUF/resolve/main/laguna-s-2.1-DFlash-BF16.gguf"
+  DRAFT_BYTES: "2233764224"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacpplagunas21one
+  name: llamacpplagunas21one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacpplagunas21one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacpplagunas21one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacpplagunas21one
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eu
+              log() { echo "$(date -Iseconds) [lagunas21:init] $*" >&2; }
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" want="${2:-}" src size
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                for src in $(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null); do
+                  [ -f "$src" ] || continue
+                  size=$(bytes_of "$src")
+                  if [ -n "$want" ] && [ "$want" != "0" ]; then
+                    [ "$size" -eq "$want" ] || continue
+                  fi
+                  printf '%s\n' "$src"
+                  return 0
+                done
+                return 1
+              }
+              link_from_comfy_llms() {
+                local dest="$1" want="${2:-}" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name" "$want")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+
+              # NEVER use wc -c on multi-GB GGUFs — busybox reads the whole file (minutes each boot).
+              bytes_of() { stat -c%s "$1" 2>/dev/null || ls -ln "$1" | awk '{print $5}'; }
+
+              file_ok() {
+                local f min_bytes exact_bytes size stamp
+                f="$1"; min_bytes="$2"; exact_bytes="${3:-}"
+                [ -f "$f" ] || return 1
+                # Fast path: companion .ok stamp written after a good promote/verify
+                stamp="${f}.ok"
+                if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ] && [ -f "$stamp" ]; then
+                  if [ "$(cat "$stamp" 2>/dev/null | tr -d ' \n')" = "$exact_bytes" ]; then
+                    size=$(bytes_of "$f")
+                    [ "$size" -eq "$exact_bytes" ] && return 0
+                    log "stale .ok for $(basename "$f") stamp=$exact_bytes actual=$size — recheck"
+                    rm -f "$stamp"
+                  fi
+                fi
+                size=$(bytes_of "$f")
+                if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                  if [ "$size" -eq "$exact_bytes" ]; then
+                    echo "$exact_bytes" > "$stamp"
+                    return 0
+                  fi
+                  return 1
+                fi
+                [ "$size" -ge "$min_bytes" ]
+              }
+
+              resolve_part() {
+                local dest cand
+                dest="$1"
+                PART_FILE="${dest}.part"
+                for cand in "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp"; do
+                  if [ -f "$cand" ]; then
+                    if [ "$cand" != "$PART_FILE" ]; then
+                      log "migrating incomplete $(basename "$cand") → $(basename "$PART_FILE") size=$(bytes_of "$cand")"
+                      mv -f "$cand" "$PART_FILE"
+                    fi
+                    return 0
+                  fi
+                done
+                return 1
+              }
+
+              promote_part() {
+                local dest label part
+                dest="$1"; label="$2"; part="$3"
+                mv -f "$part" "$dest"
+                log "$label promoted ($(bytes_of "$dest") bytes)"
+              }
+
+              download_one() {
+                local name url min_bytes exact_bytes dest part wget_rc last size delta prog_pid
+                name="$1"; url="$2"; min_bytes="$3"; exact_bytes="${4:-0}"
+                dest="$SHARED_DIR/$name"
+                if type link_from_comfy_llms >/dev/null 2>&1; then
+                  if link_from_comfy_llms "$dest" "$exact_bytes"; then
+                    if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                      log "ok $name via ComfyUI Common — skip download"
+                      rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" 2>/dev/null || true
+                      return 0
+                    fi
+                    log "$name ComfyUI size mismatch — ignore, download our copy"
+                    rm -f "$dest"
+                  fi
+                fi
+
+                if [ -f "$MODELS_DIR/$name" ] && [ ! -f "$dest" ]; then
+                  log "migrate $name from per-app cache"
+                  mv "$MODELS_DIR/$name" "$dest"
+                fi
+
+                if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                  log "ok $name ($(bytes_of "$dest") bytes)"
+                  rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp"
+                  return 0
+                fi
+                if [ -f "$dest" ]; then
+                  log "REJECT truncated $name size=$(bytes_of "$dest") — removing final"
+                  rm -f "$dest" "${dest}.ok"
+                fi
+
+                PART_FILE="${dest}.part"
+                resolve_part "$dest" || true
+                part="$PART_FILE"
+
+                if [ -f "$part" ] && [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                  size=$(bytes_of "$part")
+                  if [ "$size" -gt "$exact_bytes" ]; then
+                    log "REJECT $name .part larger than exact ($size > $exact_bytes) — wrong file, delete (do not resume)"
+                    rm -f "$part"
+                  fi
+                fi
+
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  log "$name .part complete — promoting (skip wget)"
+                  promote_part "$dest" "$name" "$part"
+                  if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                    echo "$exact_bytes" > "${dest}.ok"
+                  fi
+                  return 0
+                fi
+
+                if [ -f "$part" ]; then
+                  log "resuming $name from $(bytes_of "$part") bytes"
+                else
+                  log "downloading $url"
+                fi
+
+                (
+                  last=0
+                  while true; do
+                    sleep 30
+                    [ -f "$part" ] || continue
+                    size=$(bytes_of "$part")
+                    delta=$((size - last))
+                    log "progress $name: size=$size (+${delta}B / 30s)"
+                    last=$size
+                  done
+                ) &
+                prog_pid=$!
+
+                wget_rc=0
+                if [ -n "${HF_TOKEN:-}" ]; then
+                  wget -c --header="Authorization: Bearer $HF_TOKEN" -O "$part" "$url" || wget_rc=$?
+                else
+                  wget -c -O "$part" "$url" || wget_rc=$?
+                fi
+                kill "$prog_pid" 2>/dev/null || true
+                wait "$prog_pid" 2>/dev/null || true
+
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  if [ "$wget_rc" -ne 0 ]; then
+                    log "$name wget exit=$wget_rc but .part OK — promoting"
+                  fi
+                  promote_part "$dest" "$name" "$part"
+                  if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                    echo "$exact_bytes" > "${dest}.ok"
+                  fi
+                  return 0
+                fi
+                size=$(bytes_of "$part" 2>/dev/null || echo 0)
+                log "ERROR incomplete $name wget_rc=$wget_rc size=$size min=$min_bytes exact=$exact_bytes"
+                exit 1
+              }
+
+              # Resolve quant — default Poolside official Q4_K_M (~96.0 GB)
+              Q="$(echo "${LAGUNA_QUANT:-q4_k_m}" | tr '[:upper:]' '[:lower:]' | tr -d ' _')"
+              case "$Q" in
+                ""|q4|q4km|q4_k_m) KEY=Q4_K_M ;;
+                iq4|iq4xs|iq4_xs|udiq4xs) KEY=IQ4_XS ;;
+                q2|q2kxl|q2_k_xl|udq2kxl) KEY=Q2_K_XL ;;
+                iq2|iq2m|iq2_m|udiq2m) KEY=IQ2_M ;;
+                iq3|iq3xxs|iq3_xxs|udiq3xxs) KEY=IQ3_XXS ;;
+                *)
+                  log "WARN unknown LAGUNA_QUANT='$LAGUNA_QUANT' — fallback q4_k_m"
+                  KEY=Q4_K_M
+                  ;;
+              esac
+
+              # Drop broken Abiray single-file IQ4 (split metadata → invalid split file name)
+              if [ -f "$SHARED_DIR/Laguna-S-2.1-IQ4_XS.gguf" ]; then
+                log "removing broken Abiray Laguna-S-2.1-IQ4_XS.gguf (invalid split metadata)"
+                rm -f "$SHARED_DIR/Laguna-S-2.1-IQ4_XS.gguf" \
+                  "$SHARED_DIR/Laguna-S-2.1-IQ4_XS.gguf.part" \
+                  "$SHARED_DIR/Laguna-S-2.1-IQ4_XS.gguf.tmp"
+              fi
+
+              if [ "$KEY" = "IQ4_XS" ]; then
+                BASE="${QUANT_IQ4_XS_BASE}"
+                MODEL_FILE="${QUANT_IQ4_XS_FILE}"
+                log "quant=IQ4_XS Unsloth sharded UD-IQ4_XS (3 parts) → $MODEL_FILE"
+                i=1
+                for idx in 00001 00002 00003; do
+                  fname="Laguna-S-2.1-UD-IQ4_XS-${idx}-of-00003.gguf"
+                  eval "ebytes=\${QUANT_IQ4_XS_BYTES_${i}}"
+                  mbytes=$(( ebytes * 995 / 1000 ))
+                  download_one "$fname" "${BASE}/${fname}" "$mbytes" "$ebytes"
+                  i=$((i + 1))
+                done
+              else
+                eval "MODEL_FILE=\${QUANT_${KEY}_FILE}"
+                eval "MODEL_URL=\${QUANT_${KEY}_URL}"
+                eval "MODEL_BYTES=\${QUANT_${KEY}_BYTES}"
+                MODEL_MIN_BYTES=$(( MODEL_BYTES * 995 / 1000 ))
+                log "quant=$KEY file=$MODEL_FILE bytes=$MODEL_BYTES"
+                download_one "$MODEL_FILE" "$MODEL_URL" "$MODEL_MIN_BYTES" "$MODEL_BYTES"
+              fi
+
+              echo "$MODEL_FILE" > "$SHARED_DIR/.laguna-s21-active-model"
+              echo "$KEY" > "$SHARED_DIR/.laguna-s21-active-quant"
+
+              if [ "${ENABLE_DFLASH:-0}" = "1" ] || [ "${ENABLE_DFLASH:-0}" = "true" ]; then
+                DRAFT_MIN=$(( DRAFT_BYTES * 995 / 1000 ))
+                download_one "$DRAFT_FILE" "$DRAFT_URL" "$DRAFT_MIN" "$DRAFT_BYTES"
+              else
+                log "ENABLE_DFLASH!=1 — skip DFlash drafter"
+              fi
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: LAGUNA_QUANT
+              value: {{ .Values.olaresEnv.LAGUNA_QUANT | default "" | quote }}
+            - name: ENABLE_DFLASH
+              value: {{ .Values.olaresEnv.ENABLE_DFLASH | default "0" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-lagunas21-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends git cmake build-essential ca-certificates curl wget
+              rm -rf /var/lib/apt/lists/*
+
+              mkdir -p /workspace
+              REPO_DIR="/workspace/llama.cpp"
+              REPO_URL="${LLAMA_CPP_REPO:-https://github.com/poolsideai/llama.cpp}"
+              REPO_REF="${LLAMA_CPP_REF:-04b2b72cb54048ead292884adbe11f284e3ec950}"
+              REPO_BRANCH="${LLAMA_CPP_BRANCH:-laguna}"
+              CHART_BOOT="${CHART_BOOT:-1.0.8}"
+              STAMP="/workspace/.llama_cpp_ref"
+              WANT_STAMP="${REPO_REF}|${CHART_BOOT}|ui-disttar|cmath|dflash-default"
+
+              need_clone=0
+              if [ ! -d "$REPO_DIR/.git" ]; then
+                need_clone=1
+              fi
+              if [ -e "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+                ts="$(date +%Y%m%d%H%M%S)"
+                mv "$REPO_DIR" "${REPO_DIR}.bak.${ts}"
+                need_clone=1
+              fi
+              if [ "$need_clone" = "1" ]; then
+                git clone --branch "$REPO_BRANCH" --single-branch "$REPO_URL" "$REPO_DIR"
+              fi
+              git -C "$REPO_DIR" remote set-url origin "$REPO_URL"
+              git -C "$REPO_DIR" fetch --tags --prune origin
+              git -C "$REPO_DIR" checkout --force "$REPO_REF"
+              git -C "$REPO_DIR" reset --hard "$REPO_REF"
+              echo "poolside llama.cpp @ $(git -C "$REPO_DIR" rev-parse HEAD) chart_boot=$CHART_BOOT"
+
+              # poolside cf7fe540 uses std::isfinite in speculative.cpp without #include <cmath>
+              # → gmake Error 1 on common/.../speculative.cpp.o (no useful message in -j logs)
+              SPEC_CPP="$REPO_DIR/common/speculative.cpp"
+              if [ -f "$SPEC_CPP" ] && grep -q 'std::isfinite' "$SPEC_CPP" && ! grep -q '#include <cmath>' "$SPEC_CPP"; then
+                echo "patch: add #include <cmath> to common/speculative.cpp (std::isfinite)"
+                if grep -q '#include <cinttypes>' "$SPEC_CPP"; then
+                  sed -i 's|#include <cinttypes>|#include <cinttypes>\n#include <cmath>|' "$SPEC_CPP"
+                else
+                  sed -i '1a #include <cmath>' "$SPEC_CPP"
+                fi
+              fi
+
+              # Official dist.tar.gz (SvelteKit). b9596 flat bundle.js fails llama-ui-embed.
+              UI_DIST="$REPO_DIR/tools/ui/dist"
+              UI_REF="${UI_HF_REF:-latest}"
+              UI_BUCKET="${UI_HF_BUCKET:-ggml-org/llama-ui}"
+              UI_BASE="https://huggingface.co/buckets/${UI_BUCKET}/resolve/${UI_REF}"
+              UI_MARK="$UI_DIST/.ui-dist-stamp"
+              UI_WANT="${UI_REF}|dist.tar.gz|${CHART_BOOT}"
+              need_ui=1
+              if [ -f "$UI_MARK" ] && grep -qxF "$UI_WANT" "$UI_MARK" \
+                && [ -s "$UI_DIST/index.html" ] \
+                && [ -f "$UI_DIST/manifest.webmanifest" ] \
+                && [ -f "$UI_DIST/sw.js" ]; then
+                echo "UI dist already provisioned ($UI_WANT)"
+                need_ui=0
+              fi
+              if [ "$need_ui" = "1" ]; then
+                echo "Downloading UI dist.tar.gz from ${UI_BASE} ..."
+                rm -rf "$UI_DIST"
+                mkdir -p "$UI_DIST" /tmp/llama-ui
+                if ! curl -fL --retry 5 --retry-delay 3 --connect-timeout 30 \
+                  "${UI_BASE}/dist.tar.gz?download=true" -o /tmp/llama-ui/dist.tar.gz; then
+                  echo "ERROR: failed to download UI dist.tar.gz" >&2
+                  exit 1
+                fi
+                if curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 \
+                  "${UI_BASE}/dist.tar.gz.sha256?download=true" -o /tmp/llama-ui/dist.tar.gz.sha256; then
+                  expect=$(awk '{print tolower($1)}' /tmp/llama-ui/dist.tar.gz.sha256 | head -1)
+                  actual=$(sha256sum /tmp/llama-ui/dist.tar.gz | awk '{print tolower($1)}')
+                  if [ -n "$expect" ] && [ "$expect" != "$actual" ]; then
+                    echo "ERROR: UI dist.tar.gz sha256 mismatch" >&2
+                    exit 1
+                  fi
+                fi
+                tar -xzf /tmp/llama-ui/dist.tar.gz -C "$UI_DIST"
+                rm -rf /tmp/llama-ui "$UI_DIST/_gzip"
+                if [ ! -s "$UI_DIST/index.html" ] || [ ! -f "$UI_DIST/manifest.webmanifest" ]; then
+                  echo "ERROR: UI archive missing required assets" >&2
+                  ls -la "$UI_DIST" || true
+                  exit 1
+                fi
+                echo "$UI_WANT" > "$UI_MARK"
+              fi
+
+              cd "$REPO_DIR"
+              rebuild=1
+              if [ -x ./build/bin/llama-server ] && [ -f "$STAMP" ] && grep -qxF "$WANT_STAMP" "$STAMP"; then
+                echo "llama-server already built for $WANT_STAMP — skip cmake"
+                rebuild=0
+              fi
+              if [ "$rebuild" = "1" ]; then
+                rm -rf build
+                cmake -B build \
+                  -DGGML_CUDA=ON \
+                  "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH:-120a}" \
+                  -DLLAMA_BUILD_UI=ON \
+                  -DLLAMA_USE_PREBUILT_UI=ON
+                # Lower -j default (4): parallel CXX on speculative.cpp + mtmd can OOM/obscure errors
+                if ! cmake --build build -j"${BUILD_JOBS:-4}" --target llama-server; then
+                  echo "ERROR: cmake build failed — retry speculative.cpp single-job for clear log" >&2
+                  cmake --build build -j1 --target llama-common 2>&1 | tail -80 >&2 || true
+                  exit 1
+                fi
+                echo "$WANT_STAMP" > "$STAMP"
+              fi
+
+              SHARED="/shared-models/llms"
+              if [ -f "$SHARED/.laguna-s21-active-model" ]; then
+                MODEL_FILE="$(cat "$SHARED/.laguna-s21-active-model")"
+              else
+                MODEL_FILE="${QUANT_Q4_K_M_FILE}"
+              fi
+              MODEL="$SHARED/${MODEL_FILE}"
+              DRAFT="$SHARED/${DRAFT_FILE}"
+              echo "model=$MODEL quant_marker=$(cat "$SHARED/.laguna-s21-active-quant" 2>/dev/null || echo unknown)"
+              free -h || true
+              nvidia-smi || true
+
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+
+              # Hybrid MoE: all routed experts → CPU RAM; attn/shared → GPU via -ngl
+              # Keep mmap (default) — lower RSS; optional N_CPU_MOE if you want some experts on GPU later
+              OFFLOAD_ARGS=()
+              if [ -n "${N_CPU_MOE:-}" ]; then
+                echo "partial expert CPU offload: --n-cpu-moe ${N_CPU_MOE}"
+                OFFLOAD_ARGS+=(--n-cpu-moe "$N_CPU_MOE")
+              elif [ "${ENABLE_CPU_MOE:-1}" = "1" ] || [ "${ENABLE_CPU_MOE:-1}" = "true" ]; then
+                echo "full expert CPU offload: --cpu-moe"
+                OFFLOAD_ARGS+=(--cpu-moe)
+              else
+                echo "WARN: ENABLE_CPU_MOE=0 and N_CPU_MOE empty — model will try GPU; likely OOM on 24GB"
+              fi
+
+              if [ "${ENABLE_NO_MMAP:-0}" = "1" ] || [ "${ENABLE_NO_MMAP:-0}" = "true" ]; then
+                echo "ENABLE_NO_MMAP=1 — adding --no-mmap (forces full RAM load)"
+                OFFLOAD_ARGS+=(--no-mmap)
+              fi
+
+              if [ -n "${OVERRIDE_TENSORS:-}" ]; then
+                IFS=',' read -ra OTS <<< "${OVERRIDE_TENSORS}"
+                for ot in "${OTS[@]}"; do
+                  ot="$(echo "$ot" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+                  [ -n "$ot" ] || continue
+                  echo "override-tensor: $ot"
+                  OFFLOAD_ARGS+=(--override-tensor "$ot")
+                done
+              fi
+
+              NGL="${N_GPU_LAYERS:-${N_GPU_LAYERS_DEFAULT:-99}}"
+              CTX="${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-16384}}"
+              BS="${BATCH_SIZE:-2048}"
+              UBS="${UBATCH_SIZE:-1024}"
+
+              SPEC_ARGS=()
+              # DFlash on cpu-moe hybrid often HURTS: draft accept can be ~10% while verify still hits CPU experts.
+              # Only enable when ENABLE_DFLASH=1 and you confirm accept rate >>50% in slot timing logs.
+              if [ "${ENABLE_DFLASH:-0}" = "1" ] || [ "${ENABLE_DFLASH:-0}" = "true" ]; then
+                if [ -f "$DRAFT" ]; then
+                  echo "DFlash ON ($DRAFT) — watch draft acceptance in logs; <50% means disable"
+                  SPEC_ARGS+=(-md "$DRAFT" --spec-type draft-dflash --spec-draft-n-max 15)
+                else
+                  echo "WARN: ENABLE_DFLASH=1 but draft missing at $DRAFT"
+                fi
+              else
+                echo "DFlash OFF (default) — set ENABLE_DFLASH=1 to try; cpu-moe often gets ~15 t/s without it"
+              fi
+
+              echo "mem before load:"; free -h || true
+              exec ./build/bin/llama-server \
+                --host 0.0.0.0 --port 8000 \
+                --ui \
+                --model "$MODEL" \
+                --alias "${MODEL_ALIAS}" \
+                --ctx-size "$CTX" \
+                --n-gpu-layers "$NGL" \
+                --threads "${THREADS:-22}" \
+                --cache-type-k q8_0 --cache-type-v q8_0 \
+                --batch-size "$BS" --ubatch-size "$UBS" \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload \
+                --jinja \
+                --temp "${TEMP:-0.7}" --top-p "${TOP_P:-0.95}" \
+                --top-k "${TOP_K:-20}" --min-p "${MIN_P:-0}" \
+                "${OFFLOAD_ARGS[@]}" \
+                "${SPEC_ARGS[@]}" \
+                "${EXTRA_LLM_ARGS[@]}"
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: ENABLE_CPU_MOE
+              value: {{ .Values.olaresEnv.ENABLE_CPU_MOE | default "1" | quote }}
+            - name: N_CPU_MOE
+              value: {{ .Values.olaresEnv.N_CPU_MOE | default "" | quote }}
+            - name: N_GPU_LAYERS
+              value: {{ .Values.olaresEnv.N_GPU_LAYERS | default "" | quote }}
+            - name: ENABLE_DFLASH
+              value: {{ .Values.olaresEnv.ENABLE_DFLASH | default "0" | quote }}
+            - name: ENABLE_NO_MMAP
+              value: {{ .Values.olaresEnv.ENABLE_NO_MMAP | default "" | quote }}
+            - name: OVERRIDE_TENSORS
+              value: {{ .Values.olaresEnv.OVERRIDE_TENSORS | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-lagunas21-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 300
+            timeoutSeconds: 10
+            periodSeconds: 60
+            failureThreshold: 10
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            # ~3h — first boot: cmake + ~70GB download + load
+            failureThreshold: 360
+          resources:
+            limits:
+              cpu: "22"
+              memory: 88Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: "8"
+              memory: 8Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/llamacpplagunas21one-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacpplagunas21one
+  name: llamacpplagunas21one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacpplagunas21one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacpplagunas21one
+  name: sharedentrances-llamacpplagunas21one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpplagunas21one"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacpplagunas21one

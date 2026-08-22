@@ -1,0 +1,132 @@
+---
+apiVersion: v1
+data:
+  nginx.conf: |
+    server {
+
+      listen 8080;
+      server_name _;
+      access_log /opt/bitnami/openresty/nginx/logs/access.log;
+      error_log  /opt/bitnami/openresty/nginx/logs/error.log;
+
+      proxy_connect_timeout                          600s;
+      proxy_send_timeout                             600s;
+      proxy_read_timeout                             1800s;
+      proxy_buffering off;
+      proxy_cache off;
+      chunked_transfer_encoding on;
+      proxy_set_header      host                      $host;
+      proxy_set_header      x-forwarded-host          $http_host;
+      proxy_set_header      x-forwarded-proto         $scheme;
+      proxy_set_header      x-real-ip                 $remote_addr;
+      proxy_set_header      x-forwarded-for           $proxy_add_x_forwarded_for;
+
+      proxy_http_version 1.1;
+
+      proxy_set_header upgrade $http_upgrade;
+      proxy_set_header connection "upgrade";
+
+      # Viser 3D viewer — strip /viser prefix → pod :8090
+      # Exact /viser (no slash): proxy, do NOT 307 — WS clients strip trailing slash
+      # and cannot follow redirects (viser uses location.href without trailing /).
+      location = /viser {
+        proxy_pass http://lingbotmapone:8090/;
+        proxy_http_version 1.1;
+        proxy_set_header upgrade $http_upgrade;
+        proxy_set_header connection "upgrade";
+        proxy_set_header host $host;
+        proxy_set_header x-forwarded-host $http_host;
+        proxy_set_header x-forwarded-proto $scheme;
+        proxy_set_header sec-websocket-protocol $http_sec_websocket_protocol;
+        proxy_read_timeout 1800s;
+        proxy_buffering off;
+      }
+      location /viser/ {
+        proxy_pass http://lingbotmapone:8090/;
+        proxy_http_version 1.1;
+        proxy_set_header upgrade $http_upgrade;
+        proxy_set_header connection "upgrade";
+        proxy_set_header host $host;
+        proxy_set_header x-forwarded-host $http_host;
+        proxy_set_header x-forwarded-proto $scheme;
+        proxy_set_header sec-websocket-protocol $http_sec_websocket_protocol;
+        proxy_read_timeout 1800s;
+        proxy_buffering off;
+      }
+
+      location / {
+        add_header X-Frame-Options "";
+        proxy_pass http://lingbotmapone:7860;
+      }
+    }
+
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: lingbotmaponecli
+  name: lingbotmaponecli
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  replicas: {{ .Values.workloads.lingbotmaponecli.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: lingbotmaponecli
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: lingbotmaponecli
+    spec:
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+            defaultMode: 438
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+      containers:
+        - name: nginx
+          image: "docker.io/beclab/aboveos-bitnami-openresty:1.25.3-2"
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              memory: 500Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /opt/bitnami/openresty/nginx/conf/server_blocks/nginx.conf
+              subPath: nginx.conf
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lingbotmaponecli
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    io.kompose.service: lingbotmaponecli
+  ports:
+    - name: lingbotmaponecli
+      protocol: TCP
+      port: 8080
+      targetPort: 8080

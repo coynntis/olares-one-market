@@ -1,0 +1,30 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+image:
+  repository: pytorch/pytorch
+  # Must match runtime: cp312 + cu13. Logs showing cp311/cu12 = still on old 2.9.1 image — pull this tag.
+  tag: 2.11.0-cuda13.0-cudnn9-devel
+flashAttn:
+  enabled: true
+  backend: flash
+  # Empty = auto-pick wheel for this python/torch; adithyaxx cu13+torch2.11+cp312 preferred.
+  # Wrong-tag URLs are skipped. FLASH_ATTN_ALLOW_SOURCE=1 builds FA2 for sm_120 once into /workspace/wheels.
+  pipSpec: ""
+  softFail: true
+  allowSource: true
+  maxJobs: '4'
+workloads:
+  sensenovau1serveone:
+    replicaCount: 1
+  sensenovau1serveonecli:
+    replicaCount: 1

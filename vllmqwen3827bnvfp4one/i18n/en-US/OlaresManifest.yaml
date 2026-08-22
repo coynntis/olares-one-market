@@ -1,0 +1,9 @@
+metadata:
+  description: "Qwen3.8 27B NVFP4 vision+video — vLLM fp8 KV, medium thinking defaults"
+  title: Qwen38 27B NVFP4 One
+spec:
+  fullDescription: |
+    Unsloth Qwen3.8-27B-NVFP4 on vLLM 0.25.1 (CUDA 13). vLLM-only quant (FP8 lm_head).
+    Native vision+video, fp8 KV, default 6144 ctx on 24GB. MTP off.
+    Thinking defaults: enable_thinking=true, preserve_thinking=true, reasoning_effort=medium.
+    Model: unsloth/Qwen3.8-27B-NVFP4

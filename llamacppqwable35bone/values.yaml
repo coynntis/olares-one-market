@@ -1,0 +1,19 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  LLM_REASONING: ''
+workloads:
+  llamacppqwable35bone:
+    replicaCount: 1
+  llamacppqwable35bonecli:
+    replicaCount: 1

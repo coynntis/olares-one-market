@@ -1,0 +1,158 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  pipecatxiaozhione: 1
+  pipecatxiaozhionecli: 1
+  pipecatxiaozhimelo: 1
+  pipecatxiaozhisherpa: 1
+  pipecatxiaozhikokoro: 1
+  pipecatxiaozhiaudio8: 1
+metadata:
+  name: pipecatxiaozhione
+  icon: https://cdn.olares.com/images/2026/08/ae0492b107180d8f021f25e6670d60f3.png
+  description: Pipecat voice bridge compatible with xiaozhi-esp32 WebSocket protocol
+  title: Pipecat Xiaozhi Bridge
+  version: 0.5.16
+  categories:
+    - AI
+sharedEntrances:
+  - name: pipecatxiaozhione
+    host: sharedentrances-pipecatxiaozhione
+    port: 0
+    title: Pipecat Xiaozhi Bridge API
+    icon: https://cdn.olares.com/images/2026/08/ae0492b107180d8f021f25e6670d60f3.png
+    invisible: true
+    authLevel: internal
+  - name: pipecatxiaozhimelo
+    host: sharedentrances-pipecatxiaozhimelo
+    port: 0
+    title: MeloTTS CPU API
+    icon: https://cdn.olares.com/images/2026/08/ae0492b107180d8f021f25e6670d60f3.png
+    invisible: true
+    authLevel: internal
+  - name: pipecatxiaozhisherpa
+    host: sharedentrances-pipecatxiaozhisherpa
+    port: 0
+    title: Sherpa ONNX TTS API
+    icon: https://cdn.olares.com/images/2026/08/ae0492b107180d8f021f25e6670d60f3.png
+    invisible: true
+    authLevel: internal
+  - name: pipecatxiaozhikokoro
+    host: sharedentrances-pipecatxiaozhikokoro
+    port: 0
+    title: Kokoro FastAPI TTS
+    icon: https://cdn.olares.com/images/2026/08/ae0492b107180d8f021f25e6670d60f3.png
+    invisible: true
+    authLevel: internal
+  - name: pipecatxiaozhiaudio8
+    host: sharedentrances-pipecatxiaozhiaudio8
+    port: 0
+    title: Audio8 TTS ONNX CPU
+    icon: https://cdn.olares.com/images/2026/08/ae0492b107180d8f021f25e6670d60f3.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: pipecatxiaozhionecli
+    port: 8080
+    host: pipecatxiaozhionecli
+    title: Pipecat Xiaozhi Bridge
+    icon: https://cdn.olares.com/images/2026/08/ae0492b107180d8f021f25e6670d60f3.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 0.5.16
+  upgradeDescription: |
+    v0.5.16: Audio8 CPU request back to 2 (limit stays 24 / threads 24) — fix scheduler insufficient CPU.
+    v0.5.15: Audio8 CPU threads 24 + request 12 cores (limit still 24) for faster ONNX RTF; mem limit 6Gi.
+    v0.5.14: Audio8 TTS Preview 0.6B ONNX INT4 CPU sidecar (multilingual + zero-shot clone seeds); bridge 0.5.4.
+    v0.5.13: TTS Test connection shows RTF (http/audio); Speaking speed control in Settings (Melo/Sherpa/Kokoro/OmniVoice); bridge 0.5.3.
+    v0.5.12: voice dropdown matches provider — Sherpa shows v1.1-zh speakers (bf_vale/af_*/zf_*/zm_*); Kokoro-FastAPI keeps classic bm_lewis Jarvis list; bridge 0.5.2.
+    v0.5.11: Sherpa TTS-only — CUSTOM_STT_MODEL_EVAL=None (skip broken hostPath STT); bridge keeps its own STT.
+    v0.5.10: Sherpa init uses beclab busybox (chartrepo rejects alpine+root); wipe corrupt STT dirs so addon re-downloads small paraformer.
+    v0.5.9: Sherpa STT — switch to small paraformer (~78MB); alpine init fetches+verifies ONNX (fixes corrupt hostPath / No graph in protobuf crash loop).
+    v0.5.8: wipe corrupt Sherpa STT hostPath cache (No graph in protobuf); default STT_USE_INT8=False for clean paraformer re-download.
+    v0.5.7: keep TTS CPU limits at 24 but drop requests to 2 (was 8) — 8+8+8 oversubscribed Olares One and upgrade failed; SPA masked as opID missing.
+    v0.5.6: raise accelerator memory caps to match container sums (req 9Gi / limit 41Gi).
+    v0.5.5: CPU TTS limits 24 cores + thread envs; bridge single-utterance (no mid-phrase chunk); Kokoro smart_split token targets raised; Sherpa TTS_THREAD_NUM=24.
+    v0.5.4: fix Sherpa TTS_MODEL — use builtin kokoro-int8-multi-lang-v1_1 (wrong name left tts_model=None → generate crash); persist models on shared hostPath.
+    v0.5.3: bump Kokoro/MeloTTS CPU limits to 16 cores (req 4); Sherpa to 12 (req 2); raise accelerator sums.
+    v0.5.2: chartrepo lint — replicas must be literal .Values.workloads.<name>.replicaCount; keep nil-safe kokoro/melo/sherpa image defaults.
+    v0.5.1: fix upgrade nil-pointer when release values lack kokoro.* (safe defaults in templates).
+    v0.5.0: Sherpa Kokoro voices + Kokoro-FastAPI sidecar; word-safe TTS chunking; hide clone UI for CPU providers.
+  featuredImage: https://cdn.olares.com/images/2026/08/28273e12b1356b4db999504cf07fd930.png
+  fullDescription: |
+    Xiaozhi-compatible voice bridge with built-in web app at the app entrance (port 8080).
+
+    Chat — text + image attachments, vision LLM, optional spoken replies.
+    Voice — xiaozhi WebSocket push-to-talk for ESP32-style STT → LLM → TTS pipeline.
+
+    CPU TTS (pick in Settings):
+    - Sherpa-ONNX — kokoro-int8-multi-lang-v1_1 (Kokoro v1.1-zh speakers: bf_vale, af_*, zf_*, zm_*).
+    - Kokoro-FastAPI — classic Kokoro-82M voices (bm_lewis Jarvis-like).
+    - MeloTTS — EN+ZH, slower RTF.
+    - Audio8 TTS Preview 0.6B — ONNX INT4 DualAR (11 langs + Cantonese; seed voices en/zh/yue).
+
+    OmniVoice — optional HQ / voice clone / Cantonese when GPU free.
+
+    Settings — configure STT/TTS/LLM; clone UI only shown for OmniVoice.
+
+    ESP32 devices: point OTA/proxy WebSocket to this app's shared entrance /xiaozhi/v1/.
+    Image: ghcr.io/coynntis/pipecat-xiaozhi-bridge:0.5.4 (linux/amd64)
+    Audio8: ghcr.io/coynntis/audio8-tts-onnx:0.6b-int4 (linux/amd64)
+
+  developer: coynntis
+  website: https://github.com/xinnan-tech/xiaozhi-esp32-server
+  sourceCode: https://github.com/coynntis/olares-one-market/tree/main/pipecat-xiaozhi-bridge
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://opensource.org/licenses/MIT
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: cpu
+      # Σ CPU req:  bridge 0.5 + melo 2 + kokoro 2 + sherpa 2 + audio8 2 + cli 0.01 ≈ 8.5
+      # Σ CPU lim:  bridge 8 + melo 24 + kokoro 24 + sherpa 24 + audio8 24 + cli 0.5 ≈ 104.5
+      # Σ mem req:  bridge 2 + melo 2 + kokoro 2 + sherpa 2 + audio8 2 + cli 64Mi ≈ 10Gi
+      # Σ mem lim:  bridge 8 + melo 12 + kokoro 12 + sherpa 8 + audio8 6 + cli 500Mi ≈ 46.5Gi
+      requiredCpu: '9'
+      limitedCpu: '105'
+      requiredMemory: 11Gi
+      limitedMemory: 47Gi
+      requiredDisk: 14Gi
+      limitedDisk: 32Gi
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

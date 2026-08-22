@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.26
+description: qwen3ttstone shared server
+name: qwen3ttstonesrv
+type: application
+version: 1.0.26

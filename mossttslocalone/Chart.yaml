@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.0"
+description: MOSS-TTS-Local-Transformer-v1.5 (31 langs incl. Cantonese) via SGLang-Omni — Olares One
+name: mossttslocalone
+type: application
+version: 1.0.0

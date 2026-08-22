@@ -1,0 +1,22 @@
+metadata:
+  description: "NVIDIA Nemotron-Labs Elastic 30B-A3B NVFP4 — ~181 t/s via vLLM v0.22.1 on Olares One"
+  title: Nemotron-Labs 30B NVFP4 One
+spec:
+  fullDescription: |
+    NVIDIA Nemotron-Labs Elastic 30B-A3B with native NVFP4 quantization — served via vLLM v0.22.1 on Olares One (RTX 5090M sm_120, 24 GB).
+
+    Bench validated: **~181 t/s AVG post-warmup** (10 runs, runs 2–10: 181.01–182.17 t/s). +22% over previous Olares One champion Gemma 4 26B-A4B.
+
+    Why it's fast on Blackwell:
+    - Native NVFP4 tensor core path — FlashInferCutlassNvFp4LinearKernel GEMM, FLASHINFER_CUTLASS MoE
+    - MoE-A3B routing: 128 experts + 1 shared, ~3B params active per token
+    - Hybrid Mamba+Attention (NemotronHForCausalLM)
+
+    Trade-offs:
+    - max_model_len = 4096 (4K context only — KV headroom limited on 24 GB)
+    - max_num_seqs = 1 (single-stream)
+    - Run 1 = ~85s warmup (CUDA graph capture), subsequent runs hit ~181 t/s
+
+    For 262K context use llamacppqwen36beellamaone. For vision use vllmgemma426ba4bvisionone.
+
+    NVIDIA Open Model License. First launch downloads ~19 GB. OpenAI-compatible chat API on port 8000.

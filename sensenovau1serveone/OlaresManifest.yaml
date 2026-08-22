@@ -1,0 +1,95 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sensenovau1serveone: 1
+  sensenovau1serveonecli: 1
+metadata:
+  name: sensenovau1serveone
+  icon: https://cdn.olares.com/images/2026/08/531c651ee6bf4c4e9bcae1f6aa8d004e.png
+  description: SenseNova-U1 T2I, VQA, editing, and interleave via REST API and Gradio
+  title: SenseNova U1 Serve One
+  version: 1.0.31
+  categories:
+    - AI
+sharedEntrances:
+  - name: sensenovau1serveone
+    host: sharedentrances-sensenovau1serveone
+    port: 0
+    title: SenseNova U1 Serve API
+    icon: https://cdn.olares.com/images/2026/08/531c651ee6bf4c4e9bcae1f6aa8d004e.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sensenovau1serveonecli
+    port: 8080
+    host: sensenovau1serveonecli
+    title: SenseNova U1 Serve
+    icon: https://cdn.olares.com/images/2026/08/531c651ee6bf4c4e9bcae1f6aa8d004e.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.31
+  featuredImage: https://cdn.olares.com/images/2026/08/4fb7ee2759ca65d0ca4253f10f8002a8.png
+  fullDescription: |
+    Runs OpenSenseNova SenseNova-U1 from https://github.com/OpenSenseNova/SenseNova-U1 with one GPU load and four modalities exposed as JSON APIs for orchestrators or humans via Gradio.
+    Container image: pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel (CUDA 13 + Python 3.12).
+    Boot: shallow-clone SenseNova-U1 under workspace volume, pip install -e with --no-deps so the image Torch/CUDA build is not replaced by PyPI torch==2.8 pins from upstream pyproject, then install pinned transformers stack + FastAPI/Gradio from bundled requirements.txt.
+    Config and tokenizer: init snapshot_download of sensenova/SenseNova-U1-8B-MoT into MODEL_DIR (MODEL_PATH). With USE_GGUF_WEIGHTS=1, snapshot skips *.safetensors shards (GGUF supplies weights); init then hf_hub_downloads config.json, tokenizer_config.json, vocab.json, merges.txt, added_tokens.json, special_tokens_map.json so tokenizer assets are always present; upstream load_model_and_tokenizer still needs that HF layout for architecture + tokenizer.
+    Default weights: merger GGUF from https://huggingface.co/smthem/SenseNova-U1-8B-MoT-Merger-gguf — init downloads GGUF_FILE plus optional GGUF_DOWNLOAD_FILES (comma list); default prefetch includes all four public GGUFs (~67GiB total — trim ConfigMap to one file if disk-constrained). Runtime: optional JSON field gguf_filename on each POST selects basename under GGUF_DIR and reloads weights when it changes; Gradio exposes same dropdown. Variant hints in GET /api/v1/capabilities under gguf_variant_guide (8step-Q4 fastest/low VRAM; Q6 balance; SFT-fm-* instruction-tuned merger; Q8 heaviest).
+    Disable GGUF: set USE_GGUF_WEIGHTS=0 in sensenovau1-serve-env (full safetensors from MODEL_DIR only).
+    Layer offload: VRAM_MODE defaults to full on Olares One (weights stay on GPU). Set low | balanced only to save VRAM at large speed cost (see upstream VRAM_MODE_OPTIONS).
+    Attention: SenseNova OSS uses FA2-class flash_attn.flash_attn_func (not FA3/FA4). Default INSTALL_FLASH_ATTN=1 installs a Blackwell sm_120 prebuilt wheel (cached under /workspace/wheels); soft-fails to SDPA if install/import fails — no in-pod source compile (that caused restart loops). For FA3 hybrid path use sensenovau1lightllmone (LightX2V) instead.
+    HTTP: GET / redirects to Gradio at /ui; GET /api/v1/capabilities; POST /api/v1/t2i | vqa | editing | interleave; OpenAPI at /docs.
+    HF model variants (same NeoChat MoT API surface): default sensenova/SenseNova-U1-8B-MoT; swap MODEL_REPO to SenseNova-U1-8B-MoT-Infographic-V2 or SenseNova-U1-8B-MoT-Interleaved. Infographic/Interleaved need USE_GGUF_WEIGHTS=0 (merger GGUF is base-only) + VRAM_MODE=balanced on 24GB.
+  developer: OpenSenseNova
+  website: https://github.com/OpenSenseNova/SenseNova-U1
+  sourceCode: https://github.com/OpenSenseNova/SenseNova-U1
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/OpenSenseNova/SenseNova-U1/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '15'
+      requiredMemory: 5Gi
+      limitedMemory: 57Gi
+      requiredDisk: 80Gi
+      limitedDisk: 140Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.31: GGUF download via curl→.part (dflash-style); progress watches .part/*.incomplete, not final .gguf.
+    v1.0.30: model-downloader logs progress every 10s (size/rate) + line-based HF tqdm for kubectl.
+    v1.0.29: timing breakdown + VRAM park/unload (Ideogram lessons). GET /api/v1/vram, POST clear_vram/unload; Gradio Memory tab; park-after-generate default ON.
+    v1.0.28: fix FA2 wheel tag match (torch2.X not torch2X); skip wrong-ABI wheels; optional sm_120 source build → /workspace/wheels; require 2.11.0-cuda13 image (cp312).
+    v1.0.25: trim CPU/memory requests for denser multi-app packing (media).
+    v1.0.23: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.22: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

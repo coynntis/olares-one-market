@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.8"
+description: VLA 6B policy API + Gradio (native depth)
+name: lingbotvlaone
+type: application
+version: 1.0.8

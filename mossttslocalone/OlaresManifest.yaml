@@ -1,0 +1,136 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  mossttslocalone: 1
+  mossttslocalonecli: 1
+metadata:
+  name: mossttslocalone
+  icon: https://cdn.olares.com/images/2026/08/c2e048c2786d7f96700c3ded542de47d.png
+  description: MOSS-TTS-Local-Transformer-v1.5 — 31 languages incl. Cantonese, clone, 48kHz stereo — Olares One
+  title: MOSS-TTS Local One
+  version: 1.0.0
+  categories:
+    - TTS
+  bento:
+    family: other
+    size_label: MOSS-TTS
+    badge: tts
+    hero:
+      value: TTS
+      label: text-to-speech
+    specs:
+      - label: params
+        value: 5B
+      - label: langs
+        value: '31'
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: true
+      mtp:
+        enabled: false
+    stack: SGLang-Omni · MOSS-TTS
+sharedEntrances:
+  - name: mossttslocalone
+    host: sharedentrances-mossttslocalone
+    port: 0
+    title: MOSS-TTS Local API
+    icon: https://cdn.olares.com/images/2026/08/c2e048c2786d7f96700c3ded542de47d.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: mossttslocalonecli
+    port: 8080
+    host: mossttslocalonecli
+    title: MOSS-TTS Local One
+    icon: https://cdn.olares.com/images/2026/08/c2e048c2786d7f96700c3ded542de47d.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.0
+  featuredImage: https://cdn.olares.com/images/2026/08/178fb24dc8b7b1e4745cc51b6ca33043.png
+  upgradeDescription: |
+    v1.0.0: OpenMOSS MOSS-TTS-Local-Transformer-v1.5 via SGLang-Omni OpenAI /v1/audio/speech —
+    31 languages (Cantonese yue), zero-shot clone, pauses, 48 kHz stereo.
+  fullDescription: |
+    MOSS-TTS-Local-Transformer-v1.5 (OpenMOSS / MOSI.AI) — ~5B local-transformer TTS with
+    native 48 kHz stereo, zero-shot cloning, long-form, duration control, Pinyin/IPA, and
+    31 languages including Cantonese (language=Cantonese / yue).
+
+    Served by SGLang-Omni (lmsysorg/sglang-omni) with OpenAI-compatible /v1/audio/speech.
+
+    ===== HOW TO USE =====
+
+    In-cluster: http://mossttslocalone:8000
+    Shared entrance: http://<route-id>.shared.olares.com
+
+    --- Basic speech ---
+
+    curl -X POST http://mossttslocalone:8000/v1/audio/speech \
+      -H "Content-Type: application/json" \
+      -d '{"input":"你好，欢迎使用 MOSS-TTS。","language":"Chinese"}' \
+      -o out.wav
+
+    --- Cantonese ---
+
+    curl -X POST http://mossttslocalone:8000/v1/audio/speech \
+      -H "Content-Type: application/json" \
+      -d '{"input":"你好啊，食咗饭未啊？","language":"Cantonese"}' \
+      -o yue.wav
+
+    --- Voice cloning ---
+
+    curl -X POST http://mossttslocalone:8000/v1/audio/speech \
+      -H "Content-Type: application/json" \
+      -d '{"input":"Cloned line.","ref_audio":"https://example.com/ref.wav","language":"English"}' \
+      -o clone.wav
+
+    Inline pause: "句子前[pause 1.5s]句子后"
+
+    First boot downloads ~10GB+ weights to shared HF cache.
+    Needs substantial VRAM (~12GB+); exclusive GPU recommended on Olares One.
+    Docs: https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Local-Transformer-v1.5
+  developer: OpenMOSS / MOSI.AI
+  website: https://github.com/OpenMOSS/MOSS-TTS
+  sourceCode: https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Local-Transformer-v1.5
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '12'
+      requiredMemory: 8Gi
+      limitedMemory: 32Gi
+      requiredDisk: 20Gi
+      limitedDisk: 60Gi
+      requiredGPUMemory: 12Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

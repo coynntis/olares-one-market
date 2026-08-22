@@ -1,0 +1,10 @@
+workloads:
+  vllmgepardone:
+    replicaCount: 1
+  vllmgepardonecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

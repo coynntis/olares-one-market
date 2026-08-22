@@ -1,0 +1,9 @@
+metadata:
+  title: SGLang Krea 2 Turbo
+  description: "Krea-2-Turbo via SGLang Diffusion — layerwise DiT offload for 24GB"
+
+spec:
+  fullDescription: |
+    SGLang Diffusion serving krea/Krea-2-Turbo on Olares One (OpenAI-compatible image API).
+    Defaults: dit-layerwise-offload + VAE/text-encoder CPU offload for RTX 5090M 24GB.
+    Sibling Gradio app: krea2turboone.

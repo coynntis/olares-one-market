@@ -1,0 +1,18 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+workloads:
+  llamacppnemotrondiffusion14b1:
+    replicaCount: 1
+  llamacppnemotrondiffusion14cli:
+    replicaCount: 1

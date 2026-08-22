@@ -1,0 +1,31 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+
+image:
+  repository: ghcr.io/aas-ee/open-web-search
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+openWebSearch:
+  mode: "http"
+  port: "3000"
+  enableCors: "true"
+  # Use * for browser MCP from other Olares app subdomains (llama.cpp UI).
+  # Or set one origin: https://YOUR-LLAMA-APP-ID.coynntis.olares.com
+  corsOrigin: "*"
+  defaultSearchEngine: "duckduckgo"
+  searchMode: "request"
+  useProxy: "false"
+  proxyUrl: ""
+  allowedSearchEngines: ""
+  playwrightWsEndpoint: ""
+  playwrightCdpEndpoint: ""
+
+olaresEnv:
+  USE_PROXY: ""
+  PROXY_URL: ""

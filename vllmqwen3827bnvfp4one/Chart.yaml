@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.1"
+description: Qwen3.8 27B NVFP4 vision+video via vLLM + llama.cpp web UI
+name: vllmqwen3827bnvfp4one
+type: application
+version: 1.0.1

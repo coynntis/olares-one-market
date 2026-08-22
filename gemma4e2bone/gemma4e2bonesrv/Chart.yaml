@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.21
+description: gemma4e2bone shared server
+name: gemma4e2bonesrv
+type: application
+version: 1.0.21

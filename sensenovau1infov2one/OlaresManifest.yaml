@@ -1,0 +1,90 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sensenovau1infov2one: 1
+  sensenovau1infov2onecli: 1
+metadata:
+  name: sensenovau1infov2one
+  icon: https://cdn.olares.com/images/2026/08/a37bc5cbfe8f0fd0855c64dbcb0aac5d.png
+  description: SenseNova-U1 Infographic-V2 specialist — charts, posters, structured layouts
+  title: SenseNova Infographic V2
+  version: 1.0.3
+  categories:
+    - AI
+sharedEntrances:
+  - name: sensenovau1infov2one
+    host: sharedentrances-sensenovau1infov2one
+    port: 0
+    title: SenseNova Infog V2 API
+    icon: https://cdn.olares.com/images/2026/08/a37bc5cbfe8f0fd0855c64dbcb0aac5d.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sensenovau1infov2onecli
+    port: 8080
+    host: sensenovau1infov2onecli
+    title: SenseNova Infographic V2
+    icon: https://cdn.olares.com/images/2026/08/a37bc5cbfe8f0fd0855c64dbcb0aac5d.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.3
+  featuredImage: https://cdn.olares.com/images/2026/08/57dcf5ac8ce7c06c99ea24da1e2e4a76.png
+  fullDescription: |
+    SenseNova-U1 Infographic-V2 specialist (sensenova/SenseNova-U1-8B-MoT-Infographic-V2) on the same OpenSenseNova NeoChat MoT stack as sensenovau1serveone.
+    Optimized for charts, posters, diagrams, and structured layout generation (T2I / VQA / editing / interleave).
+    Container: pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel. Boot clones SenseNova-U1, pip install -e --no-deps, then FastAPI/Gradio from bundled requirements.
+    Weights: USE_GGUF_WEIGHTS=1 — Infographic GGUFs from smthem/SenseNova-U1-8B-MoT-Merger-gguf (default Infographic-Q6_K; Q4 also prefetched). MODEL_REPO snapshot keeps config/tokenizer (skips *.safetensors).
+    VRAM: VRAM_MODE=full on Olares One (Q6 ~16GiB fits 5090M). Set balanced|low only if OOM. Park-after-generate default ON.
+    Attention: NeoChat supports auto|flash|sdpa only (FA2 flash_attn). SageAttention3 is not applicable — NEO-Unify hybrid multimodal masks are FA2/SDPA-only.
+    HTTP: Gradio /ui; GET /api/v1/capabilities; POST /api/v1/t2i | vqa | editing | interleave; GET /api/v1/vram; POST /api/v1/clear_vram | unload; OpenAPI /docs.
+    Sibling apps: sensenovau1serveone (generalist + GGUF), sensenovau1lightllmone (LightX2V FA3).
+  developer: OpenSenseNova
+  website: https://huggingface.co/sensenova/SenseNova-U1-8B-MoT-Infographic-V2
+  sourceCode: https://github.com/OpenSenseNova/SenseNova-U1
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/OpenSenseNova/SenseNova-U1/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '15'
+      requiredMemory: 5Gi
+      limitedMemory: 57Gi
+      requiredDisk: 60Gi
+      limitedDisk: 120Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.3: GGUF download via curl→.part (dflash-style); progress watches .part/*.incomplete, not final .gguf (HF tmp never grew).
+    v1.0.2: model-downloader logs progress every 10s (size/rate) + line-based HF tqdm for kubectl.
+    v1.0.1: Infographic GGUF (smthem Infographic-Q6_K default, Q4 prefetch) + VRAM_MODE=full. SageAttention3 not wired — NeoChat hybrid attn is FA2/SDPA only.
+    v1.0.0: initial Infographic-V2 chart — full safetensors, VRAM_MODE=balanced, timing + park/unload (shared stack with U1 serve).
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

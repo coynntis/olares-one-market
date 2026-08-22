@@ -1,0 +1,7 @@
+metadata:
+  description: "grug-27b — short-think Qwen3.6-27B, MTP Q4_K_M, turbo3 KV, vision"
+  title: Grug 27B MTP Vision One
+spec:
+  fullDescription: |
+    ProCreations grug-27b (Qwen3.6-27B LoRA merge). Short internal think; MTP-Q4_K_M +
+    mmproj-f16 with mmproj-gpu-swap. buun draft-mtp + turbo3 KV. Default 128K context.

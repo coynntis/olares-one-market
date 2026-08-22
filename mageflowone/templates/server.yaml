@@ -1,0 +1,300 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+  labels:
+    io.kompose.service: mageflowone
+  name: mageflowone
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  replicas: {{ .Values.workloads.mageflowone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: mageflowone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: mageflowone
+    spec:
+      initContainers:
+        - name: sysctl
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command: ["sh", "-c", "chmod 777 /models /workspace /output || true"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: workspace
+              mountPath: /workspace
+            - name: output
+              mountPath: /output
+      containers:
+        - name: mage-flow
+          image: {{ printf "%s:%s" (.Values.image.repository | default "pytorch/pytorch") (.Values.image.tag | default "2.13.0-cuda13.0-cudnn9-devel") | quote }}
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              APP_DIR="/workspace/mageflowone"
+              SITE_PKGS="$APP_DIR/site-packages"
+              PHASE_FILE="$APP_DIR/.boot-phase"
+              MAGE_SRC="$APP_DIR/vendor/Mage"
+              mkdir -p "$APP_DIR" "$SITE_PKGS" /output/gradio
+              cp /app-src/app.py "$APP_DIR/app.py"
+              cp /app-src/mcp_server.py "$APP_DIR/mcp_server.py"
+              cp /app-src/soft_ready.py "$APP_DIR/soft_ready.py"
+              cp /app-src/requirements.txt "$APP_DIR/requirements.txt"
+              cd "$APP_DIR"
+
+              set_phase() {
+                printf '%s\n' "$1" > "$PHASE_FILE"
+                echo "[mage] phase=$1"
+              }
+
+              BASE_PY=""
+              for c in /opt/conda/bin/python /opt/conda/bin/python3 /usr/local/bin/python /usr/bin/python3; do
+                if [ -x "$c" ] && PYTHONPATH= PYTHONNOUSERSITE=1 "$c" -c "import torch" 2>/dev/null; then
+                  BASE_PY="$c"
+                  break
+                fi
+              done
+              if [ -z "$BASE_PY" ]; then
+                echo "[mage] FATAL: no python with torch"
+                exit 1
+              fi
+              echo "[mage] base_python=$BASE_PY"
+              PYTHONPATH= PYTHONNOUSERSITE=1 "$BASE_PY" -c "import torch; print('[mage] torch', torch.__version__, 'cuda', torch.version.cuda)"
+
+              export PYTHONNOUSERSITE=1
+              export MAGE_BOOT_PHASE_FILE="$PHASE_FILE"
+
+              # Soft-ready so install can exceed ~30m gate
+              set_phase "soft_ready"
+              PYTHONPATH= "$BASE_PY" "$APP_DIR/soft_ready.py" &
+              SOFT_PID=$!
+              stop_soft_ready() {
+                if kill -0 "$SOFT_PID" 2>/dev/null; then
+                  kill "$SOFT_PID" 2>/dev/null || true
+                  wait "$SOFT_PID" 2>/dev/null || true
+                fi
+              }
+              trap stop_soft_ready EXIT
+
+              # uv
+              UV_DIR="$APP_DIR/bin"
+              mkdir -p "$UV_DIR"
+              UV_BIN="$UV_DIR/uv"
+              UV_CACHE="$APP_DIR/uv-cache"
+              mkdir -p "$UV_CACHE"
+              export UV_CACHE_DIR="$UV_CACHE"
+              ensure_curl() {
+                if command -v curl >/dev/null 2>&1; then
+                  return 0
+                fi
+                echo "[mage] installing curl (pytorch image has none)"
+                apt-get update
+                apt-get install -y --no-install-recommends curl ca-certificates
+                rm -rf /var/lib/apt/lists/*
+              }
+              if [ ! -x "$UV_BIN" ]; then
+                set_phase "installing:uv"
+                echo "[mage] bootstrapping uv into $UV_DIR"
+                ensure_curl
+                if ! curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$UV_DIR" UV_NO_MODIFY_PATH=1 sh; then
+                  echo "[mage] astral install.sh failed — trying GitHub release tarball"
+                  tmpd="$(mktemp -d)"
+                  curl -fL "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-gnu.tar.gz" -o "$tmpd/uv.tgz"
+                  tar -xzf "$tmpd/uv.tgz" -C "$tmpd"
+                  if [ -x "$tmpd/uv" ]; then
+                    mv "$tmpd/uv" "$UV_BIN"
+                  else
+                    find "$tmpd" -type f -name uv -exec mv {} "$UV_BIN" \;
+                  fi
+                  rm -rf "$tmpd"
+                  chmod +x "$UV_BIN"
+                fi
+              fi
+              if [ ! -x "$UV_BIN" ]; then
+                echo "[mage] FATAL: uv binary missing at $UV_BIN"
+                exit 1
+              fi
+              echo "[mage] uv=$("$UV_BIN" --version 2>&1 | head -1) cache=$UV_CACHE"
+              uvpip() {
+                local idx=()
+                if [ -n "${UV_INDEX_URL:-}" ]; then
+                  idx=(--index-url "$UV_INDEX_URL")
+                elif [ -n "${HF_ENDPOINT:-}" ] && echo "$HF_ENDPOINT" | grep -qiE 'hf-mirror|huggingface\.co\.cn|hf\.cn'; then
+                  idx=(--index-url "https://pypi.tuna.tsinghua.edu.cn/simple")
+                fi
+                "$UV_BIN" pip install --python "$BASE_PY" --target "$SITE_PKGS" "${idx[@]}" "$@"
+              }
+
+              REQ_HASH="$("$BASE_PY" - <<'PY'
+              import hashlib, pathlib
+              print(hashlib.sha256(pathlib.Path("requirements.txt").read_bytes()).hexdigest()[:16])
+              PY
+              )"
+              DEPS_MARK="$APP_DIR/.deps-ok-v1-$REQ_HASH"
+              export PYTHONPATH="$SITE_PKGS${PYTHONPATH:+:$PYTHONPATH}"
+
+              if [ ! -f "$DEPS_MARK" ]; then
+                set_phase "installing:requirements"
+                uvpip -r requirements.txt
+                # mage-flow package from Microsoft/Mage (subdirectory)
+                set_phase "installing:mage_flow"
+                if [ ! -d "$MAGE_SRC/mage_flow" ]; then
+                  ensure_curl
+                  rm -rf "$MAGE_SRC"
+                  mkdir -p "$APP_DIR/vendor"
+                  curl -fsSL "https://github.com/microsoft/Mage/archive/refs/heads/main.tar.gz" \
+                    | tar -xz -C "$APP_DIR/vendor"
+                  mv "$APP_DIR/vendor/Mage-main" "$MAGE_SRC"
+                fi
+                uvpip --no-deps "$MAGE_SRC/mage_flow"
+                # flash-attn optional. Default skip: no reliable cu130 prebuilt; SDPA works.
+                # Set MAGE_INSTALL_FLASH_ATTN=1 to attempt (slow; often fails on HAMi).
+                if [ "${MAGE_INSTALL_FLASH_ATTN:-0}" = "1" ]; then
+                  set_phase "installing:flash_attn"
+                  uvpip setuptools wheel ninja || true
+                  uvpip --no-build-isolation "flash-attn==2.8.3" || echo "[mage] flash-attn skipped (will use SDPA)"
+                else
+                  echo "[mage] skip flash-attn (SDPA). Set MAGE_INSTALL_FLASH_ATTN=1 to try."
+                fi
+                # never let site-packages shadow image torch
+                rm -rf "$SITE_PKGS"/torch "$SITE_PKGS"/torch-* "$SITE_PKGS"/torchvision "$SITE_PKGS"/torchvision-* 2>/dev/null || true
+                touch "$DEPS_MARK"
+              else
+                echo "[mage] deps marker OK — skip uv install"
+              fi
+
+              set_phase "ready"
+              stop_soft_ready
+              trap - EXIT
+              echo "[mage] launching app.py"
+              exec "$BASE_PY" app.py
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: MAGE_DEFAULT_MODEL
+              value: {{ .Values.olaresEnv.MAGE_DEFAULT_MODEL | default "Mage-Flow-Turbo" | quote }}
+            - name: MAGE_PRELOAD
+              value: {{ .Values.olaresEnv.MAGE_PRELOAD | default "0" | quote }}
+            - name: MAGE_REPO
+              value: {{ .Values.olaresEnv.MAGE_REPO | default "https://github.com/microsoft/Mage.git" | quote }}
+            - name: UV_INDEX_URL
+              value: {{ .Values.olaresEnv.UV_INDEX_URL | default "" | quote }}
+            - name: PIP_INDEX_URL
+              value: {{ .Values.olaresEnv.PIP_INDEX_URL | default "" | quote }}
+            - name: UV_CONCURRENT_DOWNLOADS
+              value: {{ .Values.olaresEnv.UV_CONCURRENT_DOWNLOADS | default "32" | quote }}
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: TORCHDYNAMO_DISABLE
+              value: "1"
+            - name: GRADIO_TEMP_DIR
+              value: "/output/gradio"
+            - name: SERVER_PORT
+              value: "7860"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: MAGE_INSTALL_FLASH_ATTN
+              value: {{ .Values.olaresEnv.MAGE_INSTALL_FLASH_ATTN | default "0" | quote }}
+            # Mage TextEncoder: VF_HF_ATTN_IMPL overrides flash2 when flash-attn missing.
+            - name: VF_HF_ATTN_IMPL
+              value: {{ .Values.olaresEnv.VF_HF_ATTN_IMPL | default "sdpa" | quote }}
+            - name: MAGE_ATTN_TYPE
+              value: {{ .Values.olaresEnv.MAGE_ATTN_TYPE | default "sdpa" | quote }}
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 1800
+          livenessProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: 100m
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/output"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+        - name: app-source
+          configMap:
+            name: mageflowone-source
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: mageflowone
+  name: mageflowone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "gradio"
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: mageflowone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: mageflowone
+  name: sharedentrances-mageflowone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "mageflowone"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: mageflowone

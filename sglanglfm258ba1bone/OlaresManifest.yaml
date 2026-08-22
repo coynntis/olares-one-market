@@ -1,0 +1,102 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sglanglfm258ba1bone: 1
+  sglanglfm258ba1bonecli: 1
+metadata:
+  name: sglanglfm258ba1bone
+  icon: https://cdn.olares.com/images/2026/08/f98fd951c630e6f65ca2d0c9b5cb1361.png
+  description: LFM2.5-8B-A1B MoE via SGLang — agentic tool use and reasoning on Olares One
+  title: LFM2-5 8B One
+  version: 1.0.23
+  categories:
+    - AI
+sharedEntrances:
+  - name: sglanglfm258ba1bone
+    host: sharedentrances-sglanglfm258ba1bone
+    port: 0
+    title: LFM2-5 8B API
+    icon: https://cdn.olares.com/images/2026/08/f98fd951c630e6f65ca2d0c9b5cb1361.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sglanglfm258ba1bonecli
+    port: 8080
+    host: sglanglfm258ba1bonecli
+    title: LFM2-5 8B One
+    icon: https://cdn.olares.com/images/2026/08/f98fd951c630e6f65ca2d0c9b5cb1361.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.23
+  featuredImage: https://cdn.olares.com/images/2026/08/6b651315d2163aacb0e06583740caae8.png
+  fullDescription: |
+    Liquid AI LFM2.5-8B-A1B served via SGLang on Olares One (RTX 5090M, 96GB DDR5).
+    Hybrid MoE: 8.3B total / 1.1B active params. Single-user VRAM tuning — not high-concurrency serving.
+    Reasoning-tuned for agentic workflows, tool use, structured outputs, and multilingual assistants.
+    Startup: python -m sglang.launch_server --model-path LiquidAI/LFM2.5-8B-A1B --trust-remote-code
+    Model weights (~16GB BF16) download from Hugging Face into /models at startup.
+    OpenAI-compatible API on port 30000. VRAM-tuned defaults: context 8K, mem-fraction-static 0.70,
+    max-total-tokens 16384, 1 concurrent request, chunked-prefill 2048, radix cache off (fits ~24GB with headroom).
+    Recommended sampling: temperature=0.2, top_k=80, repetition_penalty=1.05.
+    Tool use: Pythonic function calls via chat template (see Liquid AI tool-use docs).
+  developer: Liquid AI
+  website: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B
+  sourceCode: https://github.com/Liquid4All/cookbook
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: LFM Open License v1.0
+      url: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 20Gi
+      limitedDisk: 35Gi
+      requiredGPUMemory: 16Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+        v1.0.20: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.19: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

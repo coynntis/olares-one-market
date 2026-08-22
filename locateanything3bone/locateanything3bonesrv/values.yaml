@@ -1,0 +1,21 @@
+admin: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+  # Private ghcr.io: Olares injects GITHUB_TOKEN (read:packages).
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+# Pre-built image (MagiAttention baked in). Public ghcr OR set GITHUB_TOKEN for pull secret.
+image:
+  repository: ghcr.io/coynntis/locate-anything
+  tag: "0.1.2"
+  pullPolicy: IfNotPresent
+deps:
+  # false = pull ghcr image above. true = on-device bootstrap (pytorch base, ~30–60 min first start).
+  bootstrapOnDevice: false
+  installMagiAttention: true
+  markerVersion: v1

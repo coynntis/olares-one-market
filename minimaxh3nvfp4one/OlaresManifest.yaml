@@ -1,0 +1,102 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  minimaxh3nvfp4one: 1
+  minimaxh3nvfp4onecli: 1
+metadata:
+  name: minimaxh3nvfp4one
+  icon: https://cdn.olares.com/images/2026/08/e076850517f13171e0d965a3c52bf553.png
+  description: MiniMax H3 Gradio video and audio generation on Olares One
+  title: MiniMax H3 NVFP4 One
+  version: 1.0.0
+  categories:
+    - AI
+sharedEntrances:
+  - name: minimaxh3nvfp4one
+    host: sharedentrances-minimaxh3nvfp4one
+    port: 0
+    title: MiniMax H3 API
+    icon: https://cdn.olares.com/images/2026/08/e076850517f13171e0d965a3c52bf553.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: minimaxh3nvfp4onecli
+    port: 8080
+    host: minimaxh3nvfp4onecli
+    title: MiniMax H3 NVFP4 One
+    icon: https://cdn.olares.com/images/2026/08/e076850517f13171e0d965a3c52bf553.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.0
+  featuredImage: https://cdn.olares.com/images/2026/08/19be6537211d1b85202b096b93bed62c.png
+  fullDescription: |
+    MiniMax-H3 Gradio app using Diffusers ModularPipeline (video + native audio).
+    Exposes text-to-video-and-audio (t2va) and first/last-frame-to-video-and-audio (fl2va).
+
+    Endpoints:
+      - UI: /ui
+      - Health: GET /api/v1/health
+      - T2VA: POST /api/v1/t2va
+      - FL2VA: POST /api/v1/fl2va
+
+    Notes:
+      - This Gradio app uses diffusers-compatible MiniMax repositories.
+      - coolthor/MiniMax-H3-pruned-NVFP4 is ComfyUI layout (not direct ModularPipeline layout).
+      - Gated repos require accepted terms and valid HF token.
+  developer: MiniMax / Hugging Face Diffusers
+  website: https://huggingface.co/coolthor/MiniMax-H3-pruned-NVFP4
+  sourceCode: https://huggingface.co/coolthor/MiniMax-H3-pruned-NVFP4
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MiniMax H3 Community License
+      url: https://huggingface.co/coolthor/MiniMax-H3-pruned-NVFP4
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '13'
+      requiredMemory: 4Gi
+      limitedMemory: 49Gi
+      requiredDisk: 120Gi
+      limitedDisk: 300Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.0: initial MiniMax H3 Gradio chart (Diffusers ModularPipeline t2va/fl2va).
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: MINIMAX_MODEL_REPO
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'MiniMaxAI/MiniMax-H3'
+  - envName: MINIMAX_WORKFLOW
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 't2va'
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

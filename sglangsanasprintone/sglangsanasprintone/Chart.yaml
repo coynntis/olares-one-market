@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.16
+description: sglangsanasprintone client proxy
+name: sglangsanasprintone
+type: application
+version: 1.0.16

@@ -1,7 +1,18 @@
-admin: ""
+admin: ''
 bfl:
-  username: ""
+  username: ''
 userspace:
-  appData: ""
-  appCache: ""
-  userData: ""
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+workloads:
+  qwen36a3bvisionone:
+    replicaCount: 1
+  qwen36a3bvisiononecli:
+    replicaCount: 1

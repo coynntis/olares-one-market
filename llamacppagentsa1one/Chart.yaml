@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.17"
+description: Agents-A1 MoE agentic VLM fast vision long-context profile
+name: llamacppagentsa1one
+type: application
+version: 1.0.17

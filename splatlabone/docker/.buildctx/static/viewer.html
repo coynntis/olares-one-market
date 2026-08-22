@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Viewer — SplatLab One</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>SplatLab One</h1>
+    <nav>
+      <a href="/index.html">Dashboard</a>
+      <a href="/import.html">Import</a>
+      <a href="/pipeline.html">Pipeline</a>
+      <a href="/jobs.html">Jobs</a>
+      <a href="/viewer.html">Viewer</a>
+      <a href="/guide.html">Guide</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Splat viewer</h2>
+      <label>Job ID <input type="text" id="job-id" style="width:100%" /></label>
+      <button type="button" id="load-splat">Load splat</button>
+      <button type="button" id="load-ply" class="secondary">Download PLY</button>
+      <p id="viewer-status" class="hint"></p>
+      <div id="viewer-canvas">
+        <p style="padding:2rem;text-align:center;color:#888">
+          Spark.js viewer placeholder — load <code>.splat</code> from job output.<br/>
+          For full WebGL splat rendering, integrate <a href="https://sparkjs.dev/" target="_blank">spark.js</a> or antimatter15 viewer.
+        </p>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Live checkpoint reload</h2>
+      <p class="hint">When job uses <code>progressive_splat</code>, subscribe to job SSE and reload splat URL on <code>checkpoint_ready</code>.</p>
+      <pre id="live-log" class="status"></pre>
+    </section>
+  </main>
+  <script type="module">
+    const params = new URLSearchParams(location.search);
+    const jobInput = document.getElementById("job-id");
+    if (params.get("job")) jobInput.value = params.get("job");
+
+    let currentUrl = "";
+
+    document.getElementById("load-splat").onclick = () => {
+      const id = jobInput.value.trim();
+      if (!id) return;
+      currentUrl = `/api/v1/scenes/${id}/splat`;
+      document.getElementById("viewer-status").textContent = `Loading ${currentUrl}`;
+      fetch(currentUrl).then((r) => {
+        if (!r.ok) throw new Error(r.statusText);
+        return r.blob();
+      }).then((blob) => {
+        document.getElementById("viewer-status").textContent = `Loaded splat (${blob.size} bytes). Integrate spark.js for WebGL preview.`;
+        document.getElementById("viewer-canvas").innerHTML =
+          `<p style="padding:1rem">Splat blob ready (${blob.size} bytes). <a href="${currentUrl}" download>Download</a></p>`;
+      }).catch((e) => {
+        document.getElementById("viewer-status").textContent = "Error: " + e.message;
+      });
+    };
+
+    document.getElementById("load-ply").onclick = () => {
+      const id = jobInput.value.trim();
+      if (id) window.open(`/api/v1/scenes/${id}/ply`, "_blank");
+    };
+
+    const id = params.get("job");
+    if (id) {
+      const es = new EventSource(`/api/v1/jobs/${id}/events`);
+      es.onmessage = (ev) => {
+        try {
+          const d = JSON.parse(ev.data);
+          if (d.type === "checkpoint_ready") {
+            document.getElementById("live-log").textContent += `checkpoint ${d.iteration}: reload splat\n`;
+            jobInput.value = id;
+            document.getElementById("load-splat").click();
+          }
+        } catch (_) {}
+      };
+    }
+  </script>
+</body>
+</html>

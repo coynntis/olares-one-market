@@ -1,0 +1,8 @@
+metadata:
+  description: "Qwen AgentWorld 35B-A3B — fast long-context text world-model on Olares One"
+  title: AgentWorld 35B One
+spec:
+  fullDescription: |
+    Native language world model via llama.cpp web UI.
+    UD-Q4_K_XL (~22.3 GB), q8_0/turbo4 KV, 128K default context.
+    Text-only (no mmproj in GGUF repo).

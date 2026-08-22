@@ -1,0 +1,99 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  browserlessone: 1
+  browserlessonecli: 1
+metadata:
+  name: browserlessone
+  icon: https://cdn.olares.com/images/2026/08/35f932653c32b48e733e7b1dc5d227b8.png
+  description: Browserless headless Chromium for Puppeteer and Playwright on Olares One
+  title: Browserless One
+  version: 1.0.38
+  categories:
+    - Developer
+sharedEntrances:
+  - name: browserlessone
+    host: sharedentrances-browserlessone
+    port: 0
+    title: Browserless Docs API
+    icon: https://cdn.olares.com/images/2026/08/35f932653c32b48e733e7b1dc5d227b8.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: browserlessonecli
+    port: 8080
+    host: browserlessonecli
+    title: Browserless Debugger
+    icon: https://cdn.olares.com/images/2026/08/35f932653c32b48e733e7b1dc5d227b8.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.38
+  upgradeDescription: |
+    v1.0.38: trim CPU/memory requests for denser multi-app packing (light).
+    v1.0.37: fix client nginx upstream — use same-ns browserlessone:3000 (drop stale browserlessonesrv-shared v2 DNS).
+    v1.0.34: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.33: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.32: nginx injects ?token= on /sessions, /json/list, /pressure, /kill for debugger UI.
+  featuredImage: https://cdn.olares.com/images/2026/08/68ffbe41a9629288a6aeea31aa1c7b1e.png
+  fullDescription: |
+    Self-hosted Browserless Chromium (ghcr.io/browserless/chromium) on port 3000.
+    Connect Puppeteer or Playwright to ws://browserlessone:3000. REST API docs at /docs.
+    App entrance opens the live debugger at /debugger/?token=YOUR_TOKEN (Browserless v2 requires token + trailing slash).
+    Set BROWSERLESS_PROXY_URL to your public app URL (e.g. https://APPID.user.olares.com) so debugger session links work.
+    Playwright chromium.connect() runs automation but sessions may not appear in debugger; use Puppeteer/CDP for live debugger view.
+    Default token is browserlessone — change BROWSERLESS_TOKEN in Settings → Application before exposing publicly.
+    KEEP_ALIVE=true is set per upstream env name; note Browserless v2 OSS may log this
+    variable as deprecated — use launch URL ttl/keepalive query params for session timing.
+    CONCURRENT=5, QUEUED=10, TIMEOUT=300000 ms, HEALTH=true, 2 GiB /dev/shm for stable Chrome.
+    Data and downloads persist under appData/browserless. Non-commercial SSPL; commercial use needs a license.
+  developer: coynntis
+  website: https://www.browserless.io/
+  sourceCode: https://github.com/browserless/browserless
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: SSPL-1.0
+      url: https://spdx.org/licenses/SSPL-1.0.html
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: cpu
+      requiredCpu: '1'
+      limitedCpu: '5'
+      requiredMemory: 2Gi
+      limitedMemory: 9Gi
+      requiredDisk: 2Gi
+      limitedDisk: 12Gi
+permission:
+  appData: true
+envs:
+  - envName: BROWSERLESS_TOKEN
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: BROWSERLESS_PROXY_URL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

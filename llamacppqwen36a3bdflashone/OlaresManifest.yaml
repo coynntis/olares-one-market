@@ -1,0 +1,183 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppqwen36a3bdflashone: 1
+  llamacppqwen36a3bdflashonecli: 1
+metadata:
+  name: llamacppqwen36a3bdflashone
+  icon: https://cdn.olares.com/images/2026/08/f2c0b9b7d5a851edcda125b9042ad569.png
+  description: Qwen3.6 35B-A3B DFlash + Vision — 302 t/s @ 128K, upstream llama.cpp (no fork)
+  title: Qwen36 35B DFlash Vision One
+  version: 1.0.7
+  categories:
+    - LLM Chat
+    - AI Agents
+    - Vision
+  bento:
+    family: qwen
+    size_label: 35B-A3B
+    badge: dflash · upstream
+    hero:
+      value: 302 t/s
+      label: DFlash n=6 · 72% accept · vision · 128K
+    specs:
+      - label: context
+        value: 128K
+      - label: vram
+        value: 19.5 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: false
+    stack: upstream llama.cpp server-cuda12 b10156 · Q3_K_XL · DFlash n=6 + mmproj
+sharedEntrances:
+  - name: llamacppqwen36a3bdflashone
+    host: sharedentrances-llamacppqwen36a3bdflashone
+    port: 0
+    title: Qwen36 35B-A3B DFlash API
+    icon: https://cdn.olares.com/images/2026/08/f2c0b9b7d5a851edcda125b9042ad569.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppqwen36a3bdflashonecli
+    port: 8080
+    host: llamacppqwen36a3bdflashonecli
+    title: Qwen36 35B-A3B DFlash Vision
+    icon: https://cdn.olares.com/images/2026/08/f2c0b9b7d5a851edcda125b9042ad569.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.7
+  featuredImage: https://cdn.olares.com/images/2026/08/e76b4a5f4e31b06ba686986d80f901de.png
+  upgradeDescription: |
+    v1.0.7: LLM_REASONING + bundled chat template env toggles (default thinking on).
+    v1.0.6: fix helm YAML — drop unindented find heredoc that broke chartrepo parse.
+    v1.0.5: mmproj reuse must match exact bytes — generic mmproj-BF16.gguf in ComfyUI Common is often a different projector (932MB vs Unsloth 902MB); unique local name; never curl-resume a .part larger than exact.
+    v1.0.4: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.2: fix upload — metadata.title ≤30 chars (was 32).
+    v1.0.1: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flat server+client; sharedEntrances; workloadReplicas; GHCR imagePullSecrets; mapped HF/LLM envs; busybox chmod init; robust GGUF size checks. Pin image server-cuda12-b10156.
+    v1.0.0: initial release. Qwen 3.6 35B-A3B + DFlash speculative decoding + vision, on upstream llama.cpp.
+
+    Bench validated on Olares One 2026-07-29 (RTX 5090M, 24 GB, sm_120) — 10 runs Space Invaders HTML @ 2000 tokens, single user:
+    - 302.34 t/s AVG (MIN 285.47, MAX 318.25), DFlash acceptance 72.3%
+    - 19.5 GB VRAM, 128K context, vision loaded
+    - warmup run 276.46 t/s, excluded
+
+    Why this chart exists. llamacppqwen36a3bone reaches 243 t/s at full 262K context with vision, using the buun-llama-cpp fork (TurboQuant turbo4 KV + --mmproj-gpu-swap). This chart trades half the context for +24% throughput and drops the fork entirely.
+
+    Neither chart dominates — pick by need:
+    - want max context (262K) → llamacppqwen36a3bone
+    - want max speed with vision → this one
+
+    Runs on upstream ghcr.io/ggml-org/llama.cpp:server-cuda12 (b10156). This became possible on 2026-07-29 when the Olares NVIDIA driver moved 590.44.01 → 595.84 (CUDA 13.1 → 13.2): a 13.2 driver satisfies the cuda>=12 container gate, so upstream images finally run. (server-cuda13 remains blocked — it declares cuda>=13.3, enforced by the nvidia-container-cli prestart hook.)
+
+    Native --spec-type draft-dflash from llama.cpp PR #22105; DFlash + quantized KV from PR #25823. n_max=6 from sweep. 128K keeps mmproj (mainline lacks --mmproj-gpu-swap). Drafter: Anbeeld/Qwen3.6-35B-A3B-DFlash-GGUF (has dflash.target_layers).
+  fullDescription: |
+    Qwen 3.6 35B-A3B (MoE, ~3B active) with DFlash speculative decoding and vision, served by upstream llama.cpp on Olares One.
+
+    Speed-oriented sibling of llamacppqwen36a3bone: 302 t/s vs 243 t/s (+24%), same model family, vision kept, at 128K instead of 262K.
+
+    Bench (2026-07-29, RTX 5090M 24 GB sm_120, 10 runs Space Invaders 2000 tok):
+      - 302.34 t/s AVG, MIN 285.47, MAX 318.25
+      - DFlash acceptance 72.3%
+      - 19.5 GB VRAM
+
+    Stack:
+      - Image: ghcr.io/ggml-org/llama.cpp:server-cuda12-b10156 — upstream, no fork
+      - Target: Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf (~17 GB)
+      - DFlash drafter: Anbeeld post-#22105 Q8_0 (~400 MB)
+      - Vision: mmproj-BF16 (~900 MB), OpenAI image_url
+      - 128K context, q4_0 KV, DFlash n=6 (editable via LLM_SPEC_DRAFT_N_MAX)
+
+    Choose this for speed + vision. Choose llamacppqwen36a3bone for full 262K context.
+
+    First launch downloads ~18 GB into /olares/share/ai/model/llms/.
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/Qwen/Qwen3.6-35B-A3B/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 30Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_SPEC_DRAFT_N_MAX
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_REASONING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CHAT_TEMPLATE_SOURCE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CHAT_TEMPLATE_URL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_ENABLE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PRESERVE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

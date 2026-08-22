@@ -1,0 +1,34 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+image:
+  repository: lightx2v/lightllm_lightx2v
+  tag: "20260407"
+  pullPolicy: IfNotPresent
+model:
+  # Full safetensors layout required (LightLLM does not use GGUF merger path).
+  repo: sensenova/SenseNova-U1-8B-MoT
+  dir: /models/SenseNova-U1-8B-MoT
+server:
+  port: 8000
+  tp: 1
+  memFraction: "0.68"
+  maxReqTotalLen: 65536
+  # Olares One has one GPU — colocate understanding + generation on the same device.
+  x2iDeployMode: colocate
+  x2iUsedGpus: 1
+  # neopp_dense.json sets attn_type flash_attn3 (SenseNova hybrid-mask FA3 stack).
+  x2vGenConfig: neopp_dense.json
+  # Set true only for debugging (much slower than LightX2V path).
+  x2iUseNaiveImpl: false
+repos:
+  lightllmUrl: https://github.com/ModelTC/LightLLM.git
+  lightllmBranch: neo_plus_clean
+  lightx2vUrl: https://github.com/ModelTC/LightX2V.git

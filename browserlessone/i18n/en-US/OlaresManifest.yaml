@@ -1,0 +1,9 @@
+metadata:
+  description: "Browserless headless Chromium for Puppeteer and Playwright on Olares One"
+  title: Browserless One
+spec:
+  fullDescription: |
+    Managed headless Chrome with WebSocket endpoints for Puppeteer and Playwright.
+    Open the entrance for interactive API docs. Automation scripts on Olares should
+    use ws://browserlessone:3000 inside the cluster.
+    CONCURRENT=5, QUEUED=10, TIMEOUT=300000 ms. Data persists under appData/browserless.

@@ -1,0 +1,10 @@
+metadata:
+  title: SenseNova U1 Serve One
+  description: "SenseNova-U1 T2I, VQA, editing, and interleave via REST API and Gradio"
+
+spec:
+  fullDescription: |
+    Olares One deployment for SenseNova-U1 using the upstream Python package and example-aligned APIs (single model load, threaded inference lock).
+    Container image: pytorch/pytorch:2.9.1-cuda12.8-cudnn9-devel (CUDA 12.8; matches flash-attn 2.8.3 prebuilt cu12torch2.9 wheels).
+    Clones SenseNova-U1 at startup and serves FastAPI with Gradio at /ui.
+    POST /api/v1/t2i | vqa | editing | interleave. Optional GGUF weights for faster T2I.

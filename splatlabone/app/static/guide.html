@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guide — SplatLab One</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    .toc { columns: 2; gap: 2rem; margin: 1rem 0; }
+    .toc a { display: block; margin: 0.25rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.92rem; }
+    th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #333; vertical-align: top; }
+    code { font-size: 0.88em; }
+    .diagram { background: #111; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SplatLab One</h1>
+    <nav>
+      <a href="/index.html">Dashboard</a>
+      <a href="/import.html">Import</a>
+      <a href="/pipeline.html">Pipeline</a>
+      <a href="/jobs.html">Jobs</a>
+      <a href="/viewer.html">Viewer</a>
+      <a href="/guide.html">Guide</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Documentation index</h2>
+      <nav class="toc">
+        <a href="#what">What SplatLab is</a>
+        <a href="#architecture">Architecture &amp; deployment</a>
+        <a href="#workflow">End-to-end workflow</a>
+        <a href="#colmap">Why COLMAP is the hub</a>
+        <a href="#pipeline">Pipeline stages</a>
+        <a href="#libraries">Libraries &amp; backends</a>
+        <a href="#presets">Presets</a>
+        <a href="#ingest">Ingest</a>
+        <a href="#api">API &amp; MCP</a>
+        <a href="#viewer">Viewers</a>
+        <a href="#artifacts">Stage artifacts</a>
+        <a href="#realtime">Realtime modes</a>
+        <a href="#docker_build">Docker &amp; models</a>
+        <a href="#constraints">Olares One constraints</a>
+      </nav>
+    </section>
+
+    <section class="card" id="what">
+      <h2>What SplatLab is</h2>
+      <p>SplatLab One is a <strong>3D Gaussian Splatting (3DGS)</strong> pipeline for Olares One. You import photos or video, run a configurable reconstruction pipeline, and get viewable / editable splat assets.</p>
+      <p>It combines:</p>
+      <ul>
+        <li><strong>Structure-from-Motion (SfM)</strong> — estimate camera poses from photos</li>
+        <li><strong>Feed-forward geometry</strong> — neural networks that predict poses + depth when COLMAP is slow or fails</li>
+        <li><strong>gsplat training</strong> — optimize 3D Gaussians for high-quality novel-view synthesis</li>
+        <li><strong>Web UI + REST + MCP</strong> — human workflow and agent automation on the same API</li>
+      </ul>
+      <p>The app runs as a GPU workload on Olares One (RTX 5090M). Non-admin users reach it through an nginx client chart; the GPU server is a shared admin subchart.</p>
+    </section>
+
+    <section class="card" id="architecture">
+      <h2>Architecture &amp; deployment</h2>
+      <h3>Helm charts (Olares)</h3>
+      <table>
+        <tr><th>Chart</th><th>Role</th></tr>
+        <tr><td><code>splatlabonesrv/</code></td><td>GPU server — FastAPI on port <strong>7860</strong>, admin-only install. Runs pipeline, holds <code>/data</code> volumes.</td></tr>
+        <tr><td><code>splatlabone/</code></td><td>Client proxy — nginx openresty on <strong>8080</strong> → <code>splatlabone.splatlabonesrv-shared:7860</code>. What users open in the browser.</td></tr>
+        <tr><td>Root chart</td><td><code>subCharts</code>: server (<code>shared: true</code>) + client. Manifest declares shared entrances for API/MCP (port 0, internal).</td></tr>
+      </table>
+
+      <h3>Application layers</h3>
+      <table>
+        <tr><th>Layer</th><th>Location</th><th>Role</th></tr>
+        <tr><td>FastAPI</td><td><code>app/main.py</code></td><td>HTTP server, static UI mount, job worker lifespan, Viser idle cleanup</td></tr>
+        <tr><td>Job queue</td><td><code>app/jobs/worker.py</code></td><td>Single-thread queue; one pipeline job at a time; SSE fan-out</td></tr>
+        <tr><td>Pipeline</td><td><code>app/pipeline/</code></td><td>SfM → geometry → gsplat train → export</td></tr>
+        <tr><td>REST API</td><td><code>app/api/</code></td><td>ingest, jobs, scenes, viewer proxy, live WS, meta/capabilities</td></tr>
+        <tr><td>MCP</td><td><code>app/mcp_server.py</code></td><td>Streamable HTTP at <code>/mcp/mcp</code> for agents</td></tr>
+        <tr><td>Static UI</td><td><code>app/static/</code></td><td>Import, pipeline config, jobs, viewer, this guide</td></tr>
+      </table>
+
+      <h3>Data directories</h3>
+      <p>Root: <code>DATA_DIR</code> (default <code>/data</code> on Olares, hostPath volumes in Helm).</p>
+      <table>
+        <tr><th>Path</th><th>Env var</th><th>Contents</th></tr>
+        <tr><td><code>uploads/{dataset_id}/</code></td><td><code>UPLOADS_DIR</code></td><td>Ingested images, optional <code>sparse/0</code> from COLMAP zip</td></tr>
+        <tr><td><code>workspaces/{job_id}/</code></td><td><code>WORKSPACES_DIR</code></td><td>Per-job COLMAP workspace: <code>images/</code>, <code>sparse/0/</code>, <code>geometry/</code></td></tr>
+        <tr><td><code>outputs/{job_id}/</code></td><td><code>OUTPUTS_DIR</code></td><td>Train results (<code>splat/</code>), stage artifacts (<code>stages/</code>), <code>manifest.json</code></td></tr>
+        <tr><td><code>splatlab/cache/models</code></td><td><code>SPLATLAB_MODEL_CACHE</code></td><td>HuggingFace / URL weight cache</td></tr>
+        <tr><td><code>splatlab/cache/modelscope</code></td><td><code>MODELSCOPE_CACHE</code></td><td>ModelScope cache (VGGT-Omega, LingBot-Map)</td></tr>
+      </table>
+    </section>
+
+    <section class="card" id="workflow">
+      <h2>End-to-end workflow</h2>
+      <pre class="diagram">Import (UI / REST / MCP)
+  └─► uploads/ds_xxx/images/  [+ sparse/0 if COLMAP zip]
+
+Create job (preset + overrides + realtime mode)
+  └─► Job queued → PipelineRunner
+
+Workspace setup
+  └─► workspaces/job_xxx/images  ← symlink or copy from dataset
+  └─► workspaces/job_xxx/sparse/0  ← copy if dataset already has COLMAP
+
+Stage 1: SfM (optional)
+  └─► glomap or colmap → sparse/0 (poses + sparse points)
+  └─► publish sfm_sparse_ply
+
+Stage 2: Geometry (optional)
+  └─► vggt_omega | da3 | lingbot_map | instant_splat
+  └─► writes sparse/0 + backend-specific artifacts (infer_gs.ply, etc.)
+  └─► publish geometry artifacts
+
+Stage 3: gsplat train (skipped if geometry_preview mode)
+  └─► simple_trainer.py --data-type colmap --data_dir workspace
+  └─► outputs/job_xxx/splat/  (ckpt, ply, splat)
+  └─► export ply_compressed for SuperSplat editing
+
+View / download
+  └─► Viewer: sparse points | infer_gs SuperSplat | gsplat Viser
+  └─► REST: /api/v1/scenes/{job}/…</pre>
+      <p>Jobs emit <strong>SSE events</strong> on <code>/api/v1/jobs/{id}/events</code> so the UI and MCP can show live progress without polling.</p>
+    </section>
+
+    <section class="card" id="colmap">
+      <h2>Why COLMAP is the hub</h2>
+      <p>Every geometry backend and SfM stage converges on the same on-disk layout:</p>
+      <ul>
+        <li><code>workspace/images/</code> — input photos (filenames referenced by COLMAP)</li>
+        <li><code>workspace/sparse/0/</code> — COLMAP model: <code>cameras.*</code>, <code>images.*</code>, <code>points3D.*</code></li>
+      </ul>
+      <p><strong>gsplat</strong> only knows one dataset format here: <code>--data-type colmap</code>. Feed-forward networks (VGGT-Omega, DA3, LingBot) don't train Gaussians themselves — they <em>produce COLMAP poses</em> (and sometimes sparse points) so gsplat can refine a splat scene on Olares One hardware.</p>
+      <p>DA3 is special: it also exports <code>infer_gs.ply</code> (feed-forward 3D Gaussians) for instant preview in SuperSplat, while its COLMAP export feeds the gsplat refine step.</p>
+      <p>Helpers live in <code>pipeline/colmap_io.py</code>: write/read COLMAP text models, export sparse PLY for visualization, unproject depth to 3D points.</p>
+    </section>
+
+    <section class="card" id="pipeline">
+      <h2>Pipeline stages</h2>
+
+      <h3>1. SfM — Structure from Motion</h3>
+      <p><code>pipeline/sfm/</code> — classic photogrammetry from unordered photos.</p>
+      <table>
+        <tr><th>Backend</th><th>What it runs</th><th>When</th></tr>
+        <tr><td><code>glomap</code></td><td><code>glomap mapper</code> if binary present; else COLMAP 4 <code>global_mapper</code> (feature_extractor → exhaustive_matcher → global_mapper)</td><td><strong>quality</strong> preset</td></tr>
+        <tr><td><code>colmap</code></td><td>Classic COLMAP <code>mapper</code> (not global_mapper)</td><td>Advanced override</td></tr>
+        <tr><td><code>skip</code></td><td>No SfM — use ingested COLMAP or geometry front-end</td><td>Feed-forward presets</td></tr>
+      </table>
+      <p><strong>COLMAP</strong> (binary in Docker image from <code>colmap/colmap:latest</code>) finds feature matches across photos and solves for camera intrinsics/extrinsics plus a sparse 3D point cloud.</p>
+
+      <h3>2. Geometry — feed-forward pose providers</h3>
+      <p><code>pipeline/geometry/</code> — neural alternatives when you skip SfM or need faster / more robust init.</p>
+      <table>
+        <tr><th>Backend</th><th>Library</th><th>Output</th></tr>
+        <tr><td><code>vggt_omega</code></td><td>Meta VGGT-Omega</td><td>Poses + depth → COLMAP sparse/0 + sparse PLY preview</td></tr>
+        <tr><td><code>da3</code></td><td>Depth Anything 3</td><td>COLMAP export + <strong>infer_gs.ply</strong> (feed-forward Gaussians) + optional GLB</td></tr>
+        <tr><td><code>lingbot_map</code></td><td>LingBot-Map GCTStream</td><td>Streaming video geometry → COLMAP + sparse PLY</td></tr>
+        <tr><td><code>instant_splat</code></td><td>InstantSplat + MASt3R</td><td>3–12 images → COLMAP via <code>init_geo.py</code></td></tr>
+        <tr><td><code>none</code></td><td>—</td><td>SfM or pre-ingested COLMAP only</td></tr>
+      </table>
+
+      <h3>3. gsplat train — Gaussian optimization</h3>
+      <p><code>pipeline/train/</code> invokes <code>/opt/gsplat/examples/simple_trainer.py</code>:</p>
+      <ul>
+        <li><code>default</code> subcommand — standard 3DGS with adaptive densification</li>
+        <li><code>mcmc</code> subcommand — 2DGS surfels + MCMC densification (noisy init friendly)</li>
+        <li><code>--with_eval3d</code> when <code>representation=2dgs</code></li>
+        <li><code>--pose_opt</code> when <code>pose_opt=joint</code> (refine poses during train)</li>
+        <li><code>--port</code> for live Viser during <code>progressive_splat</code> mode</li>
+      </ul>
+
+      <h3>4. Export</h3>
+      <p><code>pipeline/export.py</code> uses <code>gsplat.export_splats()</code> from latest checkpoint:</p>
+      <ul>
+        <li><code>scene.splat</code> — compact splat format</li>
+        <li><code>point_cloud.ply</code> — standard PLY</li>
+        <li><code>scene.ply_compressed</code> — SuperSplat edit format</li>
+        <li><code>*.pt</code> checkpoint — for gsplat Viser viewer</li>
+      </ul>
+    </section>
+
+    <section class="card" id="libraries">
+      <h2>Libraries &amp; what each does</h2>
+
+      <h3>Core stack (always installed)</h3>
+      <table>
+        <tr><th>Library</th><th>Role in SplatLab</th></tr>
+        <tr><td><strong>PyTorch 2.11 cu128</strong></td><td>GPU inference + gsplat CUDA kernels (sm_120 Blackwell on Olares One)</td></tr>
+        <tr><td><strong>gsplat</strong></td><td>Train 3DGS/2DGS (<code>simple_trainer.py</code>), export splats, Viser viewer (<code>simple_viewer.py</code>)</td></tr>
+        <tr><td><strong>COLMAP</strong></td><td>SfM binaries: feature extraction, matching, mapping / global_mapper</td></tr>
+        <tr><td><strong>FastAPI + uvicorn</strong></td><td>HTTP API and static UI server</td></tr>
+        <tr><td><strong>viser + nerfview</strong></td><td>3D web viewer used by gsplat's <code>simple_viewer.py</code> (not called directly from SplatLab Python)</td></tr>
+        <tr><td><strong>httpx + websockets</strong></td><td>Proxy HTTP/WebSocket from browser → local Viser process</td></tr>
+        <tr><td><strong>MCP (Python SDK)</strong></td><td>Agent tools at <code>/mcp/mcp</code></td></tr>
+        <tr><td><strong>scipy</strong></td><td>Rotation / quaternion math for COLMAP I/O</td></tr>
+        <tr><td><strong>huggingface_hub + modelscope</strong></td><td>Download geometry model weights (ModelScope-first for Meta models)</td></tr>
+      </table>
+
+      <h3>Geometry backends (baked into Docker at <code>/opt/*</code>)</h3>
+      <table>
+        <tr><th>Path</th><th>Upstream</th><th>Purpose</th></tr>
+        <tr><td><code>/opt/gsplat</code></td><td>nerfstudio-project/gsplat</td><td>Training, export, Viser examples</td></tr>
+        <tr><td><code>/opt/vggt-omega</code></td><td>facebookresearch/vggt-omega</td><td>Feed-forward multi-view pose + depth (robust preset)</td></tr>
+        <tr><td><code>/opt/da3</code></td><td>ByteDance-Seed/Depth-Anything-3</td><td>Depth + pose + infer_gs Gaussians (fast preset)</td></tr>
+        <tr><td><code>/opt/lingbot-map</code></td><td>Robbyant/lingbot-map</td><td>Streaming / video chunk geometry (stream preset)</td></tr>
+        <tr><td><code>/opt/instantsplat</code></td><td>NVlabs/InstantSplat</td><td>Sparse-view init via <code>init_geo.py</code></td></tr>
+        <tr><td><code>/opt/instantsplat/dust3r</code>, <code>mast3r</code></td><td>naver/dust3r, naver/mast3r</td><td>MASt3R matching for InstantSplat</td></tr>
+      </table>
+      <p>Source trees are fetched at image build by <code>docker/fetch_backends.py</code> (GitHub tarballs). <strong>Weights are not in the image</strong> — prefetched at pod start via initContainer (<code>scripts/download_models.py</code>).</p>
+
+      <h3>Model weights</h3>
+      <table>
+        <tr><th>Key</th><th>Model</th><th>Hub</th></tr>
+        <tr><td><code>vggt_omega</code></td><td>facebook/VGGT-Omega</td><td>ModelScope → HF fallback</td></tr>
+        <tr><td><code>lingbot</code></td><td>Robbyant/lingbot-map</td><td>ModelScope → HF fallback</td></tr>
+        <tr><td><code>da3</code></td><td>depth-anything/DA3NESTED-GIANT-LARGE</td><td>HuggingFace</td></tr>
+        <tr><td><code>mast3r</code></td><td>MASt3R ViTLarge checkpoint</td><td>Direct URL</td></tr>
+      </table>
+      <p>Set <code>HF_TOKEN</code> for gated models. VGGT/LingBot prefer ModelScope on Olares.</p>
+
+      <h3>UI-only (CDN)</h3>
+      <table>
+        <tr><th>Library</th><th>Role</th></tr>
+        <tr><td><strong>Three.js + PLYLoader</strong></td><td>In-browser preview of sparse COLMAP point clouds (vertices only)</td></tr>
+        <tr><td><strong>PlayCanvas SuperSplat</strong> (external)</td><td>View/edit 3D Gaussian PLY — infer_gs and ply_compressed exports</td></tr>
+      </table>
+
+      <h3>Not yet integrated</h3>
+      <ul>
+        <li><strong>ArtiFixer</strong> — splat repair; deferred (needs 48GB+ VRAM)</li>
+        <li><strong>Live WS geometry</strong> (<code>api/live.py</code>) — accepts frames but does not run pipeline yet (stub)</li>
+      </ul>
+    </section>
+
+    <section class="card" id="presets">
+      <h2>Presets</h2>
+      <p>Defined in <code>pipeline/registry.py</code>. Live presets run end-to-end; <span class="badge nc">experimental</span> are implemented but need optional image deps (HLoc, FastMap, GlueMap checkpoints, da3-cli).</p>
+      <h3>Live</h3>
+      <table>
+        <tr><th>Preset</th><th>SfM</th><th>Matching</th><th>Geometry</th><th>Train</th></tr>
+        <tr><td><strong>quality</strong></td><td>glomap</td><td>sift</td><td>none</td><td>3DGS 30k</td></tr>
+        <tr><td><strong>quality_calibrated</strong></td><td>glomap_calibrated</td><td>sift</td><td>none</td><td>3DGS 30k</td></tr>
+        <tr><td><strong>robust</strong></td><td>skip</td><td>none</td><td>vggt_omega</td><td>2DGS+MCMC 30k</td></tr>
+        <tr><td><strong>fast</strong></td><td>skip</td><td>none</td><td>da3</td><td>3DGS 7k</td></tr>
+        <tr><td><strong>sparse</strong></td><td>skip</td><td>none</td><td>instant_splat</td><td>3DGS 15k</td></tr>
+        <tr><td><strong>stream</strong></td><td>skip</td><td>none</td><td>lingbot_map</td><td>3DGS 7k</td></tr>
+      </table>
+      <h3>Experimental (implemented)</h3>
+      <table>
+        <tr><th>Preset</th><th>Stages</th><th>Notes</th></tr>
+        <tr><td><strong>quality_hloc</strong></td><td>matching=hloc → glomap</td><td>SuperPoint + LightGlue → COLMAP DB</td></tr>
+        <tr><td><strong>scale_fastmap</strong></td><td>sfm=fastmap</td><td>COLMAP DB → FastMap headless → sparse/0</td></tr>
+        <tr><td><strong>robust_gluemap</strong></td><td>geometry=gluemap</td><td>gluemap-demo → COLMAP (needs checkpoints)</td></tr>
+        <tr><td><strong>fast_dacpp</strong></td><td>geometry=da3_cpp</td><td>da3-cli + GGUF → COLMAP</td></tr>
+        <tr><td><strong>fast_hybrid</strong></td><td>da3_cpp + extras infer_gs_python</td><td>Cheap poses + Python DA3 SuperSplat</td></tr>
+        <tr><td><strong>dense_tracks</strong></td><td>matching=dense_sfm → glomap</td><td>hloc LoFTR → COLMAP DB</td></tr>
+      </table>
+      <p>Overrides on <a href="/pipeline.html">Pipeline</a>: SfM, geometry, matching, representation, densification, pose opt.</p>
+    </section>
+
+    <section class="card" id="ingest">
+      <h2>Ingest</h2>
+      <p><code>api/ingest.py</code> — create datasets before starting jobs.</p>
+      <table>
+        <tr><th>Endpoint</th><th>Input</th><th>Result</th></tr>
+        <tr><td><code>POST /api/v1/ingest/images</code></td><td>Multipart photos</td><td><code>uploads/ds_*/images/</code></td></tr>
+        <tr><td><code>POST /api/v1/ingest/images-zip</code></td><td>Zip of images</td><td>Same</td></tr>
+        <tr><td><code>POST /api/v1/ingest/video</code></td><td>Video file</td><td>ffmpeg frame extract → images/</td></tr>
+        <tr><td><code>POST /api/v1/ingest/colmap</code></td><td>COLMAP zip</td><td>images/ + sparse/0/ (skips SfM stage)</td></tr>
+      </table>
+      <p>MCP equivalents: <code>ingest_images_zip</code>, <code>ingest_video_base64</code>, <code>ingest_colmap_zip</code>.</p>
+    </section>
+
+    <section class="card" id="api">
+      <h2>API &amp; MCP</h2>
+      <h3>REST (prefix <code>/api/v1/</code>)</h3>
+      <table>
+        <tr><th>Router</th><th>Key routes</th></tr>
+        <tr><td><code>ingest</code></td><td>Upload datasets</td></tr>
+        <tr><td><code>jobs</code></td><td>Create/list/cancel jobs; <strong>SSE</strong> <code>GET /jobs/{id}/events</code></td></tr>
+        <tr><td><code>scenes</code></td><td>Artifacts, splat/ply/ckpt downloads, <code>/artifacts</code>, <code>/infer_gs</code></td></tr>
+        <tr><td><code>viewer</code></td><td>Start/stop gsplat Viser; HTTP+WS proxy to localhost Viser</td></tr>
+        <tr><td><code>live</code></td><td>WS session for streaming frames (stub)</td></tr>
+        <tr><td><code>meta</code></td><td>Presets, guide snippets, GPU/capabilities</td></tr>
+      </table>
+
+      <h3>SSE event types</h3>
+      <p><code>snapshot</code>, <code>log</code>, <code>stage_start</code>, <code>stage_artifacts</code>, <code>geometry_preview</code>, <code>checkpoint_ready</code>, <code>viewer_ready</code>, <code>job_complete</code>, <code>error</code>, <code>cancelled</code></p>
+
+      <h3>MCP (<code>/mcp/mcp</code>)</h3>
+      <p>Tools: <code>health_check</code>, <code>list_presets</code>, <code>ingest_*</code>, <code>create_job</code>, <code>get_job</code>, <code>subscribe_job_events</code>, <code>list_scenes</code>, <code>get_scene_urls</code>, <code>get_guide_section</code>, <code>start_live_session</code>.</p>
+      <p>Image builds use <strong>dockerbuilderone MCP</strong>, not SplatLab.</p>
+    </section>
+
+    <section class="card" id="viewer">
+      <h2>Viewers</h2>
+      <p><a href="/viewer.html">Viewer page</a> has two tabs (Viser is splat-only — it does not show maps):</p>
+      <ul>
+        <li><strong><a href="/viewer.html#map">Map</a></strong> — SfM / geometry point clouds (COLMAP, VGGT, DA3 depth, LingBot). Three.js preview. Works after <code>geometry_preview</code> without train.</li>
+        <li><strong><a href="/viewer.html#splats">Splats</a></strong> — Gaussians: gsplat Viser (trained <code>.pt</code>), DA3 <code>infer_gs</code> → SuperSplat, train exports.</li>
+      </ul>
+      <table>
+        <tr><th>Artifact</th><th>Tab</th><th>Technology</th></tr>
+        <tr><td><code>sfm_sparse_ply</code>, <code>geometry_sparse_ply</code>, GLB</td><td>Map</td><td>Three.js points / download</td></tr>
+        <tr><td><code>infer_gs_ply</code></td><td>Splats</td><td>SuperSplat</td></tr>
+        <tr><td>Trained <code>.pt</code></td><td>Splats</td><td>gsplat Viser (GPU)</td></tr>
+        <tr><td><code>scene.ply_compressed</code></td><td>Splats</td><td>SuperSplat edit</td></tr>
+      </table>
+      <p>Deep links: <code>/viewer.html?job=…#map</code> or <code>#splats</code>. Jobs page has separate Open Map / Open Splats buttons.</p>
+    </section>
+
+    <section class="card" id="artifacts">
+      <h2>Stage artifacts</h2>
+      <p>Each pipeline stage publishes inspectable files to <code>outputs/{job}/stages/</code> and registers REST URLs. See also <a href="#pipeline">Pipeline stages</a>.</p>
+      <table>
+        <tr><th>Key</th><th>Stage</th><th>View</th></tr>
+        <tr><td><code>sfm_sparse_ply</code></td><td>SfM</td><td>Preview points</td></tr>
+        <tr><td><code>geometry_sparse_ply</code></td><td>Geometry</td><td>Preview points</td></tr>
+        <tr><td><code>infer_gs_ply</code></td><td>DA3</td><td>SuperSplat</td></tr>
+        <tr><td><code>splat</code> / <code>ply</code> / <code>ckpt</code></td><td>Train</td><td>Viser / download</td></tr>
+      </table>
+      <p><code>GET /api/v1/scenes/{job}/artifacts</code> · <code>GET .../artifact/{key}</code> · <code>GET .../infer_gs</code></p>
+    </section>
+
+    <section class="card" id="realtime">
+      <h2>Realtime modes</h2>
+      <p>Set on <a href="/pipeline.html">Pipeline</a> when creating a job (<code>realtime_mode</code>).</p>
+      <table>
+        <tr><th>Mode</th><th>Behavior</th></tr>
+        <tr><td><code>none</code></td><td>Full pipeline; final exports only (intermediate artifacts still published)</td></tr>
+        <tr><td><code>geometry_preview</code></td><td>Run geometry, publish infer_gs / sparse PLY, <strong>skip gsplat train</strong></td></tr>
+        <tr><td><code>progressive_splat</code></td><td>Live Viser during train; SSE <code>checkpoint_ready</code> reloads viewer</td></tr>
+      </table>
+    </section>
+
+    <section class="card" id="docker_build">
+      <h2>Docker &amp; models</h2>
+      <p>Runtime image: <code>ghcr.io/coynntis/splatlabone:1.1.0</code></p>
+      <ol>
+        <li>Multi-stage Dockerfile: PyTorch cu128 builder compiles gsplat + pip deps; COLMAP copied from official image; geometry repos via <code>fetch_backends.py</code></li>
+        <li>Build on Olares via <strong>dockerbuilderone MCP</strong> — zip <code>splatlabone/docker/</code> with synced <code>app/</code></li>
+        <li>Helm initContainer prefetches model weights into persistent cache volumes</li>
+        <li>Python/static hotfixes can ship via ConfigMap overlay without full image rebuild</li>
+      </ol>
+      <p>Details: <code>splatlabone/docker/README.md</code></p>
+    </section>
+
+    <section class="card" id="constraints">
+      <h2>Olares One constraints</h2>
+      <ul>
+        <li><strong>RTX 5090M</strong> — 24 GB VRAM; chunk VGGT/DA3 on long sequences</li>
+        <li><strong>PyTorch cu128 + gsplat</strong> — sm_120 Blackwell support</li>
+        <li><strong>96 GB DDR5</strong> — COLMAP matching benefits from 16 CPU threads</li>
+        <li><strong>Core Ultra 9 275HX</strong> — AVX2, no AVX-512/AMX (KTransformers-style CPU paths not used here)</li>
+            <li>Set <code>GITHUB_TOKEN</code> for ghcr.io image pull; <code>HF_TOKEN</code> for gated weights</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

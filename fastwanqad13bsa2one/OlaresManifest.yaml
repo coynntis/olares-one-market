@@ -1,0 +1,103 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  fastwanqad13bsa2one: 1
+  fastwanqad13bsa2cli: 1
+metadata:
+  name: fastwanqad13bsa2one
+  icon: https://cdn.olares.com/images/2026/08/a58ffc8aa8e958dbbdf5959879a72dd5.png
+  description: FastWan QAD 1.3B SA2 — ~2s lightning T2V on Blackwell NVFP4
+  title: FastWan QAD 1.3B SA2 One
+  version: 1.0.33
+  categories:
+    - AI
+sharedEntrances:
+  - name: fastwanqad13bsa2one
+    host: sharedentrances-fastwanqad13bsa2one
+    port: 0
+    title: FastWan QAD API
+    icon: https://cdn.olares.com/images/2026/08/a58ffc8aa8e958dbbdf5959879a72dd5.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: fastwanqad13bsa2cli
+    port: 8080
+    host: fastwanqad13bsa2cli
+    title: FastWan QAD 1.3B SA2
+    icon: https://cdn.olares.com/images/2026/08/a58ffc8aa8e958dbbdf5959879a72dd5.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.33
+  featuredImage: https://cdn.olares.com/images/2026/08/e2d34042634075cd11df8cd847cc01d1.png
+  fullDescription: |
+    Gradio UI for FastVideo/FastWan-QAD-1.3B-SA2 — quantization-aware distilled Wan2.1 T2V.
+
+    Olares One / RTX 5090M (Blackwell sm100+):
+      - 3-step inference, no CFG
+      - NVFP4 linear layers + SageAttention2++
+      - TAEHV tiny decoder (~2s for 5s 480p clip)
+      - 81 frames @ 16fps (832×480)
+
+    Image: ghcr.io/hao-ai-lab/fastvideo/fastvideo-dev:py3.12-sha-f889e6b (~8.4 GB pull).
+    ghcr.io: set OLARES_USER_GITHUB_TOKEN (read:packages) — chart uses it as imagePullSecret.
+    T2V only (no image-to-video).
+  developer: Hao AI Lab / FastVideo
+  website: https://huggingface.co/FastVideo/FastWan-QAD-1.3B-SA2
+  sourceCode: https://github.com/hao-ai-lab/FastVideo
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/FastVideo/FastWan-QAD-1.3B-SA2/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 9Gi
+      limitedMemory: 49Gi
+      requiredDisk: 60Gi
+      limitedDisk: 120Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.33: trim CPU/memory requests for denser multi-app packing (videoheavy).
+    v1.0.32: move ConfigMap inject to root templates/ (was dead under *srv; helm never rendered it).
+    v1.0.31: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.30: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.20"
+description: FastWan QAD 1.3B flagship lightning T2V for Olares One (NVFP4 + ATTN_QAT_INFER)
+name: fastwanqad13bone
+type: application
+version: 1.0.20

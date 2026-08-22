@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.6"
+description: "SNDR Core Engine — DiffusionGemma 26B FP8 (experimental 1x)"
+name: sndrdiffusiongemma26bone
+type: application
+version: 1.0.6

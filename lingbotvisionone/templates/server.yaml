@@ -1,0 +1,354 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: lingbotvisionone
+  name: lingbotvisionone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.lingbotvisionone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: lingbotvisionone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: lingbotvisionone
+    spec:
+      initContainers:
+        - name: volume-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              chmod -R 777 /models /workspace /output || true
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+          securityContext:
+            runAsUser: 0
+      containers:
+        - name: lingbot
+          image: "pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel"
+          command:
+            - "bash"
+            - "-lc"
+          args:
+            - |
+              set -euo pipefail
+              APP_DIR="/workspace/lingbotvisionone"
+              SITE_PKGS="$APP_DIR/site-packages"
+              PHASE_FILE="$APP_DIR/.boot-phase"
+              ATTEMPTS_FILE="$APP_DIR/bootstrap.log"
+              SRC_DIR="$APP_DIR/src/lingbot-vision"
+              MODEL_DIR="/models/lingbotvisionone/weights"
+              mkdir -p "$APP_DIR" "$SITE_PKGS" /output/gradio "$MODEL_DIR" "$APP_DIR/src" "$APP_DIR/bin" "$APP_DIR/uv-cache"
+              cp /app-src/app.py "$APP_DIR/app.py"
+              cp /app-src/requirements.txt "$APP_DIR/requirements.txt"
+              cp /app-src/soft_ready.py "$APP_DIR/soft_ready.py"
+              cp /app-src/download_models.py "$APP_DIR/download_models.py"
+              cp /app-src/_common.py "$APP_DIR/_common.py"
+              cd "$APP_DIR"
+
+              export LINGBOT_APP="lingbotvisionone"
+              export LINGBOT_KIND="vision"
+              export LINGBOT_BOOT_PHASE_FILE="$PHASE_FILE"
+              export LINGBOT_BOOT_ATTEMPTS_FILE="$ATTEMPTS_FILE"
+              export SERVER_PORT="${SERVER_PORT:-7860}"
+              export HF_HOME="/models/huggingface"
+              export HF_HUB_CACHE="$HF_HOME/hub"
+              export TRANSFORMERS_CACHE="$HF_HOME/transformers"
+              export GRADIO_TEMP_DIR="/output/gradio"
+              export PYTHONNOUSERSITE=1
+              export UV_CACHE_DIR="$APP_DIR/uv-cache"
+              export UV_CONCURRENT_DOWNLOADS="${UV_CONCURRENT_DOWNLOADS:-32}"
+
+              set_phase() {
+                printf '%s\n' "$1" > "$PHASE_FILE"
+                echo "[lingbotvisionone] phase=$1" | tee -a "$ATTEMPTS_FILE"
+              }
+              log_attempt() {
+                printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" | tee -a "$ATTEMPTS_FILE"
+              }
+
+              # Pick image python with torch (do not put SITE_PKGS on PYTHONPATH yet).
+              rm -rf "$APP_DIR/.venv" "$APP_DIR/venv" 2>/dev/null || true
+              BASE_PY=""
+              for c in /opt/conda/bin/python /opt/conda/bin/python3 /usr/local/bin/python /usr/local/bin/python3 "$(command -v python || true)" "$(command -v python3 || true)"; do
+                [ -n "$c" ] && [ -x "$c" ] || continue
+                if PYTHONPATH= PYTHONNOUSERSITE=1 "$c" -c "import torch" 2>/dev/null; then
+                  BASE_PY="$c"
+                  break
+                fi
+              done
+              if [ -z "$BASE_PY" ]; then
+                log_attempt "FATAL: no python with torch"
+                exit 1
+              fi
+              export UV_PYTHON="$BASE_PY"
+              log_attempt "base_python=$BASE_PY"
+              PYTHONPATH= PYTHONNOUSERSITE=1 "$BASE_PY" -c "import torch; print('[lingbotvisionone] image torch', torch.__version__, 'cuda', torch.version.cuda)"
+
+              purge_torch_shadow() {
+                log_attempt "purging torch/nvidia stacks from site-packages (image owns torch)"
+                rm -rf \
+                  "$SITE_PKGS"/torch "$SITE_PKGS"/torch-* "$SITE_PKGS"/torchgen "$SITE_PKGS"/functorch \
+                  "$SITE_PKGS"/torchvision "$SITE_PKGS"/torchvision-* \
+                  "$SITE_PKGS"/torchaudio "$SITE_PKGS"/torchaudio-* \
+                  "$SITE_PKGS"/triton "$SITE_PKGS"/triton-* \
+                  "$SITE_PKGS"/nvidia "$SITE_PKGS"/nvidia_* 2>/dev/null || true
+              }
+
+              # Soft-ready FIRST
+              set_phase "installing:soft_ready_starting"
+              PYTHONPATH= "$BASE_PY" "$APP_DIR/soft_ready.py" &
+              SOFT_PID=$!
+              log_attempt "soft-ready pid=$SOFT_PID"
+              sleep 1
+
+              stop_soft_ready() {
+                if [ -n "${SOFT_PID:-}" ] && kill -0 "$SOFT_PID" 2>/dev/null; then
+                  log_attempt "stopping soft-ready pid=$SOFT_PID"
+                  kill "$SOFT_PID" 2>/dev/null || true
+                  wait "$SOFT_PID" 2>/dev/null || true
+                fi
+                if command -v fuser >/dev/null 2>&1; then
+                  fuser -k "${SERVER_PORT}/tcp" 2>/dev/null || true
+                fi
+                sleep 1
+              }
+              trap 'stop_soft_ready' EXIT
+
+              purge_torch_shadow
+              export PYTHONPATH="$SITE_PKGS${PYTHONPATH:+:$PYTHONPATH}"
+
+              # Optional PyPI mirror
+              if [ -z "${UV_INDEX_URL:-}" ] && [ -n "${PIP_INDEX_URL:-}" ]; then
+                export UV_INDEX_URL="$PIP_INDEX_URL"
+              fi
+              if [ -z "${UV_INDEX_URL:-}" ]; then
+                case "${HF_ENDPOINT:-}" in
+                  *hf-mirror*|*huggingface.co.cn*|*hf-mirror.com*)
+                    export UV_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"
+                    log_attempt "HF China mirror → UV_INDEX_URL=$UV_INDEX_URL"
+                    ;;
+                esac
+              fi
+
+              UV="$APP_DIR/bin/uv"
+              if [ ! -x "$UV" ]; then
+                set_phase "installing:uv"
+                log_attempt "bootstrapping uv into $APP_DIR/bin"
+                if ! command -v curl >/dev/null 2>&1; then
+                  apt-get update
+                  apt-get install -y --no-install-recommends curl ca-certificates git
+                  rm -rf /var/lib/apt/lists/*
+                fi
+                if ! command -v git >/dev/null 2>&1; then
+                  apt-get update
+                  apt-get install -y --no-install-recommends git
+                  rm -rf /var/lib/apt/lists/*
+                fi
+                if ! curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$APP_DIR/bin" UV_NO_MODIFY_PATH=1 sh; then
+                  tmpd="$(mktemp -d)"
+                  curl -fL "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-gnu.tar.gz" -o "$tmpd/uv.tgz"
+                  tar -xzf "$tmpd/uv.tgz" -C "$tmpd"
+                  find "$tmpd" -type f -name uv -exec mv {} "$UV" \;
+                  rm -rf "$tmpd"
+                  chmod +x "$UV"
+                fi
+              fi
+              if [ ! -x "$UV" ]; then
+                log_attempt "FATAL: uv missing"
+                exit 1
+              fi
+              log_attempt "uv=$("$UV" --version 2>&1 | head -1)"
+
+              uvpip() {
+                local extra=()
+                if [ -n "${UV_INDEX_URL:-}" ]; then
+                  extra+=(--index-url "$UV_INDEX_URL")
+                fi
+                "$UV" pip install --python "$BASE_PY" --target "$SITE_PKGS" "${extra[@]}" "$@"
+              }
+
+              REQ_HASH="$("$BASE_PY" - <<'PY'
+              import hashlib, pathlib
+              print(hashlib.sha256(pathlib.Path("requirements.txt").read_bytes()).hexdigest()[:16])
+              PY
+              )"
+              DEPS_MARK="$APP_DIR/.deps-ok-v3-$REQ_HASH"
+              deps_ok=0
+              if [ -f "$DEPS_MARK" ]; then
+                if "$BASE_PY" -c "import gradio, fastapi, uvicorn, huggingface_hub, omegaconf, sklearn, cv2" 2>/dev/null \
+                  && ! [ -d "$SITE_PKGS/torch" ]; then
+                  deps_ok=1
+                  log_attempt "deps marker OK — skip uv pip -r"
+                else
+                  rm -f "$DEPS_MARK"
+                fi
+              fi
+              if [ "$deps_ok" != "1" ]; then
+                set_phase "installing:uv_requirements"
+                uvpip --upgrade "pydantic>=2.10,<2.12" "fastapi>=0.115.2,<1.0" "uvicorn[standard]>=0.30.0,<1.0"
+                uvpip --upgrade -r requirements.txt
+                # extras for this chart
+                uvpip --upgrade opencv-python-headless pillow numpy scikit-learn || true
+                purge_torch_shadow
+                touch "$DEPS_MARK"
+                log_attempt "wrote $DEPS_MARK"
+              fi
+
+              # Clone upstream source (editable path for imports)
+              if [ ! -d "$SRC_DIR/.git" ]; then
+                set_phase "installing:git_clone"
+                log_attempt "git clone https://github.com/Robbyant/lingbot-vision.git"
+                rm -rf "$SRC_DIR"
+                git clone --depth 1 "https://github.com/Robbyant/lingbot-vision.git" "$SRC_DIR" || {
+                  log_attempt "git clone FAIL — retry once"
+                  sleep 5
+                  rm -rf "$SRC_DIR"
+                  git clone --depth 1 "https://github.com/Robbyant/lingbot-vision.git" "$SRC_DIR"
+                }
+              else
+                log_attempt "git src present — skip clone"
+              fi
+              export LINGBOT_SRC="$SRC_DIR"
+              export PYTHONPATH="$SRC_DIR:$SITE_PKGS${PYTHONPATH:+:$PYTHONPATH}"
+
+              # Soft-install upstream package if setup exists
+              if [ -f "$SRC_DIR/pyproject.toml" ] || [ -f "$SRC_DIR/setup.py" ] || [ -f "$SRC_DIR/setup.cfg" ]; then
+                set_phase "installing:upstream_editable"
+                log_attempt "uv pip install upstream --no-deps (image owns torch)"
+                uvpip --upgrade --no-deps "$SRC_DIR" || log_attempt "upstream --no-deps soft-fail"
+                # Re-apply chart requirements so upstream deps (e.g. omegaconf) are present.
+                set_phase "installing:uv_requirements_after_upstream"
+                uvpip --upgrade -r requirements.txt
+                purge_torch_shadow
+              fi
+
+              # Model download with progress / attempts logged
+              export HF_REPO_ID="${HF_REPO_ID:-robbyant/lingbot-vision-vit-large}"
+              export HF_LOCAL_DIR="$MODEL_DIR"
+              set_phase "installing:hf_download"
+              "$BASE_PY" "$APP_DIR/download_models.py" || {
+                log_attempt "download_models failed — continuing if partial weights exist"
+              }
+              export LINGBOT_MODEL_DIR="$MODEL_DIR"
+
+              set_phase "starting:app"
+              stop_soft_ready
+              trap - EXIT
+              log_attempt "launching app.py PYTHONPATH=$PYTHONPATH"
+              exec "$BASE_PY" app.py
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: HF_REPO_ID
+              value: {{ .Values.olaresEnv.HF_REPO_ID | default "robbyant/lingbot-vision-vit-large" | quote }}
+            - name: UV_INDEX_URL
+              value: {{ .Values.olaresEnv.UV_INDEX_URL | default "" | quote }}
+            - name: PIP_INDEX_URL
+              value: {{ .Values.olaresEnv.PIP_INDEX_URL | default "" | quote }}
+            - name: UV_CONCURRENT_DOWNLOADS
+              value: {{ .Values.olaresEnv.UV_CONCURRENT_DOWNLOADS | default "32" | quote }}
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: TORCHDYNAMO_DISABLE
+              value: "1"
+            - name: GRADIO_TEMP_DIR
+              value: "/output/gradio"
+            - name: SERVER_PORT
+              value: "7860"
+            - name: LINGBOT_APP
+              value: "lingbotvisionone"
+            - name: LINGBOT_KIND
+              value: "vision"
+            - name: LINGBOT_VISION_VARIANT
+              value: {{ .Values.olaresEnv.LINGBOT_VISION_VARIANT | default "large" | quote }}
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 2160
+          livenessProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 8
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+            requests:
+              cpu: "500m"
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/output"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+        - name: app-source
+          configMap:
+            name: lingbotvisionone-source
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lingbotvisionone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  type: ClusterIP
+  selector:
+    io.kompose.service: lingbotvisionone
+  ports:
+    - name: lingbotvisionone
+      protocol: TCP
+      port: 7860
+      targetPort: 7860

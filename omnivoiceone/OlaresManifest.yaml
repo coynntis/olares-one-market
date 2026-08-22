@@ -1,38 +1,150 @@
 ---
-olaresManifest.version: '0.10.0'
+olaresManifest.version: 0.12.0
 olaresManifest.type: app
-apiVersion: 'v2'
+apiVersion: v3
+workloadReplicas:
+  omnivoiceone: 1
+  omnivoiceonecli: 1
 metadata:
   name: omnivoiceone
-  icon: https://orales-one-market.aamsellem.workers.dev/icons/omnivoiceone.png
-  description: "OmniVoice TTS (646 languages, voice cloning, 0.6B) — optimized for Olares One"
-  appid: omnivoiceone
+  icon: https://cdn.olares.com/images/2026/08/d87e2de00794967304437d5fe8727950.png
+  description: OmniVoice TTS (646 languages, voice cloning, voice design, 0.6B) — optimized for Olares One
   title: OmniVoice TTS One
-  version: '1.0.2'
+  version: 1.2.8
   categories:
-    - AI
-entrances:
+    - TTS
+  bento:
+    family: other
+    size_label: OmniVoice
+    badge: tts
+    hero:
+      value: TTS
+      label: text-to-speech
+    specs:
+      - label: languages
+        value: '646'
+      - label: vram
+        value: 2-4 GB
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: true
+      mtp:
+        enabled: false
+    stack: PyTorch · OmniVoice
+sharedEntrances:
   - name: omnivoiceone
-    port: 8000
-    host: omnivoiceone
+    host: sharedentrances-omnivoiceone
+    port: 0
+    title: OmniVoice TTS API
+    icon: https://cdn.olares.com/images/2026/08/d87e2de00794967304437d5fe8727950.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: omnivoiceonecli
+    port: 8080
+    host: omnivoiceonecli
     title: OmniVoice TTS One
-    icon: https://orales-one-market.aamsellem.workers.dev/icons/omnivoiceone.png
+    icon: https://cdn.olares.com/images/2026/08/d87e2de00794967304437d5fe8727950.png
     openMethod: window
     authLevel: internal
 spec:
-  versionName: '1.0.0'
-  fullDescription: |
-    OmniVoice TTS by k2-fsa — 646 languages, zero-shot voice cloning, 0.6B params.
-    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
-    Only ~2-4 GB VRAM — can run alongside LLM and STT for voice pipeline.
-    40x faster than real-time. Apache 2.0 license.
-    OpenAI-compatible /v1/audio/speech API endpoint.
-    French, English, German, Spanish, Italian, + 641 more languages.
-    Voice cloning from reference audio. Voice design (gender, age, pitch, accent).
-    Downloads model on first launch (~2GB) and caches it.
+  versionName: 1.2.8
+  featuredImage: https://cdn.olares.com/images/2026/08/325c02cefb52a8b4a4f26151ae10917f.png
+  upgradeDescription: |2
+        v1.2.5: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.2.4: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.2.3: chart bump — / redirects to /web.
+    v1.2.2: fix app entrance 404 — launcher redirects GET / to /web (OmniVoice UI). FastAPI catch-all did not match root path.
 
+    v1.2.1: fast-ready launcher — /health returns 200 on :8880 immediately; OmniVoice loads in background on :8881 with proxy when ready. Fixes Olares install timeout (30m).
+
+    v1.2.0: switch to pre-built diogod2r/omnivoice-fastapi image (like qwen3tts) — no pip-on-start from python:3.12-slim. Model downloads to shared /olares/share/ai/model/speech/huggingface on first start.
+
+    v1.1.20: STT/TTS models cache in shared /olares/share/ai/model/speech/ (separate from llms/). HF hub shared across speech apps; initContainer fixes permissions like llama.cpp charts.
+  fullDescription: |
+    OmniVoice TTS by k2-fsa — 646 languages, zero-shot voice cloning + voice design, 0.6B params.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Only ~2-4 GB VRAM — runs alongside LLM and STT for a full voice pipeline.
+    40x faster than real-time. Apache 2.0 license.
+
+    ===== HOW TO USE =====
+
+    In-cluster API (other apps in same Olares space): http://omnivoiceone:8000
+    App entrance (browser UI proxy): port 8080
+    Shared entrance (external agents): http://<route-id>.shared.olares.com
+
+    --- 1. Basic TTS (OpenAI-compatible) ---
+
+    curl -X POST http://omnivoiceone:8000/v1/audio/speech \
+      -H "Content-Type: application/json" \
+      -d '{"input": "Hello world", "response_format": "wav"}' \
+      -o out.wav
+
+    --- 2. Voice design (via `instruct` field) ---
+
+    Attributes are free-text, comma-separated. Categories:
+      * gender:  male | female
+      * age:     child | teen | adult | elderly
+      * pitch:   very low | low | medium | high | very high
+      * style:   whisper
+      * accent:  american | british | (any)
+      * dialect: sichuan | shaanxi | (zh only)
+
+    curl -X POST http://omnivoiceone:8000/v1/audio/speech \
+      -H "Content-Type: application/json" \
+      -d '{
+        "input": "This is a British female with a low pitch.",
+        "instruct": "female, low pitch, british accent",
+        "language_id": "en",
+        "num_step": 32,
+        "speed": 1.0
+      }' -o out.wav
+
+    --- 3. Zero-shot voice cloning (multipart upload) ---
+
+    curl -X POST http://omnivoiceone:8000/v1/audio/clone \
+      -F "text=Bonjour, ceci est ma voix clonée." \
+      -F "ref_text=Voici une courte phrase de référence." \
+      -F "ref_audio=@./my_voice_sample.wav" \
+      -F "language_id=fr" \
+      -F "num_step=32" \
+      -o cloned.wav
+
+    --- 4. Voice cloning (JSON, base64 ref audio) ---
+
+    curl -X POST http://omnivoiceone:8000/v1/audio/speech \
+      -H "Content-Type: application/json" \
+      -d '{
+        "input": "Cloned output",
+        "ref_text": "Reference transcription",
+        "ref_audio_b64": "UklGRi...<base64 WAV>...AAA="
+      }' -o out.wav
+
+    --- 5. Other endpoints ---
+
+    GET  /health              — liveness
+    GET  /web                 — web UI (app entrance redirects / here)
+    GET  /v1/models           — model list (OpenAI-compat)
+    GET  /v1/languages        — list all 646 supported language IDs
+
+    ===== PARAMETERS =====
+
+    input / text       : text to synthesize (required)
+    instruct           : voice design attributes (string, optional)
+    ref_audio_b64      : base64-encoded WAV for voice cloning (optional)
+    ref_text           : transcription of the reference audio (required if ref_audio)
+    language_id        : ISO-like language code ("en", "fr", "zh", ...)
+    num_step           : diffusion steps (default 32; more = better quality, slower)
+    speed              : 0.5 .. 2.0 (default 1.0)
+    duration           : max audio length in seconds (default 10.0)
+    response_format    : "wav" (only format supported)
+
+    Downloads model on startup (~2GB) with visible logs.
+    Shared HF cache: /olares/share/ai/model/speech/huggingface (reused by all STT/TTS apps).
+    /health returns 200 immediately during model load; poll GET /health until ready:true before calling /v1/*. First boot model download may take 5-20 min.
   developer: aamsellem
-  website: https://github.com/aamsellem/olares-one-market
+  website: https://github.com/k2-fsa/OmniVoice
   sourceCode: https://github.com/aamsellem/olares-one-market
   submitter: aamsellem
   locale:
@@ -40,23 +152,31 @@ spec:
   license:
     - text: Apache 2.0
       url: https://www.apache.org/licenses/LICENSE-2.0
-
-  limitedCpu: 16
-  requiredCpu: 4
-  requiredDisk: 10Gi
-  limitedDisk: 20Gi
-  limitedMemory: 16Gi
-  requiredMemory: 4Gi
-  requiredGpu: 1Gi
-  limitedGpu: 24Gi
-
   supportArch:
     - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 17Gi
+      requiredDisk: 10Gi
+      limitedDisk: 20Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
 permission:
   appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
 options:
+  shared: true
   apiTimeout: 0
   dependencies:
     - name: olares
-      version: '>=1.12.3-0'
+      version: '>=1.12.6-0'
       type: system

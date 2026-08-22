@@ -1,0 +1,147 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: browserlessone
+  name: browserlessone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.workloads.browserlessone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: browserlessone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: browserlessone
+    spec:
+      {{- $ghcrToken := .Values.olaresEnv.GITHUB_TOKEN | trim -}}
+      {{- $browserlessToken := .Values.olaresEnv.BROWSERLESS_TOKEN | default .Values.browserless.token | default "browserlessone" -}}
+      {{- if $ghcrToken }}
+      imagePullSecrets:
+        - name: browserlessone-ghcr
+      {{- end }}
+      initContainers:
+        - name: fix-appdata-perms
+          image: docker.io/beclab/aboveos-busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - mkdir -p /data/browserless-data /data/downloads && chmod -R 777 /data
+          volumeMounts:
+            - mountPath: /data
+              name: data
+      containers:
+        - name: browserless
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          ports:
+            - containerPort: 3000
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "3000"
+            - name: KEEP_ALIVE
+              value: "{{ .Values.browserless.keepAlive }}"
+            - name: CONCURRENT
+              value: "{{ .Values.browserless.concurrent }}"
+            - name: QUEUED
+              value: "{{ .Values.browserless.queued }}"
+            - name: TIMEOUT
+              value: "{{ .Values.browserless.timeout }}"
+            - name: HEALTH
+              value: "{{ .Values.browserless.health }}"
+            - name: ENABLE_DEBUGGER
+              value: "{{ .Values.browserless.enableDebugger }}"
+            - name: TOKEN
+              value: {{ .Values.olaresEnv.BROWSERLESS_TOKEN | default .Values.browserless.token | default "browserlessone" | quote }}
+            {{- $proxyUrl := .Values.olaresEnv.BROWSERLESS_PROXY_URL | default .Values.browserless.proxyUrl | default "" | trim }}
+            {{- if $proxyUrl }}
+            - name: PROXY_URL
+              value: {{ $proxyUrl | quote }}
+            - name: EXTERNAL
+              value: {{ $proxyUrl | quote }}
+            {{- end }}
+            - name: MAX_MEMORY_PERCENT
+              value: "{{ .Values.browserless.maxMemoryPercent }}"
+            - name: MAX_CPU_PERCENT
+              value: "{{ .Values.browserless.maxCpuPercent }}"
+            - name: DATA_DIR
+              value: "/data/browserless-data"
+            - name: DOWNLOAD_DIR
+              value: "/data/downloads"
+          livenessProbe:
+            httpGet:
+              path: /pressure?token={{ $browserlessToken }}
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /pressure?token={{ $browserlessToken }}
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "4"
+              memory: 8Gi
+            requests:
+              cpu: 250m
+              memory: 1Gi
+          volumeMounts:
+            - mountPath: /data
+              name: data
+            - mountPath: /dev/shm
+              name: dshm
+      volumes:
+        - name: data
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/browserless"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: browserlessone
+  name: browserlessone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http-ws
+      port: 3000
+      targetPort: 3000
+  selector:
+    io.kompose.service: browserlessone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: browserlessone
+  name: sharedentrances-browserlessone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "browserlessone"
+      port: 80
+      targetPort: 3000
+  selector:
+    io.kompose.service: browserlessone

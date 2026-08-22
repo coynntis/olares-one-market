@@ -1,0 +1,15 @@
+name: quality
+title: Quality (GLOMAP → 3DGS)
+summary: Dense photos, best NVS. GLOMAP global mapper + gsplat 3DGS.
+license: Apache-2.0
+vram_gb: 18
+time_est_min: 45
+iterations: 30000
+checkpoint_interval: 7000
+stages:
+  sfm: glomap
+  geometry: none
+  representation: 3dgs
+  densification: default_adc
+  pose_opt: off
+  repair: none

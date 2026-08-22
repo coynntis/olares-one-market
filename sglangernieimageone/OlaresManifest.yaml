@@ -1,26 +1,37 @@
 ---
-olaresManifest.version: '0.10.0'
+olaresManifest.version: 0.12.0
 olaresManifest.type: app
-apiVersion: 'v2'
+apiVersion: v3
+workloadReplicas:
+  sglangernieimageone: 1
+  sglangernieimageonecli: 1
 metadata:
   name: sglangernieimageone
-  icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
-  description: "ERNIE-Image via SGLang — image generation optimized for Olares One"
-  appid: sglangernieimageone
+  icon: https://cdn.olares.com/images/2026/08/17a83ca6f5f8f8f7ff5f517c4fbbfba8.png
+  description: ERNIE-Image via SGLang — image generation optimized for Olares One
   title: SGLang ERNIE-Image One
-  version: '1.0.0'
+  version: 1.0.20
   categories:
     - AI
-entrances:
+sharedEntrances:
   - name: sglangernieimageone
-    port: 30000
-    host: sglangernieimageone
-    title: SGLang ERNIE Image One
-    icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+    host: sharedentrances-sglangernieimageone
+    port: 0
+    title: SGLang ERNIE-Image API
+    icon: https://cdn.olares.com/images/2026/08/17a83ca6f5f8f8f7ff5f517c4fbbfba8.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sglangernieimageonecli
+    port: 8080
+    host: sglangernieimageonecli
+    title: SGLang ERNIE-Image One
+    icon: https://cdn.olares.com/images/2026/08/17a83ca6f5f8f8f7ff5f517c4fbbfba8.png
     openMethod: window
     authLevel: internal
 spec:
-  versionName: '1.0.0'
+  versionName: 1.0.20
+  featuredImage: https://cdn.olares.com/images/2026/08/a31abdd3a08b2b474c28f4591cc1f393.png
   fullDescription: |
     SGLang server running baidu/ERNIE-Image for OpenAI-compatible image generation on Olares One.
     RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
@@ -29,10 +40,9 @@ spec:
     Installs diffusion dependencies at startup with:
       pip install -e "python[diffusion]"
     Serves on port 30000 using:
-      sglang serve --model-path baidu/ERNIE-Image --trust-remote-code --host 0.0.0.0 --port 30000
+      sglang serve --model-path baidu/ERNIE-Image --dit-layerwise-offload --vae-tiling --vae-cpu-offload --text-encoder-cpu-offload --trust-remote-code --host 0.0.0.0 --port 30000
     Generation endpoint:
       POST /v1/images/generations
-
   developer: sgl-project
   website: https://github.com/sgl-project/sglang
   sourceCode: https://github.com/sgl-project/sglang
@@ -42,18 +52,25 @@ spec:
   license:
     - text: Apache-2.0
       url: https://github.com/sgl-project/sglang/blob/main/LICENSE
-
-  limitedCpu: 16
-  requiredCpu: 4
-  requiredDisk: 50Gi
-  limitedDisk: 100Gi
-  limitedMemory: 64Gi
-  requiredMemory: 24Gi
-  requiredGpu: 1Gi
-  limitedGpu: 24Gi
-
   supportArch:
     - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 50Gi
+      limitedDisk: 100Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+    v1.0.19: exclude README.md from chart package (OLARES_USER string fails v3 upload scan).
+        v1.0.17: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.16: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
 envs:
   - envName: HF_TOKEN
     required: false
@@ -65,11 +82,10 @@ envs:
     applyOnChange: true
     valueFrom:
       envName: OLARES_USER_HUGGINGFACE_SERVICE
-permission:
-  appData: true
 options:
+  shared: true
   apiTimeout: 0
   dependencies:
     - name: olares
-      version: '>=1.12.3-0'
+      version: '>=1.12.6-0'
       type: system

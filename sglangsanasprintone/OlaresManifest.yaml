@@ -1,59 +1,75 @@
 ---
-olaresManifest.version: '0.10.0'
+olaresManifest.version: 0.12.0
 olaresManifest.type: app
-apiVersion: 'v2'
+apiVersion: v3
+workloadReplicas:
+  sglangsanasprintone: 1
+  sglangsanasprintonecli: 1
 metadata:
   name: sglangsanasprintone
-  icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
-  description: "Sana Sprint 1.6B 1024px via SGLang — image generation for Olares One"
-  appid: sglangsanasprintone
+  icon: https://cdn.olares.com/images/2026/08/f3c12fa7e21dce94b90710a1587a4488.png
+  description: Sana Sprint 1.6B 1024px via SGLang — image generation for Olares One
   title: SGLang Sana Sprint One
-  version: '1.0.0'
+  version: 1.0.20
   categories:
     - AI
-entrances:
+sharedEntrances:
   - name: sglangsanasprintone
-    port: 30000
-    host: sglangsanasprintone
+    host: sharedentrances-sglangsanasprintone
+    port: 0
+    title: SGLang Sana Sprint API
+    icon: https://cdn.olares.com/images/2026/08/f3c12fa7e21dce94b90710a1587a4488.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sglangsanasprintonecli
+    port: 8080
+    host: sglangsanasprintonecli
     title: SGLang Sana Sprint One
-    icon: https://orales-one-market.aamsellem.workers.dev/icons/qwen36a3bvisionone.png
+    icon: https://cdn.olares.com/images/2026/08/f3c12fa7e21dce94b90710a1587a4488.png
     openMethod: window
     authLevel: internal
 spec:
-  versionName: '1.0.0'
+  versionName: 1.0.20
+  featuredImage: https://cdn.olares.com/images/2026/08/aba4b0452f6d175d804bbda16cfa7fe4.png
   fullDescription: |
     SGLang server running Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers for OpenAI-compatible image generation on Olares One.
     RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
     Uses official diffusion-ready container image: lmsysorg/sglang:dev-cu13.
-    Bootstraps SGLang source by cloning https://github.com/sgl-project/sglang.git in the container.
     Installs diffusion dependencies at startup with:
       pip install -e "python[diffusion]"
     Serves on port 30000 using:
       sglang serve --model-path Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers --trust-remote-code --host 0.0.0.0 --port 30000
     Generation endpoint:
       POST /v1/images/generations
-
   developer: sgl-project
   website: https://github.com/sgl-project/sglang
   sourceCode: https://github.com/sgl-project/sglang
-  submitter: aamsellem
+  submitter: coynntis
   locale:
     - en-US
   license:
     - text: Apache-2.0
       url: https://github.com/sgl-project/sglang/blob/main/LICENSE
-
-  limitedCpu: 16
-  requiredCpu: 4
-  requiredDisk: 50Gi
-  limitedDisk: 100Gi
-  limitedMemory: 64Gi
-  requiredMemory: 24Gi
-  requiredGpu: 1Gi
-  limitedGpu: 24Gi
-
   supportArch:
     - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 50Gi
+      limitedDisk: 100Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+    v1.0.19: exclude README.md from chart package (OLARES_USER string fails v3 upload scan).
+        v1.0.17: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.16: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
 envs:
   - envName: HF_TOKEN
     required: false
@@ -65,11 +81,10 @@ envs:
     applyOnChange: true
     valueFrom:
       envName: OLARES_USER_HUGGINGFACE_SERVICE
-permission:
-  appData: true
 options:
+  shared: true
   apiTimeout: 0
   dependencies:
     - name: olares
-      version: '>=1.12.3-0'
+      version: '>=1.12.6-0'
       type: system

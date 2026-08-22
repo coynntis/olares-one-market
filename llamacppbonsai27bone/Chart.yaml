@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.3"
+description: Bonsai-27B Q1_0 VLM — PrismML llama.cpp, vision + dense 27B, ~4.5GB VRAM
+name: llamacppbonsai27bone
+type: application
+version: 1.0.3

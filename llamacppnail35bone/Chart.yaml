@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.0"
+description: Nail Qwen3.6-35B-A3B MTP vision fast long-context profile
+name: llamacppnail35bone
+type: application
+version: 1.0.0

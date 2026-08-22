@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.14"
+description: VoxCPM2 multilingual TTS for Olares One
+name: voxcpmone
+type: application
+version: 1.0.14

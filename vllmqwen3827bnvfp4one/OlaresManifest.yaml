@@ -1,0 +1,155 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllmqwen3827bnvfp4one: 1
+  vllmqwen3827bnvfp4onecli: 1
+metadata:
+  name: vllmqwen3827bnvfp4one
+  icon: https://cdn.olares.com/images/2026/08/b2e120095a46f8f08628bf110d65b8d5.png
+  description: Qwen3.8 27B NVFP4 vision+video — vLLM fp8 KV, medium thinking defaults
+  title: Qwen38 27B NVFP4 One
+  version: 1.0.1
+  categories:
+    - Vision
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: 27B
+    badge: NVFP4
+    hero:
+      value: 6K
+      label: fp8 KV · video on
+    specs:
+      - label: context
+        value: 6K
+      - label: vram
+        value: 24 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: false
+    stack: vLLM 0.25.1 cu13 · NVFP4 · fp8 KV · llama.cpp UI
+sharedEntrances:
+  - name: vllmqwen3827bnvfp4one
+    host: sharedentrances-vllmqwen3827bnvfp4one
+    port: 0
+    title: Qwen38 27B NVFP4 API
+    icon: https://cdn.olares.com/images/2026/08/b2e120095a46f8f08628bf110d65b8d5.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmqwen3827bnvfp4onecli
+    port: 8080
+    host: vllmqwen3827bnvfp4onecli
+    title: Qwen38 27B NVFP4
+    icon: https://cdn.olares.com/images/2026/08/b2e120095a46f8f08628bf110d65b8d5.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.1
+  featuredImage: https://cdn.olares.com/images/2026/08/85ff2fd732f5e2df04b1442a3821789e.png
+  upgradeDescription: |
+    v1.0.1: enable Qwen3.8 video path on vLLM (`video=1`, `--media-io-kwargs '{"video":{"num_frames":-1}}'`). Tighten 24GB defaults for NVFP4+vision/video: max_model_len 7168→6144, gpu_memory_utilization 0.97→0.94. Proxy now injects thinking defaults when caller omits them: `enable_thinking=true`, `preserve_thinking=true`, `reasoning_effort=medium`, video `fps=2`.
+    v1.0.0: initial release. Unsloth Qwen3.8-27B-NVFP4 on vLLM 0.25.1 (CUDA 13).
+      This NVFP4 quant is vLLM-only (lm_head is FP8 — SGLang cannot load it).
+      Same 24GB recipe as Qwen3.6-27B NVFP4: fp8 KV, max_model_len 7168, util 0.97,
+      native vision (image=1, max_pixels 200704), MTP off (weights fill 5090M).
+      llama.cpp web UI entrance + OpenAI /v1 via shared entrance.
+
+  fullDescription: |
+    Unsloth Qwen3.8-27B-NVFP4 (dense VLM, ~23 GB) on Olares One RTX 5090M.
+
+    Newest Qwen dense 27B: stronger coding/agent vs 3.6, native vision+video, 262K native context
+    (chart default 6144 on 24GB — raise LLM_CONTEXT_WINDOW only if you trim multimodal load or have more VRAM).
+
+    Stack:
+    - Image: vllm/vllm-openai:v0.25.1-x86_64 (CUDA 13) + Unsloth pip deps
+      (flashinfer-python, nvidia-cutlass-dsl, compressed-tensors)
+    - Quant: Unsloth Dynamic V3 NVFP4 — vLLM only; SGLang cannot load FP8 lm_head
+    - --kv-cache-dtype fp8 + PIECEWISE cudagraphs
+    - video enabled on vLLM (`image=1`, `video=1`, default sampled video fps=2)
+    - MTP off on 24GB (weights fill GPU; model card MTP is for 32GB+)
+    - hermes tool parser + qwen3 reasoning parser
+    - default thinking: medium effort + preserve_thinking on (request can override)
+    - Developer-role / nested tool-calling improvements from Qwen3.8
+
+    Sibling: llamacppqwen3827bmtpone is GGUF+MTP on llama.cpp (longer ctx, slower).
+    This chart is the NVFP4 vLLM speed path.
+
+    Entrance: llama.cpp web UI (tools/server/public @ b8740) with /v1 proxy to vLLM.
+  developer: coynntis
+  website: https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: "2"
+      limitedCpu: "13"
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 40Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_ENABLE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PRESERVE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_REASONING_EFFORT
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_VIDEO_FPS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  LLMGatewaySupported: true
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

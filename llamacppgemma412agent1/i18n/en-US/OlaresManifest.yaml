@@ -1,0 +1,7 @@
+metadata:
+  description: "Gemma 4 12B agentic Fable5 v2 Q4_K_M — tool calling, llama.cpp b8740"
+  title: Gemma 4 12B Agentic One
+spec:
+  fullDescription: |
+    Gemma 4 12B agentic Fable5 Composer 2.5 v2 Q4_K_M — tool-calling tuned for agent workflows.
+    llama.cpp b8740 on Olares One RTX 5090M. Default 128K context. OpenAI-compatible API on port 8080.

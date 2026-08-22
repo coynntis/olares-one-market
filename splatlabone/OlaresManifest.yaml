@@ -1,0 +1,133 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  splatlabone: 1
+  splatlabonecli: 1
+metadata:
+  name: splatlabone
+  icon: https://cdn.olares.com/images/2026/08/09d8f4edcb64f2ff1583e750b1923a0b.png
+  description: 3D Gaussian Splatting pipeline — import, reconstruct, view splats on Olares One
+  title: SplatLab One
+  version: 1.1.14
+  categories:
+    - AI
+    - Developer
+sharedEntrances:
+  - name: splatlabone
+    host: sharedentrances-splatlabone
+    port: 0
+    title: SplatLab API
+    icon: https://cdn.olares.com/images/2026/08/09d8f4edcb64f2ff1583e750b1923a0b.png
+    invisible: true
+    authLevel: internal
+  - name: splatlabmcp
+    host: sharedentrances-splatlabone
+    port: 0
+    title: SplatLab MCP API
+    icon: https://cdn.olares.com/images/2026/08/09d8f4edcb64f2ff1583e750b1923a0b.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: splatlabonecli
+    port: 8080
+    host: splatlabonecli
+    title: SplatLab One
+    icon: https://cdn.olares.com/images/2026/08/09d8f4edcb64f2ff1583e750b1923a0b.png
+    openMethod: window
+    authLevel: internal
+  - name: splatlabmcp
+    port: 8080
+    host: splatlabone
+    title: SplatLab MCP
+    icon: https://cdn.olares.com/images/2026/08/09d8f4edcb64f2ff1583e750b1923a0b.png
+    openMethod: default
+    authLevel: internal
+spec:
+  versionName: 1.1.14
+  featuredImage: https://cdn.olares.com/images/2026/08/97cad386e4404bcba89415b934690314.png
+  fullDescription: |
+    SplatLab One: web UI + API + MCP for 3D Gaussian Splatting on Olares One (RTX 5090M).
+
+    Pipeline: import photos/video/COLMAP → SfM (COLMAP global_mapper) or feed-forward geometry
+    (VGGT-Omega, Depth Anything 3, LingBot-Map, InstantSplat/MASt3R) → COLMAP sparse layout →
+    gsplat train (3DGS or 2DGS+MCMC) → export splat/ply/ply_compressed.
+
+    Inspect stages: sparse point clouds (in-app), DA3 infer_gs (SuperSplat), trained splats (gsplat Viser).
+    Presets: quality, robust, fast, sparse, stream. MCP at /mcp/mcp. REST artifact API.
+
+    Runtime: ghcr.io/coynntis/splatlabone:1.1.3 (dockerbuilderone MCP build).
+    Set OLARES_USER_GITHUB_TOKEN for ghcr pull; HF token for gated weights.
+    Model weights optional prefetch (off by default); download on first pipeline use.
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market/tree/main/splatlabone
+  sourceCode: https://github.com/coynntis/olares-one-market/tree/main/splatlabone
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 33Gi
+      requiredDisk: 80Gi
+      limitedDisk: 200Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.1.14: entrypoint prefers /opt/py-site over /opt/gsplat (source shadowed CUDA wheel); expect image 1.1.3.
+    v1.1.13: ConfigMap overlay into /tmp/splatlab-app (non-root cannot write /app).
+    v1.1.12: lower schedule envelope (req 500m/2Gi, lim 8/32Gi, dshm 4Gi) — Pending/unschedulable under multi-app GPU load.
+    v1.1.11: expect image 1.1.2 (COLMAP+MKL/Qt/CUDA lib bundle). Soft-fail remains until rebuild.
+    v1.1.10: soft-fail colmap MKL check at boot (API still starts); entrypoint ConfigMap overlay; next image bundles MKL via ldd.
+    v1.1.9: start via bash /app/entrypoint.sh (Kaniko drops execute bit → Permission denied).
+    v1.1.8: image tag 1.1.1; add missing splatlabone-env ConfigMap (pod CrashLoop); prefetchModels off by default.
+    v1.1.7: trim CPU/memory requests for denser multi-app packing (media).
+    v1.1.6: scrub OLARES_USER strings from inlined guide UI (v3 upload scan).
+    v1.1.5: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.1.4: restore client nginx Deployment/Service (splatlabonecli) missing after v3 flatten.
+    v1.1.3: startupProbe to ≥2h (period 30s × failureThreshold 240) for model load.
+    v1.1.2: initContainers use beclab/aboveos-busybox (v3 rejects alpine+runAsUser 0).
+    v1.1.1: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+  - envName: MCP_CORS_ORIGIN
+    required: false
+    applyOnChange: true
+    value: '*'
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

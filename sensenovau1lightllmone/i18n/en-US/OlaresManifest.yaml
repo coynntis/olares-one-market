@@ -1,0 +1,10 @@
+metadata:
+  title: SenseNova U1 LightLLM One
+  description: "SenseNova-U1 text-to-image via LightLLM + LightX2V FA3 — Olares One benchmark"
+
+spec:
+  fullDescription: |
+    Text-to-image benchmark chart for SenseNova-U1 on LightLLM + LightX2V (FlashAttention-3 hybrid prefill).
+    OpenAI-compatible T2I API on port 8000. Compare latency against sensenovau1serveone.
+    Single-GPU colocate profile for RTX 5090M 24GB. Full BF16 safetensors (~35GiB).
+    In-pod benchmark: `python /app-src/benchmark_t2i.py --warmup`

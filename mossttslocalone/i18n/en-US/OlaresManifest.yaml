@@ -1,0 +1,8 @@
+metadata:
+  description: MOSS-TTS-Local-Transformer-v1.5 multilingual TTS with Cantonese for Olares One
+  title: MOSS-TTS Local One
+spec:
+  fullDescription: |
+    OpenMOSS MOSS-TTS-Local-Transformer-v1.5 via SGLang-Omni. OpenAI /v1/audio/speech,
+    31 languages including Cantonese, zero-shot clone, 48 kHz stereo.
+    In-cluster http://mossttslocalone:8000. Set language to Cantonese for yue.

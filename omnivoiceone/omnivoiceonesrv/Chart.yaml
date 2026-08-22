@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.2.4
+description: omnivoiceone shared server
+name: omnivoiceonesrv
+type: application
+version: 1.2.4

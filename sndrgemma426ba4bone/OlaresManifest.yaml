@@ -1,0 +1,131 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sndrgemma426ba4bone: 1
+  sndrgemma426ba4bonecli: 1
+metadata:
+  name: sndrgemma426ba4bone
+  icon: https://cdn.olares.com/images/2026/08/eb80f0b56a9e8e5e53bd097ca866378c.png
+  description: SNDR Core Engine — Gemma 4 26B-A4B AWQ (1x adapt)
+  title: SNDR Gemma4 26B One
+  version: 1.0.6
+  categories:
+    - LLM Chat
+    - Vision
+  bento:
+    family: gemma
+    size_label: "26B-A4B"
+    badge: sndr
+    hero:
+      value: "MoE A4B"
+      label: "AWQ"
+    specs:
+      - label: context
+        value: 32K
+      - label: MTP
+        value: off
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: false
+    stack: SNDR · G4 patches · kv-auto
+sharedEntrances:
+  - name: sndrgemma426ba4bone
+    host: sharedentrances-sndrgemma426ba4bone
+    port: 0
+    title: SNDR Gemma4 26B API
+    icon: https://cdn.olares.com/images/2026/08/eb80f0b56a9e8e5e53bd097ca866378c.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sndrgemma426ba4bonecli
+    port: 8080
+    host: sndrgemma426ba4bonecli
+    title: SNDR Gemma4 26B One
+    icon: https://cdn.olares.com/images/2026/08/eb80f0b56a9e8e5e53bd097ca866378c.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.6
+  featuredImage: https://cdn.olares.com/images/2026/08/4e3192ab7bb60957e2eb0ee506d89204.png
+  upgradeDescription: |
+    v1.0.6: fix P65↔P67 conflict (P65 off, keep P67); 35B 1×24GB: drop MTP K=5 + 8K ctx (FP8 weights ~18GiB OOM with MTP); prefer sndrqwen3627bone for agents.
+    v1.0.5: MUST upgrade — your logs show old --target install. Boot stamps SNDR_CHART_BOOT=1.0.5; always purge site-packages/sndr; PYTHONPATH=repo first; editable -e only (never --target sndr).
+    v1.0.4: fix EngineAdapter ImportError — drop --target for sndr; uv --system --no-deps -e (upstream install.sh) + PYTHONPATH=repo; purge broken site-packages/sndr.
+    v1.0.3: bump accelerator requiredCpu/Memory to cover server+client request sums (4+10m CPU, 24Gi+64Mi).
+    v1.0.2: soft-ready /health+/v1/models during boot; uv → persistent site-packages + UV_CACHE; attempt log at bootstrap.log; retries on git/uv.
+    v1.0.1: drop aamsellem image — official SNDR pin vllm/vllm-openai@sha256:6a93ae43 (dev748) + runtime sndr_core_engine install + sndr.apply. Qwen27 MTP K=4 + PN521/522; add 35B-A3B MTP K=5; Gemma/Diffusion from upstream ModelDefs.
+    v1.0.0: initial.
+  fullDescription: |
+    SNDR Core Engine — Gemma 4 26B-A4B AWQ (family default = MTP off).
+    
+    Upstream prod uses TP=2; this chart TP=1 / 32K for Olares One.
+    Upstream: https://github.com/Sandermage/sndr_core_engine
+  developer: coynntis
+  website: https://github.com/Sandermage/sndr_core_engine
+  sourceCode: https://github.com/Sandermage/sndr_core_engine
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '5'
+      limitedCpu: '17'
+      requiredMemory: 25Gi
+      limitedMemory: 49Gi
+      requiredDisk: 40Gi
+      limitedDisk: 80Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCache: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: UV_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: PIP_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

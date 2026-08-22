@@ -1,0 +1,9 @@
+metadata:
+  title: Qwythos 9B One
+  description: "Qwythos 9B Mythos — 64K ctx, buun turbo4 draft-MTP n=2 + vision on Olares One"
+
+spec:
+  fullDescription: |
+    Qwythos 9B Claude Mythos MTP Q4_K_M with aamsellem/buun-llama-cpp:87c351d2.
+    empero-ai HF GGUF v3 embedded template, --reasoning off --swa-full, q8_0/turbo4 KV, draft-MTP n=2, and mmproj F16 vision loading.
+    OpenAI-compatible API on port 8000 (llama-server); client entrance on 8080.

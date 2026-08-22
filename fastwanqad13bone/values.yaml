@@ -1,0 +1,25 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  FASTWAN_TEXT_ENCODER_CPU_OFFLOAD: '1'
+  FASTWAN_TEXT_ENCODER_PRECISION: bf16
+  FASTWAN_TE_GPU_ENCODE: '0'
+  FASTWAN_DIT_LAYERWISE_OFFLOAD: '0'
+image:
+  repository: ghcr.io/hao-ai-lab/fastvideo/fastvideo-dev
+  tag: py3.12-sha-f889e6b
+  pullPolicy: IfNotPresent
+workloads:
+  fastwanqad13bone:
+    replicaCount: 1
+  fastwanqad13bcli:
+    replicaCount: 1

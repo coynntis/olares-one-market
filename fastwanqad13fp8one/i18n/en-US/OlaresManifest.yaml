@@ -1,0 +1,18 @@
+metadata:
+  title: FastWan QAD FP8 4090 Fallback
+  description: FastWan QAD FP8 — 4090/Ada fallback when NVFP4 OOM (~3.4s T2V)
+spec:
+  fullDescription: |
+    **RTX 4090 / Ada / Hopper fallback** when FastWan NVFP4 apps (flagship or SA2) OOM on 24GB VRAM.
+
+    Gradio UI for FastVideo/FastWan-QAD-FP8-1.3B — same QAD 3-step recipe, FP8-friendly path:
+      - FP8 linear layers + SageAttention2++ (no Blackwell NVFP4 / ATTN_QAT_INFER)
+      - TAEHV tiny decoder (~3.4s for 5s 480p on RTX 4090; works on Olares One too)
+      - 81 frames @ 16fps (832×480)
+      - Text encoder on CPU by default (memory-safe on 24GB)
+
+    Try this if fastwanqad13bone or fastwanqad13bsa2one crash at denoise 0/3.
+
+    Image: ghcr.io/hao-ai-lab/fastvideo/fastvideo-dev:py3.12-sha-f889e6b (~8.4 GB pull).
+    ghcr.io: set OLARES_USER_GITHUB_TOKEN (read:packages) — chart uses it as imagePullSecret.
+    T2V only (no image-to-video).

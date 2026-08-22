@@ -1,0 +1,9 @@
+name: quality_calibrated
+title: Quality + view graph calibrator
+status: live
+stages:
+  sfm: glomap_calibrated
+  geometry: none
+  matching: sift
+  representation: 3dgs
+  densification: default_adc

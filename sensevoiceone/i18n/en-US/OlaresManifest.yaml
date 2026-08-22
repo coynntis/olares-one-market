@@ -1,0 +1,11 @@
+metadata:
+  description: SenseVoice STT — Cantonese yue ASR on CPU, OpenAI-compatible API
+  title: SenseVoice STT One
+spec:
+  fullDescription: |
+    SenseVoice-Small on CPU — native Cantonese (yue) STT, ~0 GPU VRAM.
+    OpenAI POST /v1/audio/transcriptions with language=yue.
+    Designed alongside vllmgemma4e4bone + Cantonese TTS charts.
+
+    curl -X POST http://sensevoiceone:8000/v1/audio/transcriptions \
+      -F "file=@sample.wav" -F "language=yue"

@@ -1,0 +1,152 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: mossttslocalone
+  name: mossttslocalone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.mossttslocalone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: mossttslocalone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: mossttslocalone
+    spec:
+      initContainers:
+        - name: fix-shared-speech-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /shared-models/speech/huggingface /shared-models/speech/modelscope /shared-models/llms
+              chmod -R 777 /shared-models
+              echo "$(date -Iseconds) [mossttslocalone] shared speech dirs ready"
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: moss-tts
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          command:
+            - bash
+            - -c
+            - |
+              set -euo pipefail
+              log() { echo "$(date -Iseconds) [mossttslocalone] $*"; }
+              export HF_HOME=/shared-models/speech/huggingface
+              export HUGGINGFACE_HUB_CACHE=$HF_HOME
+              export TRANSFORMERS_CACHE=$HF_HOME
+              export HF_HUB_CACHE=$HF_HOME
+              MODEL_ID="{{ .Values.model.id }}"
+              log "HF_HOME=$HF_HOME MODEL=$MODEL_ID"
+              if command -v hf >/dev/null 2>&1; then
+                log "prefetching model (resume-safe)..."
+                hf download "$MODEL_ID" || true
+              fi
+              if command -v sgl-omni >/dev/null 2>&1; then
+                exec sgl-omni serve \
+                  --model-path "$MODEL_ID" \
+                  --host 0.0.0.0 \
+                  --port 8000
+              fi
+              if command -v python >/dev/null 2>&1; then
+                log "sgl-omni binary missing — trying python -m sglang_omni"
+                exec python -m sglang_omni.cli serve \
+                  --model-path "$MODEL_ID" \
+                  --host 0.0.0.0 \
+                  --port 8000
+              fi
+              log "ERROR: sgl-omni not found in image {{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              exit 1
+          env:
+            - name: HF_HOME
+              value: "/shared-models/speech/huggingface"
+            - name: HUGGINGFACE_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: TRANSFORMERS_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            {{- if .Values.olaresEnv.HF_ENDPOINT }}
+            - name: HF_ENDPOINT
+              value: {{ .Values.olaresEnv.HF_ENDPOINT | quote }}
+            {{- end }}
+          ports:
+            - containerPort: 8000
+              name: api
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            timeoutSeconds: 10
+            periodSeconds: 60
+            failureThreshold: 5
+          startupProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "12"
+              memory: 32Gi
+            requests:
+              cpu: "1"
+              memory: 8Gi
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      volumes:
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: mossttslocalone
+  name: mossttslocalone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "moss-tts"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: mossttslocalone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: mossttslocalone
+  name: sharedentrances-mossttslocalone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "mossttslocalone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: mossttslocalone

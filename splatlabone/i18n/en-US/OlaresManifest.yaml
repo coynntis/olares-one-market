@@ -1,0 +1,9 @@
+metadata:
+  title: SplatLab One
+  description: 3DGS pipeline — COLMAP, VGGT-Omega, DA3, gsplat train, Viser viewer
+spec:
+  fullDescription: |
+    SplatLab One runs full 3D Gaussian Splatting pipelines on Olares One: import → SfM or
+    feed-forward geometry → gsplat train → view/edit splats. COLMAP is the common format;
+    backends include VGGT-Omega, Depth Anything 3, LingBot-Map, InstantSplat. Web UI, REST,
+    SSE, and MCP at /mcp/mcp. See in-app Guide for architecture and library details.

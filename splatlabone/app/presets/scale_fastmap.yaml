@@ -1,0 +1,10 @@
+name: scale_fastmap
+title: Scale FastMap (experimental)
+status: experimental
+stages:
+  sfm: fastmap
+  geometry: none
+  matching: sift
+  representation: 3dgs
+  densification: default_adc
+iterations: 20000

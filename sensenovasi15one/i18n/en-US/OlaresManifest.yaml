@@ -1,0 +1,14 @@
+metadata:
+  title: SenseNova SI 15 One
+  description: "SenseNova-SI-1.5 spatial VQA — vision understand only not image gen"
+
+spec:
+  fullDescription: |
+    SenseNova-SI-1.5-InternVL3-8B spatial VQA / vision understanding on Olares One.
+
+    UNDERSTANDING ONLY (image + question → text). No image generation.
+    For U1 T2I/editing use sensenovau1serveone. SenseNova-Vision skipped (CC-BY-NC).
+
+    Model: sensenova/SenseNova-SI-1.5-InternVL3-8B (BF16 ~16GB).
+    Runtime: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel, SDPA default.
+    API: POST /api/v1/vqa · Gradio /ui · OpenAPI /docs.

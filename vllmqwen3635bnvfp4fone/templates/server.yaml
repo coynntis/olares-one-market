@@ -1,0 +1,625 @@
+{{- $llmCtx := .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" }}
+{{- $llmMaxOut := .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" }}
+{{- $llmApiKey := .Values.olaresEnv.LLM_API_KEY | default "" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-qwen3635b-nvfp4f-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_NAME: "unsloth/Qwen3.6-35B-A3B-NVFP4-Fast"
+  MODEL_ALIAS: "qwen3.6-35b-a3b-nvfp4-fast"
+  MAX_MODEL_LEN: "4096"
+  GPU_MEMORY_UTILIZATION: "0.97"
+  MAX_NUM_SEQS: "1"
+  KV_CACHE_DTYPE: "fp8"
+  WEBUI_REF: "b8740"
+  LIMIT_MM: '{"image":1,"video":0}'
+  # Cap vision profile size — default Qwen max_pixels ~1M OOMs profile_run after 21GiB weights
+  MM_PROCESSOR_KWARGS: '{"max_pixels":200704}'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: vllmqwen3635bnvfp4fone
+  name: vllmqwen3635bnvfp4fone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.vllmqwen3635bnvfp4fone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: vllmqwen3635bnvfp4fone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: vllmqwen3635bnvfp4fone
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms/huggingface && chmod -R 777 /shared-models/llms && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: vllm-server
+          image: "vllm/vllm-openai:v0.25.1-x86_64"
+          command:
+            - "sh"
+            - "-c"
+            - |
+              mkdir -p /app /app/webui
+              echo "[bootstrap] Unsloth NVFP4 deps: flashinfer + cutlass-dsl + compressed-tensors (official HF recipe)"
+              pip install --quiet hf_transfer httpx \
+                "flashinfer-python>=0.6.13" \
+                "nvidia-cutlass-dsl>=4.5.2" \
+                "compressed-tensors>=0.17.0"
+              python3 - <<'CTVER'
+              from importlib.metadata import version, PackageNotFoundError
+              for pkg in ("vllm", "compressed-tensors", "flashinfer-python", "nvidia-cutlass-dsl"):
+                  try:
+                      print("[bootstrap]", pkg, version(pkg), flush=True)
+                  except PackageNotFoundError:
+                      print("[bootstrap]", pkg, "not installed", flush=True)
+              CTVER
+              cat > /app/start-vllm.sh << 'SHEOF'
+              #!/bin/bash
+              set -euo pipefail
+              export HF_HOME="${HF_HOME:-/shared-models/llms/huggingface}"
+              export HF_HUB_ENABLE_HF_TRANSFER="${HF_HUB_ENABLE_HF_TRANSFER:-1}"
+              # Prefetch config + sanitize quantization_config for installed compressed-tensors
+              python3 - <<'PATCH'
+              import glob, json, os, sys
+              from importlib.metadata import version as pkg_version
+
+              repo = os.environ["MODEL_NAME"]
+              cache = os.environ.get("HF_HOME", "/shared-models/llms/huggingface")
+              slug = "models--" + repo.replace("/", "--")
+              print("[patch] compressed-tensors", pkg_version("compressed-tensors"), flush=True)
+
+              try:
+                  from huggingface_hub import hf_hub_download
+                  hf_hub_download(repo_id=repo, filename="config.json", cache_dir=cache)
+              except Exception as e:
+                  print("[patch] config prefetch:", e, flush=True)
+
+              try:
+                  from compressed_tensors.quantization import QuantizationArgs
+              except Exception as e:
+                  print("[patch] cannot import QuantizationArgs:", e, flush=True)
+                  QuantizationArgs = None
+
+              def needs_clear(q: dict) -> bool:
+                  if not q or q.get("actorder") is None:
+                      return False
+                  if QuantizationArgs is None:
+                      # Old CT without probe: static/weight actorder + tensor_group was rejected
+                      return True
+                  try:
+                      QuantizationArgs(**{k: v for k, v in q.items() if v is not None or k == "actorder"})
+                      return False
+                  except Exception as e:
+                      print("[patch] QuantizationArgs reject:", e, flush=True)
+                      return True
+
+              for path in glob.glob(cache + "/**/config.json", recursive=True):
+                  if slug not in path:
+                      continue
+                  try:
+                      with open(path) as f:
+                          cfg = json.load(f)
+                  except Exception:
+                      continue
+                  qc = cfg.get("quantization_config") or {}
+                  groups = qc.get("config_groups") or {}
+                  changed = False
+                  for g in groups.values():
+                      if not isinstance(g, dict):
+                          continue
+                      for key in ("weights", "input_activations", "output_activations"):
+                          q = g.get(key)
+                          if not isinstance(q, dict):
+                              continue
+                          if needs_clear(q):
+                              q["actorder"] = None
+                              changed = True
+                  if changed:
+                      with open(path, "w") as f:
+                          json.dump(cfg, f, indent=2)
+                      print("[patch] cleared incompatible actorder in", path, flush=True)
+                  else:
+                      print("[patch] ok", path, flush=True)
+              PATCH
+              echo "$(date -Iseconds) [vllmqwen3635bnvfp4fone] starting vLLM on :8001 model=${MODEL_NAME} kv=${KV_CACHE_DTYPE}"
+              exec vllm serve "${MODEL_NAME}" \
+                --served-model-name "${MODEL_ALIAS}" \
+                --host 127.0.0.1 \
+                --port 8001 \
+                --max-model-len \
+{{- if $llmCtx }}
+                {{ $llmCtx | quote }} \
+{{- else }}
+                "${MAX_MODEL_LEN}" \
+{{- end }}
+                --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION}" \
+                --max-num-seqs "${MAX_NUM_SEQS}" \
+                --kv-cache-dtype "${KV_CACHE_DTYPE}" \
+                --dtype auto \
+                --max-num-batched-tokens 2048 \
+                --compilation-config '{"cudagraph_mode": 1, "max_cudagraph_capture_size": 4, "cudagraph_capture_sizes": [1, 2, 4]}' \
+                --kernel-config '{"enable_flashinfer_autotune": false}' \
+                --limit-mm-per-prompt "${LIMIT_MM}" \
+                --mm-processor-kwargs "${MM_PROCESSOR_KWARGS}" \
+                --enable-auto-tool-choice \
+                --tool-call-parser hermes \
+                --reasoning-parser qwen3 \
+                --trust-remote-code \
+{{- if $llmApiKey }}
+                --api-key {{ $llmApiKey | quote }} \
+{{- end }}
+{{- if $llmMaxOut }}
+                --override-generation-config {{ printf "{\"max_tokens\":%s}" $llmMaxOut | quote }} \
+{{- end }}
+                --download-dir /shared-models/llms/huggingface
+              SHEOF
+              chmod +x /app/start-vllm.sh
+
+              # Fetch llama.cpp web UI (same UI as llama-server) and serve it in front of vLLM
+              WEBUI_REF="${WEBUI_REF:-b8740}"
+              BASE="https://cdn.jsdelivr.net/gh/ggml-org/llama.cpp@${WEBUI_REF}/tools/server/public"
+              for f in index.html bundle.js bundle.css loading.html; do
+                echo "[vllmqwen3635bnvfp4fone] fetching webui $f"
+                curl -fsSL "$BASE/$f" -o "/app/webui/$f" || true
+              done
+
+              cat > /app/launcher.py << 'PYEOF'
+              import asyncio, glob, os, subprocess, threading, traceback, urllib.request
+              from contextlib import asynccontextmanager
+              from typing import Optional
+              from fastapi import FastAPI, HTTPException, Request, Response
+              from fastapi.responses import JSONResponse, FileResponse
+
+              _phase = "starting"
+              _bootstrap_error: Optional[str] = None
+              _vllm_proc: Optional[subprocess.Popen] = None
+              _backend_port = 8001
+              APP = "vllmqwen3635bnvfp4fone"
+              ALIAS = os.environ.get("MODEL_ALIAS", "qwen3.6-35b-a3b-nvfp4-fast")
+              CTX = int(os.environ.get("LLM_CONTEXT_WINDOW") or os.environ.get("MAX_MODEL_LEN") or "4096")
+              VISION = True
+
+              def log(msg: str) -> None:
+                  print(f"[{APP}] {msg}", flush=True)
+
+              def backend_healthy_sync() -> bool:
+                  try:
+                      with urllib.request.urlopen(f"http://127.0.0.1:{_backend_port}/v1/models", timeout=10) as resp:
+                          return resp.status == 200
+                  except Exception:
+                      return False
+
+              def relay_vllm_output(proc: subprocess.Popen) -> None:
+                  if proc.stdout is None:
+                      return
+                  def pump() -> None:
+                      for raw in iter(proc.stdout.readline, b""):
+                          line = raw.decode(errors="replace").rstrip()
+                          if line:
+                              print(f"[vllm] {line}", flush=True)
+                      proc.stdout.close()
+                  threading.Thread(target=pump, daemon=True).start()
+
+              def wait_for_backend_sync() -> None:
+                  global _phase
+                  import time
+                  max_wait = int(os.environ.get("VLLM_BOOTSTRAP_TIMEOUT_SEC", "21600"))
+                  interval = 5
+                  for i in range(max(1, max_wait // interval)):
+                      if _vllm_proc is not None and _vllm_proc.poll() is not None:
+                          raise RuntimeError(f"vLLM exited {_vllm_proc.returncode}")
+                      if backend_healthy_sync():
+                          _phase = "ready"
+                          log(f"vLLM ready after ~{i * interval}s — llama.cpp web UI proxying")
+                          return
+                      if i > 0 and i % 60 == 0:
+                          log(f"still loading ({i * interval}s)")
+                      time.sleep(interval)
+                  raise RuntimeError(f"vLLM health timeout after {max_wait}s")
+
+              def bootstrap_sync() -> None:
+                  global _phase, _bootstrap_error, _vllm_proc
+                  try:
+                      _vllm_proc = subprocess.Popen(["/app/start-vllm.sh"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
+                      relay_vllm_output(_vllm_proc)
+                      _phase = "starting_vllm"
+                      wait_for_backend_sync()
+                  except Exception as exc:
+                      _bootstrap_error = str(exc)
+                      _phase = "error"
+                      log(f"bootstrap failed: {exc}")
+                      traceback.print_exc()
+
+              @asynccontextmanager
+              async def lifespan(app: FastAPI):
+                  log("launcher :8000 — llama.cpp web UI + vLLM :8001")
+                  asyncio.create_task(asyncio.to_thread(bootstrap_sync))
+                  yield
+
+              app = FastAPI(title="Qwen3.6 35B NVFP4 Fast One launcher", lifespan=lifespan)
+
+              def openai_error(message: str, code: str = "server_error", status: int = 503):
+                  return JSONResponse(
+                      status_code=status,
+                      content={"error": {"message": message, "type": "server_error", "code": code}},
+                  )
+
+              def models_payload(status_value: str):
+                  return {
+                      "object": "list",
+                      "data": [{
+                          "id": ALIAS,
+                          "object": "model",
+                          "created": 0,
+                          "owned_by": "vllm",
+                          "meta": {"n_ctx_train": CTX, "description": f"phase={_phase}"},
+                          "status": {"value": status_value},
+                      }],
+                  }
+
+              @app.get("/health")
+              async def health():
+                  # Always 200 so probes + webui stay up while vLLM downloads/loads
+                  ready = _phase == "ready"
+                  backend_ok = ready and await asyncio.to_thread(backend_healthy_sync)
+                  body = {
+                      "status": _phase,
+                      "ready": ready and backend_ok,
+                      "model": os.environ.get("MODEL_NAME"),
+                      "bootstrap_error": _bootstrap_error,
+                      "ui": "llama.cpp",
+                  }
+                  return JSONResponse(status_code=200, content=body)
+
+              @app.get("/props")
+              async def props():
+                  loading = _phase != "ready"
+                  return {
+                      "default_generation_settings": {
+                          "id": 0, "id_task": -1, "n_ctx": CTX, "speculative": False, "is_processing": False,
+                          "params": {
+                              "n_predict": -1, "temperature": 0.8, "top_k": 40, "top_p": 0.95,
+                              "min_p": 0.05, "stream": True, "max_tokens": -1,
+                              "samplers": ["top_k", "top_p", "min_p", "temperature"],
+                          },
+                          "prompt": "",
+                          "next_token": {
+                              "has_next_token": True, "has_new_line": False,
+                              "n_remain": -1, "n_decoded": 0, "stopping_word": "",
+                          },
+                      },
+                      "total_slots": 1,
+                      "model_path": os.environ.get("MODEL_NAME", ALIAS),
+                      "model_alias": ALIAS,
+                      "chat_template": "",
+                      "chat_template_caps": {},
+                      "modalities": {"vision": VISION, "audio": False},
+                      "build_info": "vllm-proxy+llama.cpp-webui",
+                      "is_sleeping": loading,
+                      "error": _bootstrap_error,
+                  }
+
+              @app.get("/slots")
+              async def slots():
+                  return [{"id": 0, "is_processing": False, "n_ctx": CTX}]
+
+              @app.api_route("/cors-proxy", methods=["GET", "HEAD", "OPTIONS", "POST"])
+              async def cors_proxy_stub():
+                  # llama.cpp webui probes this; MCP proxy not needed for local vLLM
+                  return Response(status_code=204)
+
+              @app.get("/v1/models")
+              @app.get("/models")
+              async def list_models():
+                  if _phase == "error":
+                      return openai_error(f"bootstrap failed: {_bootstrap_error}", code="bootstrap_error")
+                  if _phase != "ready":
+                      # Soft-ready: UI polls this; never 503 here or webui shows Unknown server error
+                      return JSONResponse(models_payload("loading"))
+                  # Prefer live vLLM list when ready
+                  try:
+                      import httpx
+                      async with httpx.AsyncClient(timeout=10.0) as client:
+                          r = await client.get(f"http://127.0.0.1:{_backend_port}/v1/models")
+                          if r.status_code == 200:
+                              return Response(content=r.content, status_code=200, media_type="application/json")
+                  except Exception as exc:
+                      log(f"live /v1/models failed: {exc}")
+                  return JSONResponse(models_payload("loaded"))
+
+              # llama.cpp webui sends these; vLLM rejects / ignores badly (esp. max_tokens:-1)
+              _DROP_KEYS = {
+                  "return_progress", "reasoning_format", "timings_per_token", "samplers",
+                  "backend_sampling", "n_predict", "dynatemp_range", "dynatemp_exponent",
+                  "xtc_probability", "xtc_threshold", "typ_p", "repeat_last_n", "repeat_penalty",
+                  "dry_multiplier", "dry_base", "dry_allowed_length", "dry_penalty_last_n",
+                  "dry_sequence_breakers", "mirostat", "mirostat_tau", "mirostat_eta",
+                  "grammar", "json_schema", "n_keep", "n_discard", "ignore_eos", "n_probs",
+                  "min_keep", "id_slot", "cache_prompt", "t_max_predict_ms",
+              }
+
+              def sanitize_openai_body(raw: bytes) -> bytes:
+                  if not raw:
+                      return raw
+                  try:
+                      import json
+                      data = json.loads(raw)
+                  except Exception:
+                      return raw
+                  if not isinstance(data, dict):
+                      return raw
+                  for k in list(data.keys()):
+                      if k in _DROP_KEYS:
+                          data.pop(k, None)
+                  # UI sends max_tokens:-1 for "unlimited" — invalid for vLLM
+                  mt = data.get("max_tokens")
+                  if mt is not None and (not isinstance(mt, int) or mt <= 0):
+                      data.pop("max_tokens", None)
+                      log(f"stripped invalid max_tokens={mt}")
+                  # Ensure model alias present
+                  if not data.get("model"):
+                      data["model"] = ALIAS
+                  # Drop empty tools
+                  if "tools" in data and not data["tools"]:
+                      data.pop("tools", None)
+                  try:
+                      import json
+                      return json.dumps(data).encode()
+                  except Exception:
+                      return raw
+
+              def wrap_upstream_error(status: int, raw: bytes, content_type: str | None):
+                  """Ensure UI always gets OpenAI-shaped error.message — never bare FastAPI detail."""
+                  import json
+                  msg = None
+                  try:
+                      parsed = json.loads(raw.decode(errors="replace") if raw else "{}")
+                      if isinstance(parsed, dict):
+                          err = parsed.get("error")
+                          if isinstance(err, dict) and err.get("message"):
+                              return Response(content=raw, status_code=status, media_type="application/json")
+                          if isinstance(err, str) and err:
+                              msg = err
+                          elif parsed.get("detail"):
+                              d = parsed["detail"]
+                              msg = d if isinstance(d, str) else json.dumps(d)
+                          elif parsed.get("message"):
+                              msg = str(parsed["message"])
+                  except Exception:
+                      pass
+                  if not msg:
+                      text = (raw or b"").decode(errors="replace")[:800]
+                      msg = text.strip() or f"upstream HTTP {status}"
+                  log(f"upstream error {status}: {msg[:200]}")
+                  return openai_error(msg, code=f"upstream_{status}", status=status)
+
+              async def proxy_request(request: Request, full_path: str):
+                  if _phase == "error":
+                      return openai_error(f"bootstrap failed: {_bootstrap_error}", code="bootstrap_error")
+                  if _phase != "ready":
+                      return openai_error(
+                          f"Model still loading (phase={_phase}). Wait until logs say 'vLLM ready' — often 10-40 min on first download.",
+                          code="model_loading",
+                      )
+                  try:
+                      import httpx
+                  except ImportError:
+                      return openai_error("httpx missing in container", code="dependency_error")
+                  from fastapi.responses import StreamingResponse
+                  url = f"http://127.0.0.1:{_backend_port}/{full_path}"
+                  if request.url.query:
+                      url = f"{url}?{request.url.query}"
+                  hop = {"host", "content-length", "transfer-encoding", "connection"}
+                  headers = {k: v for k, v in request.headers.items() if k.lower() not in hop}
+                  body = await request.body()
+                  is_chat = full_path.rstrip("/").endswith("chat/completions") or full_path.rstrip("/").endswith("completions")
+                  if is_chat and body:
+                      body = sanitize_openai_body(body)
+                  want_stream = (
+                      "text/event-stream" in (request.headers.get("accept") or "")
+                      or b'"stream": true' in body.lower()
+                      or b'"stream":true' in body.lower()
+                  )
+                  client = httpx.AsyncClient(timeout=None)
+                  req = client.build_request(request.method, url, headers=headers, content=body if body else None)
+                  upstream = await client.send(req, stream=True)
+                  out_headers = {
+                      k: v for k, v in upstream.headers.items()
+                      if k.lower() not in hop and k.lower() != "content-encoding"
+                  }
+                  # Non-OK: buffer and rewrite so webui shows real message (not Unknown server error)
+                  if upstream.status_code >= 400:
+                      raw = await upstream.aread()
+                      await upstream.aclose()
+                      await client.aclose()
+                      return wrap_upstream_error(upstream.status_code, raw, upstream.headers.get("content-type"))
+                  if want_stream or "text/event-stream" in (upstream.headers.get("content-type") or ""):
+                      async def gen():
+                          try:
+                              async for chunk in upstream.aiter_bytes():
+                                  yield chunk
+                          finally:
+                              await upstream.aclose()
+                              await client.aclose()
+                      return StreamingResponse(
+                          gen(),
+                          status_code=upstream.status_code,
+                          headers=out_headers,
+                          media_type=upstream.headers.get("content-type"),
+                      )
+                  raw = await upstream.aread()
+                  await upstream.aclose()
+                  await client.aclose()
+                  return Response(content=raw, status_code=upstream.status_code, headers=out_headers)
+
+              @app.api_route("/v1/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+              async def proxy_v1(full_path: str, request: Request):
+                  # Prefer dedicated /v1/models handler (registered above) — this catches the rest
+                  if full_path == "models" and request.method in ("GET", "HEAD"):
+                      return await list_models()
+                  return await proxy_request(request, f"v1/{full_path}")
+
+              @app.api_route("/openai/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+              async def proxy_openai(full_path: str, request: Request):
+                  if full_path == "models" and request.method in ("GET", "HEAD"):
+                      return await list_models()
+                  return await proxy_request(request, f"v1/{full_path}")
+
+              @app.api_route("/chat/completions", methods=["POST"])
+              async def proxy_chat(request: Request):
+                  return await proxy_request(request, "v1/chat/completions")
+
+              @app.api_route("/completions", methods=["POST"])
+              async def proxy_compl(request: Request):
+                  return await proxy_request(request, "v1/completions")
+
+
+              webui = "/app/webui"
+              if os.path.isfile(os.path.join(webui, "index.html")):
+                  @app.get("/")
+                  async def root_ui():
+                      return FileResponse(os.path.join(webui, "index.html"))
+                  @app.get("/index.html")
+                  async def root_index():
+                      return FileResponse(os.path.join(webui, "index.html"))
+                  @app.get("/bundle.js")
+                  async def bundle_js():
+                      return FileResponse(os.path.join(webui, "bundle.js"), media_type="application/javascript")
+                  @app.get("/bundle.css")
+                  async def bundle_css():
+                      return FileResponse(os.path.join(webui, "bundle.css"), media_type="text/css")
+                  @app.get("/loading.html")
+                  async def loading_html():
+                      return FileResponse(os.path.join(webui, "loading.html"))
+              else:
+                  @app.get("/")
+                  async def root_fallback():
+                      return JSONResponse({"error": "webui missing", "hint": "API at /v1", "phase": _phase})
+
+              if __name__ == "__main__":
+                  import uvicorn
+                  uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+              PYEOF
+
+              exec python3 /app/launcher.py
+          envFrom:
+            - configMapRef:
+                name: vllm-qwen3635b-nvfp4f-env
+          env:
+            - name: HF_HOME
+              value: "/shared-models/llms/huggingface"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: VLLM_BOOTSTRAP_TIMEOUT_SEC
+              value: "21600"
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: "1"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            {{- if .Values.olaresEnv.HF_ENDPOINT }}
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            {{- end }}
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "24400m"
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: "1"
+              memory: 4Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: vllmqwen3635bnvfp4fone
+  name: vllmqwen3635bnvfp4fone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "vllm"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: vllmqwen3635bnvfp4fone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: vllmqwen3635bnvfp4fone
+  name: sharedentrances-vllmqwen3635bnvfp4fone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "vllmqwen3635bnvfp4fone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: vllmqwen3635bnvfp4fone

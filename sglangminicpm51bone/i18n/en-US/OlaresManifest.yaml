@@ -1,0 +1,16 @@
+metadata:
+  description: "MiniCPM5-1B via SGLang — tool use, coding, hybrid reasoning on Olares One"
+  title: MiniCPM5 1B One
+spec:
+  fullDescription: |
+    OpenBMB MiniCPM5-1B served via SGLang on Olares One (RTX 5090M, 96GB DDR5).
+    1B-class SOTA for on-device assistants, coding agents, and tool-use workflows.
+    Standard LlamaForCausalLM — no custom kernels. Think mode and No-Think mode via chat template.
+    Uses official container image lmsysorg/sglang:dev-cu13. Bootstraps at startup with:
+      pip install -U "sglang[srt]>=0.5.12" "transformers>=5.6" hf_transfer
+    Startup: python -m sglang.launch_server --model-path openbmb/MiniCPM5-1B --tool-call-parser minicpm5
+    Native minicpm5 tool-call parser converts XML-style tool calls to OpenAI-compatible tool_calls.
+    Model weights (~2GB BF16) download from Hugging Face into /models at startup.
+    OpenAI-compatible API on port 30000. VRAM-tuned: context 8K, mem-fraction-static 0.35,
+    max-total-tokens 12288, 1 concurrent request, chunked-prefill 2048, radix cache off (~3–5GB VRAM typical). Apache 2.0 license.
+    Sampling: No-Think mode temp=0.7 top_p=0.95; Think mode temp=0.9 top_p=0.95 (enable_thinking in chat template).

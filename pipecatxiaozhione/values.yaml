@@ -1,0 +1,54 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+image:
+  repository: ghcr.io/coynntis/pipecat-xiaozhi-bridge
+  tag: 0.5.4
+  pullPolicy: IfNotPresent
+melo:
+  repository: ghcr.io/alvaroemtnez/melotts-fastapi
+  tag: latest
+  digest: "sha256:899d49d3890f49b29f89e48b670fa306e5ba7f598a56528e7fa7eccc0a1b669b"
+  pullPolicy: IfNotPresent
+  models: "EN,ZH"
+sherpa:
+  repository: ghcr.io/ptbsare/home-assistant-addons/amd64-addon-sherpa-onnx-tts-stt
+  tag: latest
+  pullPolicy: IfNotPresent
+  language: "zh-CN"
+  # Builtin name must match models/tts/*.py in the addon (NOT kokoro-multi-lang-v1_1).
+  ttsModel: "kokoro-int8-multi-lang-v1_1"
+  ttsThreads: "24"
+  ttsSpeakerSid: "2"
+  # STT skipped via CUSTOM_STT_MODEL_EVAL=None in template (TTS-only sidecar).
+kokoro:
+  repository: ghcr.io/remsky/kokoro-fastapi-cpu
+  tag: latest
+  pullPolicy: IfNotPresent
+audio8:
+  repository: ghcr.io/coynntis/audio8-tts-onnx
+  tag: 0.6b-int4
+  pullPolicy: IfNotPresent
+  threads: "24"
+workloads:
+  pipecatxiaozhione:
+    replicaCount: 1
+  pipecatxiaozhionecli:
+    replicaCount: 1
+  pipecatxiaozhimelo:
+    replicaCount: 1
+  pipecatxiaozhisherpa:
+    replicaCount: 1
+  pipecatxiaozhikokoro:
+    replicaCount: 1
+  pipecatxiaozhiaudio8:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

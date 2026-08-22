@@ -1,0 +1,129 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  colibridsv4flash0731one: 1
+  colibridsv4flash0731onecli: 1
+metadata:
+  name: colibridsv4flash0731one
+  icon: https://cdn.olares.com/images/2026/08/eedb19340ea8619fdaf0887103335b7a.png
+  description: EXPERIMENTAL DeepSeek-V4-Flash-0731 — Colibri SSD expert stream
+  title: DSV4 Flash Colibri
+  version: 1.0.2
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: deepseek
+    size_label: 284B-A21B
+    badge: experimental
+    hero:
+      value: ~155 GB
+      label: official FP4/FP8 + SSD stream
+    specs:
+      - label: context
+        value: engine
+      - label: vram
+        value: optional
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: false
+    stack: JustVugg/colibri · deepseek-v4 · disk MoE
+sharedEntrances:
+  - name: colibridsv4flash0731one
+    host: sharedentrances-colibridsv4flash0731one
+    port: 0
+    title: DSV4 Colibri API
+    icon: https://cdn.olares.com/images/2026/08/eedb19340ea8619fdaf0887103335b7a.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: colibridsv4flash0731onecli
+    port: 8080
+    host: colibridsv4flash0731onecli
+    title: DSV4 Flash Colibri
+    icon: https://cdn.olares.com/images/2026/08/eedb19340ea8619fdaf0887103335b7a.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.2
+  featuredImage: https://cdn.olares.com/images/2026/08/a76f15a2d1b0c1e0d2e387bf3be9d291.png
+  upgradeDescription: |
+    v1.0.2: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.0: experimental Colibri deepseek-v4 engine — streams official
+      deepseek-ai/DeepSeek-V4-Flash-0731 (~155 GB) from NVMe with --ram planner budget.
+      Builds JustVugg/colibri; OpenAI gateway via coli serve :8000. Slow / disk-bound TG.
+  fullDescription: |
+    EXPERIMENTAL — DeepSeek-V4-Flash-0731 via JustVugg/colibri SSD expert streaming.
+    Unlike llama.cpp --cpu-moe (experts must fit in RAM), Colibri pages routed experts
+    from disk into a RAM working set sized by COLIBRI_RAM_GB (default 48).
+
+      Checkpoint: deepseek-ai/DeepSeek-V4-Flash-0731 (~155.4 GB native FP4/FP8 safetensors)
+      Engine: make -C c deepseek-v4 (CPU OpenMP; DSpark not in this target PR)
+      Serve: python ./coli serve --host 0.0.0.0 --port 8000 --model … --ram N
+      Expectation: decode often disk-bound; correctness over speed. No SLA.
+
+    Editable knobs:
+      COLIBRI_RAM_GB: planner budget GiB (default 48; not an OS hard limit)
+      LLM_API_KEY: optional API key for OpenAI gateway
+      HF_TOKEN: required for large gated/rate-limited download
+
+    Disk: need ~180 GB free under /olares/share/ai/model (shared).
+    First boot: clone + compile + ~155 GB download — hours.
+
+    License: DeepSeek model license. Engine: see JustVugg/colibri.
+  developer: DeepSeek / JustVugg
+  website: https://github.com/JustVugg/colibri
+  sourceCode: https://github.com/JustVugg/colibri
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Model
+      url: https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      # CPU-streaming engine; GPU unused. Σ server 8/8Gi + 22/64Gi; client 10m/64Mi + 500m/500Mi
+      requiredCpu: '9'
+      limitedCpu: '23'
+      requiredMemory: 9Gi
+      limitedMemory: 66Gi
+      requiredDisk: 180Gi
+      limitedDisk: 280Gi
+      requiredGPUMemory: 0Gi
+      limitedGPUMemory: 1Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: COLIBRI_RAM_GB
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

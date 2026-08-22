@@ -1,0 +1,8 @@
+metadata:
+  description: "Build Docker images from uploaded Dockerfile folders and push to ghcr.io"
+  title: Docker Builder One
+spec:
+  fullDescription: |
+    Upload a zip with your Dockerfile, build on Olares One, push to ghcr.io using your GitHub PAT.
+    Projects persist under appData/dockerbuilder/projects. Kaniko builds run one at a time with
+    a queued worker; queue status in UI and MCP. MCP streamable HTTP at /mcp/mcp for agents.

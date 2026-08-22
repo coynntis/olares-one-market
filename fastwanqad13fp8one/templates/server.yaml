@@ -1,0 +1,324 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: fastwanqad13fp8one
+  name: fastwanqad13fp8one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.fastwanqad13fp8one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: fastwanqad13fp8one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: fastwanqad13fp8one
+    spec:
+      {{- $token := .Values.olaresEnv.GITHUB_TOKEN | trim -}}
+      {{- $repo := .Values.image.repository | default "" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) }}
+      imagePullSecrets:
+        - name: fastwanqad13fp8one-ghcr
+      {{- end }}
+      containers:
+        - name: fastwan-gradio
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command:
+            - "bash"
+            - "-c"
+          args:
+            - |
+              LOG_DIR=/workspace/logs
+              INSTALL_LOG="$LOG_DIR/fastwan-install.log"
+              mkdir -p "$LOG_DIR" /workspace/fastwan /models/taehv
+              ATTEMPT_FILE="$LOG_DIR/.attempt-count"
+              ATTEMPT=$(( $(cat "$ATTEMPT_FILE" 2>/dev/null || echo 0) + 1 ))
+              echo "$ATTEMPT" > "$ATTEMPT_FILE"
+              STAMP=$(date +%Y%m%d-%H%M%S)
+              ATTEMPT_LOG="$LOG_DIR/install-attempt-${ATTEMPT}-${STAMP}.log"
+              exec > >(tee -a "$INSTALL_LOG" | tee -a "$ATTEMPT_LOG") 2>&1
+              echo "================================================================================"
+              echo "FastWan srv start — attempt ${ATTEMPT} @ $(date -Iseconds)"
+              echo "pod=${HOSTNAME:-unknown}"
+              echo "attempt_log=${ATTEMPT_LOG}"
+              echo "combined_log=${INSTALL_LOG}"
+              echo "================================================================================"
+              set -e
+              on_fail() {
+                rc=$?
+                echo "================================================================================"
+                echo "FastWan srv FAILED attempt ${ATTEMPT} exit=${rc} @ $(date -Iseconds)"
+                echo "this run: ${ATTEMPT_LOG}"
+                echo "all runs: ${INSTALL_LOG}"
+                echo "================================================================================"
+                exit "$rc"
+              }
+              trap on_fail ERR
+              export HOME="${HOME:-/root}"
+              # fastvideo-dev image (Dockerfile.python3.12) sets CUDA via ENV (persists in k8s):
+              #   CUDA_HOME=/usr/local/cuda-12.8, PATH, LD_LIBRARY_PATH
+              # It appends to /root/.bashrc (NOT run under k8s `bash -c` — Ubuntu returns early
+              # for non-interactive shells before the appended lines):
+              #   source $HOME/.local/bin/env    # uv on PATH
+              #   source /opt/venv/bin/activate
+              echo "==> Sourcing fastvideo-dev image env (.bashrc additions)"
+              if [ -f "$HOME/.local/bin/env" ]; then
+                # shellcheck disable=SC1091
+                . "$HOME/.local/bin/env"
+              else
+                export PATH="${HOME}/.local/bin:/root/.local/bin:${PATH}"
+              fi
+              if [ -f /opt/venv/bin/activate ]; then
+                # shellcheck disable=SC1091
+                . /opt/venv/bin/activate
+              else
+                echo "ERROR: /opt/venv missing — wrong fastvideo-dev image?"
+                exit 1
+              fi
+              if ! command -v uv >/dev/null 2>&1; then
+                echo "==> uv not on PATH after .local/bin/env; installing"
+                curl -fsSL https://astral.sh/uv/install.sh | sh
+                # shellcheck disable=SC1091
+                . "$HOME/.local/bin/env"
+              fi
+              export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.8}"
+              export PATH="${CUDA_HOME}/bin:${PATH}"
+              export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
+              echo "env check: HOME=$HOME"
+              echo "env check: uv=$(command -v uv) ($(uv --version 2>/dev/null || echo missing))"
+              echo "env check: python=$(command -v python) ($(python --version 2>&1))"
+              echo "env check: CUDA_HOME=$CUDA_HOME"
+              echo "env check: nvcc=$(command -v nvcc || echo missing)"
+              PY="$(command -v python)"
+              mkdir -p /workspace/fastwan /models/taehv
+              cp /app-src/app.py /workspace/fastwan/app.py
+              cp /app-src/requirements.txt /workspace/fastwan/requirements.txt
+              if [ -f /app-src/fastwan_worker_patch.py ]; then
+                cp /app-src/fastwan_worker_patch.py /workspace/fastwan/fastwan_worker_patch.py
+              else
+                echo "WARN: /app-src/fastwan_worker_patch.py missing — upgrade chart (ConfigMap stale)"
+              fi
+              if [ ! -f /models/taehv/taew2_1.pth ]; then
+                echo "==> Fetching TAEHV weights"
+                rm -rf /tmp/taehv
+                git clone --depth 1 https://github.com/madebyollin/taehv /tmp/taehv
+                cp /tmp/taehv/taew2_1.pth /models/taehv/
+              fi
+              if ! "$PY" -c "import taehv" 2>/dev/null; then
+                "$PY" -m pip install /tmp/taehv 2>/dev/null || "$PY" -m pip install git+https://github.com/madebyollin/taehv.git
+              fi
+              echo "==> Syncing FastVideo to main (per HF model card)"
+              cd /FastVideo
+              git fetch origin main
+              git checkout -B main origin/main
+              git log -1 --oneline
+              "$PY" -m pip install -e . -v
+              cd -
+              echo "==> Skipping fastvideo-kernel build (not needed for FP8 / SAGE_ATTN path)"
+              SAGEATTN_MARKER=/workspace/.sageattention-2.2.0-installed
+              if [ ! -f "$SAGEATTN_MARKER" ] || ! "$PY" -c "from sageattention import sageattn" 2>/dev/null; then
+                echo "==> Building sageattention v2.2.0 from source (SageAttention2++; not on PyPI)"
+                rm -f "$SAGEATTN_MARKER"
+                export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-8.9;12.0+PTX}"
+                MAX_JOBS=4 "$PY" -m pip install -v \
+                  "git+https://github.com/thu-ml/SageAttention.git@v2.2.0" \
+                  --no-build-isolation 2>&1 | tee /workspace/fastwan-sageattention-build.log
+                if ! "$PY" -c "from sageattention import sageattn" 2>/dev/null; then
+                  echo "ERROR: sageattention build finished but import failed — see /workspace/fastwan-sageattention-build.log"
+                  exit 1
+                fi
+                touch "$SAGEATTN_MARKER"
+              fi
+              echo "==> Verifying SAGE_ATTN — required for FastWan-QAD-FP8-1.3B (4090/Ada fallback)"
+              echo "NOTE: DenoisingStage may WARN that SAGE_ATTN is unsupported (only lists SAGE_ATTN_THREE)."
+              echo "      That is harmless VSA metadata; DiT self-attention still uses SAGE_ATTN when sageattention imports."
+              FASTVIDEO_ATTENTION_BACKEND=SAGE_ATTN "$PY" - <<'PY'
+              import os
+              import sys
+
+              import torch
+              from fastvideo.platforms import AttentionBackendEnum, current_platform
+
+              try:
+                  from sageattention import sageattn  # noqa: F401
+              except ImportError as exc:
+                  print(f"FAIL: sageattention (SA2++) required: {exc}", file=sys.stderr)
+                  sys.exit(1)
+
+              cap = torch.cuda.get_device_capability()
+              print(f"GPU sm{cap[0]}{cap[1]}")
+              cls = current_platform.get_attn_backend_cls(
+                  AttentionBackendEnum.SAGE_ATTN, 128, torch.bfloat16
+              )
+              if "sage_attn.SageAttentionBackend" not in cls:
+                  print(f"FAIL: expected SageAttentionBackend, got {cls}", file=sys.stderr)
+                  sys.exit(1)
+              print(f"OK: FastVideo SAGE_ATTN -> {cls} (FP8 QAD path)")
+              PY
+              cd /workspace/fastwan
+              "$PY" -m pip install -q -r requirements.txt
+              echo "==> Installing FastWan worker patches (spawn workers import via site-packages)"
+              SITE=$("$PY" -c "import site; print([p for p in site.getsitepackages() if p.endswith('site-packages')][0])")
+              if [ -f /app-src/fastwan_worker_patch.py ]; then
+                cp /app-src/fastwan_worker_patch.py "${SITE}/fastwan_worker_patch.py"
+                printf '%s\n' "import fastwan_worker_patch; fastwan_worker_patch.apply('site-packages.pth')" > "${SITE}/fastwan_worker_patch.pth"
+              else
+                echo "WARN: skipping worker patch bootstrap — upgrade chart to pick up ConfigMap"
+              fi
+              echo "==> Verify fastwan worker patch (site-packages .pth + rev)"
+              "$PY" - <<'PY'
+              import fastwan_worker_patch
+              ok = fastwan_worker_patch.apply("install-verify")
+              fastwan_worker_patch.log_status("install-verify")
+              if not ok or not fastwan_worker_patch.is_applied():
+                  raise SystemExit("FAIL: fastwan_worker_patch not applied")
+              print(f"OK: fastwan_worker_patch rev={fastwan_worker_patch.PATCH_REV} file={fastwan_worker_patch.__file__}")
+              print(f"OK: active patches={list(fastwan_worker_patch.active_patches())}")
+              PY
+              echo "==> Verify FA4 blocked (cross-attn FLASH fallback must use FA2/FA3)"
+              "$PY" - <<'PY'
+              from fastvideo.attention.backends import flash_attn as fa
+              ver = getattr(fa, "fa_version", None)
+              print(f"FlashAttention fallback version: {ver}")
+              if ver == "4":
+                  raise SystemExit("FAIL: FA4 cute still active — cross-attn crashes on Olares HAMI")
+              if ver is None:
+                  raise SystemExit("FAIL: no FlashAttention fallback available for cross-attn")
+              print(f"OK: cross-attn FLASH fallback uses FA{ver}")
+              PY
+              export FASTVIDEO_ATTENTION_BACKEND=SAGE_ATTN
+              export FASTVIDEO_DISABLE_ATTENTION_COMPILE=1
+              export FASTWAN_INPROCESS_EXECUTOR=1
+              export FASTVIDEO_WORKER_MULTIPROC_METHOD=spawn
+              export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+              export TAEHV_CHECKPOINT=/models/taehv/taew2_1.pth
+              export HF_HOME=/models/huggingface
+              export FASTWAN_ENABLE_COMPILE=0
+              export FASTWAN_WARMUPS=0
+              export FASTWAN_PRELOAD=0
+              export FASTWAN_SKIP_BACKEND_VERIFY=1
+              export FASTWAN_TEXT_ENCODER_CPU_OFFLOAD=1
+              export FASTWAN_TAEHV_DEVICE=cpu
+              export CUDA_MODULE_LOADING=LAZY
+              echo "==> Install complete, starting app @ $(date -Iseconds)"
+              if ! "$PY" app.py; then
+                rc=$?
+                echo "================================================================================"
+                echo "app.py exited with code ${rc} @ $(date -Iseconds) — sleeping for log inspection"
+                echo "logs: ${INSTALL_LOG}"
+                echo "================================================================================"
+                sleep infinity
+              fi
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: FASTVIDEO_ATTENTION_BACKEND
+              value: "SAGE_ATTN"
+            - name: FASTVIDEO_DISABLE_ATTENTION_COMPILE
+              value: "1"
+            - name: FASTWAN_INPROCESS_EXECUTOR
+              value: "1"
+            - name: FASTVIDEO_WORKER_MULTIPROC_METHOD
+              value: "spawn"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: FASTWAN_ENABLE_COMPILE
+              value: "0"
+            - name: FASTWAN_WARMUPS
+              value: "0"
+            - name: FASTWAN_PRELOAD
+              value: "0"
+            - name: FASTWAN_SKIP_BACKEND_VERIFY
+              value: "1"
+            - name: FASTWAN_TEXT_ENCODER_CPU_OFFLOAD
+              value: "1"
+            - name: FASTWAN_TAEHV_DEVICE
+              value: "cpu"
+            - name: FASTWAN_FP8_GRANULARITY
+              value: "tensor"
+            - name: CUDA_MODULE_LOADING
+              value: "LAZY"
+            - name: FASTWAN_MODEL
+              value: "FastVideo/FastWan-QAD-FP8-1.3B"
+            - name: TAEHV_CHECKPOINT
+              value: "/models/taehv/taew2_1.pth"
+          ports:
+            - containerPort: 7860
+          # No startup/liveness probes on srv: failed install holds with sleep infinity;
+          # probes would restart the pod and re-run pip/kernel builds, hiding logs.
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: "1"
+              memory: 8Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+        - name: app-source
+          configMap:
+            name: fastwanqad13fp8one-source
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: fastwanqad13fp8one
+  name: fastwanqad13fp8one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "gradio"
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: fastwanqad13fp8one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: fastwanqad13fp8one
+  name: sharedentrances-fastwanqad13fp8one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "fastwanqad13fp8one"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: fastwanqad13fp8one

@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.20
+description: llamacppnemotrondiffusion14b1 client proxy
+name: llamacppnemotrondiffusion14b1
+type: application
+version: 1.0.20

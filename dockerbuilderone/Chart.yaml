@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.40"
+description: Web UI + MCP to build Docker images and push to ghcr.io on Olares One
+name: dockerbuilderone
+type: application
+version: 1.0.40

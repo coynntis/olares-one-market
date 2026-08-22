@@ -1,0 +1,1149 @@
+"""Ideogram 4 NF4 + fal Instant Gradio UI for Olares One (RTX 5090M 24GB)."""
+
+from __future__ import annotations
+
+import gc
+import json
+import logging
+import math
+import os
+import random
+import time
+from typing import Any
+
+import gradio as gr
+import requests
+import torch
+
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+# outlines ships a @torch.compile kernel dynamo can't trace; we don't use compile at runtime.
+os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
+
+from diffusers import Ideogram4Pipeline, Ideogram4PromptEnhancerHead, Ideogram4Transformer2DModel  # noqa: E402
+from diffusers.quantizers.bitsandbytes.bnb_quantizer import BnB4BitDiffusersQuantizer  # noqa: E402
+
+LOG = logging.getLogger("ideogram4nf4one")
+
+MODEL_ID = os.getenv("IDEOGRAM_MODEL_ID", "ideogram-ai/ideogram-4-nf4-diffusers")
+LM_HEAD_REPO = os.getenv("IDEOGRAM_LM_HEAD_REPO", "diffusers/qwen3-vl-8b-instruct-lm-head")
+INSTANT_REPO = os.getenv("IDEOGRAM_INSTANT_REPO", "fal/ideogram-v4-instant")
+COMPONENTS_REPO = os.getenv(
+    "IDEOGRAM_COMPONENTS_REPO", "ideogram-ai/ideogram-4-nf4-diffusers"
+)
+# Official fal Instant README pins this TE/VAE/scheduler snapshot.
+COMPONENTS_REVISION = os.getenv(
+    "IDEOGRAM_COMPONENTS_REVISION",
+    "1874bc70267ba2c823a7239e1d70dd308c8d64dc",
+).strip()
+IDEOGRAM_MAGIC_PROMPT_URL = "https://api.ideogram.ai/v1/ideogram-v4/magic-prompt"
+IDEOGRAM_API_KEY = os.getenv("IDEOGRAM_API_KEY", "").strip()
+ATTENTION_BACKEND = os.getenv("IDEOGRAM_ATTENTION_BACKEND", "auto").strip().lower()
+MAX_SEED = 2**31 - 1
+SERVER_PORT = int(os.getenv("SERVER_PORT", "7860"))
+VRAM_OFFLOAD_GB = float(os.getenv("IDEOGRAM_VRAM_OFFLOAD_GB", "25"))
+# After Instant generate: park TE/DiT/VAE on CPU (frees VRAM, keeps RAM cache warm).
+PARK_AFTER_GENERATE = os.getenv("IDEOGRAM_PARK_AFTER_GENERATE", "1").strip().lower() not in (
+    "0",
+    "false",
+    "no",
+)
+# Hard unload both pipelines after each generate (cold reload next time).
+UNLOAD_AFTER_GENERATE = os.getenv("IDEOGRAM_UNLOAD_AFTER_GENERATE", "0").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
+UPSAMPLERS = ["Ideogram (remote)", "Qwen (local)", "None (raw prompt)"]
+
+MODE_INSTANT = "Turbo · Instant 8"
+MODE_TURBO12 = "Turbo · 12 steps"
+MODE_DEFAULT = "Default · 20 steps"
+MODE_QUALITY = "Quality · 48 steps"
+
+# Packed text tokens in DiT attention. Diffusers default 2048 is far larger than Instant
+# JSON captions need; O(n²) attention — 512 is ~4× cheaper vs 2048 at 1024².
+MAX_SEQ_LEN_INSTANT = int(os.getenv("IDEOGRAM_MAX_SEQ_LEN_INSTANT", "512"))
+MAX_SEQ_LEN_NF4 = int(os.getenv("IDEOGRAM_MAX_SEQ_LEN_NF4", "1024"))
+
+MODES: dict[str, dict[str, Any]] = {
+    MODE_INSTANT: {
+        "kind": "instant",
+        "num_inference_steps": 8,
+        "guidance_scale": 1.0,
+        "guidance_schedule": None,
+        "mu": 0.0,
+        "std": 1.75,
+        "max_sequence_length": MAX_SEQ_LEN_INSTANT,
+    },
+    MODE_TURBO12: {
+        "kind": "nf4",
+        "num_inference_steps": 12,
+        "guidance_schedule": (7.0,) * 11 + (3.0,) * 1,
+        "mu": 0.5,
+        "std": 1.75,
+        "max_sequence_length": MAX_SEQ_LEN_NF4,
+    },
+    MODE_DEFAULT: {
+        "kind": "nf4",
+        "num_inference_steps": 20,
+        "guidance_schedule": (7.0,) * 18 + (3.0,) * 2,
+        "mu": 0.0,
+        "std": 1.75,
+        "max_sequence_length": MAX_SEQ_LEN_NF4,
+    },
+    MODE_QUALITY: {
+        "kind": "nf4",
+        "num_inference_steps": 48,
+        "guidance_schedule": (7.0,) * 45 + (3.0,) * 3,
+        "mu": 0.0,
+        "std": 1.5,
+        "max_sequence_length": MAX_SEQ_LEN_NF4,
+    },
+}
+
+
+class ZeroUnconditionalTransformer(torch.nn.Module):
+    """Stand-in for Diffusers CFG branch (fal Instant single-branch).
+
+    fal docs use a buffer-only module + pipe.to("cuda"). With
+    enable_model_cpu_offload(), Accelerate does next(module.parameters()).device
+    and crashes (StopIteration) if there are zero Parameters. Keep a tiny
+    Parameter so offload hooks work, and keep the forward a zero tensor.
+    """
+
+    def __init__(self, dtype: torch.dtype = torch.bfloat16) -> None:
+        super().__init__()
+        # Must be a Parameter — buffers alone are not enough for Accelerate hooks.
+        self._device_anchor = torch.nn.Parameter(torch.zeros((), dtype=dtype), requires_grad=False)
+
+    @property
+    def dtype(self) -> torch.dtype:
+        return self._device_anchor.dtype
+
+    def forward(self, *args, hidden_states=None, **kwargs):  # noqa: ANN001
+        if hidden_states is None and args:
+            hidden_states = args[0]
+        if hidden_states is None:
+            raise TypeError("ZeroUnconditionalTransformer expects hidden_states")
+        return (torch.zeros_like(hidden_states),)
+
+
+_PIPE_NF4: Ideogram4Pipeline | None = None
+_PIPE_INSTANT: Ideogram4Pipeline | None = None
+
+
+def _setup_logging() -> None:
+    level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
+    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+
+def _patch_bnb_quantizer() -> None:
+    """cu130-era bitsandbytes returns Params4bit.shape as tuple; diffusers expects .numel()."""
+
+    def _check_quantized_param_shape(self, param_name, current_param, loaded_param):
+        n = math.prod(tuple(current_param.shape))
+        inferred_shape = (n,) if "bias" in param_name else ((n + 1) // 2, 1)
+        if tuple(loaded_param.shape) != tuple(inferred_shape):
+            raise ValueError(
+                f"Expected flattened shape of {param_name} to be {inferred_shape}, "
+                f"got {tuple(loaded_param.shape)}."
+            )
+        return True
+
+    BnB4BitDiffusersQuantizer.check_quantized_param_shape = _check_quantized_param_shape
+
+
+def _hf_token() -> str | None:
+    token = os.getenv("HF_TOKEN", "").strip()
+    return token or None
+
+
+def _gpu_memory_gb() -> float:
+    if not torch.cuda.is_available():
+        return 0.0
+    return torch.cuda.get_device_properties(0).total_memory / (1024**3)
+
+
+def _free_cuda(prefix: str = "", *, hard: bool = False) -> None:
+    gc.collect()
+    if torch.cuda.is_available():
+        try:
+            torch.cuda.synchronize()
+        except Exception:
+            pass
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+        if hard:
+            # Drop allocator caches more aggressively (still no true leak fix if refs live).
+            try:
+                torch.cuda.reset_peak_memory_stats()
+            except Exception:
+                pass
+    if prefix:
+        LOG.info("%s cuda cache cleared%s", prefix, " (hard)" if hard else "")
+
+
+def _vram_report() -> str:
+    """Human-readable VRAM + which pipelines are resident."""
+    lines: list[str] = []
+    nf4 = "loaded" if _PIPE_NF4 is not None else "—"
+    inst = "loaded" if _PIPE_INSTANT is not None else "—"
+    if _PIPE_INSTANT is not None:
+        staged = bool(getattr(_PIPE_INSTANT, "_ideogram_staged_vram", False))
+        inst = f"loaded ({'staged' if staged else 'full-gpu'})"
+    lines.append(f"pipelines: NF4={nf4}  Instant={inst}")
+    if not torch.cuda.is_available():
+        lines.append("CUDA: unavailable")
+        return "\n".join(lines)
+    free_b, total_b = torch.cuda.mem_get_info()
+    alloc = torch.cuda.memory_allocated()
+    reserved = torch.cuda.memory_reserved()
+    peak = torch.cuda.max_memory_allocated()
+    lines.append(
+        f"VRAM free {free_b / 1024**3:.2f} / {total_b / 1024**3:.2f} GB  "
+        f"({100.0 * free_b / total_b:.0f}% free)"
+    )
+    lines.append(
+        f"PyTorch alloc {alloc / 1024**3:.2f} GB  reserved {reserved / 1024**3:.2f} GB  "
+        f"peak {peak / 1024**3:.2f} GB"
+    )
+    return "\n".join(lines)
+
+
+def _park_pipeline_cpu(pipe: Ideogram4Pipeline | None, label: str = "pipeline") -> None:
+    """Move heavy modules to CPU so VRAM is free between runs (weights stay in RAM)."""
+    if pipe is None:
+        return
+    _instant_reset_offload(pipe)
+    for name in ("text_encoder", "transformer", "vae", "prompt_enhancer_head", "unconditional_transformer"):
+        mod = getattr(pipe, name, None)
+        if mod is None:
+            continue
+        try:
+            mod.to("cpu")
+        except Exception as exc:
+            LOG.debug("%s park %s→cpu skip: %s", label, name, exc)
+    pipe._ideogram_cpu_offload = False  # type: ignore[attr-defined]
+    _free_cuda(f"after {label} park→cpu")
+
+
+def _unload_all_models() -> str:
+    """Drop cached pipelines and free CUDA allocator."""
+    global _PIPE_NF4, _PIPE_INSTANT
+    dropped: list[str] = []
+    if _PIPE_NF4 is not None:
+        try:
+            _PIPE_NF4.to("cpu")
+        except Exception:
+            pass
+        del _PIPE_NF4
+        _PIPE_NF4 = None
+        dropped.append("NF4")
+    if _PIPE_INSTANT is not None:
+        try:
+            _PIPE_INSTANT.to("cpu")
+        except Exception:
+            pass
+        del _PIPE_INSTANT
+        _PIPE_INSTANT = None
+        dropped.append("Instant")
+    _free_cuda("after unload all", hard=True)
+    what = "+".join(dropped) if dropped else "nothing"
+    LOG.info("unloaded models: %s", what)
+    return f"Unloaded: {what}\n\n{_vram_report()}"
+
+
+def _force_clear_vram() -> str:
+    """Park resident pipes on CPU + hard empty_cache (no full reload)."""
+    if _PIPE_NF4 is not None:
+        _park_pipeline_cpu(_PIPE_NF4, "NF4")
+    if _PIPE_INSTANT is not None:
+        _park_pipeline_cpu(_PIPE_INSTANT, "Instant")
+    _free_cuda("force clear VRAM", hard=True)
+    LOG.info("force clear VRAM done")
+    return f"Forced VRAM clear (models parked on CPU).\n\n{_vram_report()}"
+
+
+def _set_attention_backend(pipe: Ideogram4Pipeline, label: str) -> None:
+    """Pick Diffusers attention backend for Ideogram4.
+
+    Ideogram4 always passes a dense block-diagonal `attn_mask` (segment packing).
+    Flash / FA3 / FA4 / `_native_flash` / `flash_hub` reject that mask at runtime.
+    Use mask-capable native SDPA family only (`native`, `_native_efficient`, …).
+    Note: Diffusers has no backend named `sdpa` — that is PyTorch's API name.
+    """
+    backends: list[str]
+    if ATTENTION_BACKEND and ATTENTION_BACKEND not in {"auto", ""}:
+        # Map common aliases users may set in Settings.
+        alias = {
+            "sdpa": "native",
+            "sdp": "native",
+            "efficient": "_native_efficient",
+            "cudnn": "_native_cudnn",
+            "math": "_native_math",
+        }
+        backends = [alias.get(ATTENTION_BACKEND, ATTENTION_BACKEND)]
+    else:
+        # Mask-capable only (names from Diffusers AttentionBackendName).
+        backends = ["_native_efficient", "_native_cudnn", "native", "_native_math"]
+
+    modules = []
+    for name in ("transformer", "unconditional_transformer"):
+        mod = getattr(pipe, name, None)
+        if mod is not None and hasattr(mod, "set_attention_backend"):
+            modules.append((name, mod))
+
+    if not modules:
+        LOG.info("%s: no set_attention_backend hooks; using Diffusers default (native SDPA)", label)
+        return
+
+    for backend in backends:
+        try:
+            for name, mod in modules:
+                mod.set_attention_backend(backend)
+            LOG.info("%s: attention backend=%s on %s", label, backend, [n for n, _ in modules])
+            return
+        except Exception as exc:
+            LOG.info("%s: attention backend %s skip (%s)", label, backend, exc)
+
+    LOG.info("%s: leaving Diffusers default attention (mask-safe)", label)
+
+
+def _drop_nf4() -> None:
+    global _PIPE_NF4
+    if _PIPE_NF4 is not None:
+        LOG.info("unloading NF4 pipeline to free VRAM")
+        del _PIPE_NF4
+        _PIPE_NF4 = None
+        _free_cuda("after NF4 unload")
+
+
+def _drop_instant() -> None:
+    global _PIPE_INSTANT
+    if _PIPE_INSTANT is not None:
+        LOG.info("unloading Instant pipeline to free VRAM")
+        del _PIPE_INSTANT
+        _PIPE_INSTANT = None
+        _free_cuda("after Instant unload")
+
+
+def _force_cpu_offload() -> bool:
+    return os.getenv("IDEOGRAM_CPU_OFFLOAD", "").strip().lower() in ("1", "true", "yes")
+
+
+def _instant_full_gpu() -> bool:
+    return os.getenv("IDEOGRAM_INSTANT_FULL_GPU", "").strip().lower() in ("1", "true", "yes")
+
+
+def _instant_uses_staged_vram() -> bool:
+    """24GB cannot hold BF16 DiT + NF4 TE + VAE; staged swap beats accelerate offload (~80s encode)."""
+    if _instant_full_gpu():
+        return False
+    return _gpu_memory_gb() <= VRAM_OFFLOAD_GB
+
+
+def _instant_reset_offload(pipe: Ideogram4Pipeline) -> None:
+    for name in ("text_encoder", "transformer", "vae", "unconditional_transformer"):
+        mod = getattr(pipe, name, None)
+        if mod is not None:
+            _strip_offload_hooks(mod)
+    try:
+        from accelerate.hooks import remove_hook_from_module
+
+        remove_hook_from_module(pipe, recurse=False)
+    except Exception as exc:
+        LOG.debug("remove_hook_from_module(pipe) skipped: %s", exc)
+
+
+def _instant_stage_devices(pipe: Ideogram4Pipeline, stage: str) -> None:
+    """Manual TE/DiT/VAE residency — NF4 text_encoder must run on CUDA (not bnb CPU ~80s)."""
+    cuda = torch.device("cuda")
+    cpu = torch.device("cpu")
+    te = pipe.text_encoder
+    tr = pipe.transformer
+    vae = pipe.vae
+    unc = getattr(pipe, "unconditional_transformer", None)
+
+    if stage == "encode":
+        tr.to(cpu)
+        vae.to(cpu)
+        te.to(cuda)
+        if unc is not None:
+            unc.to(cpu)
+    elif stage == "denoise":
+        te.to(cpu)
+        vae.to(cpu)
+        tr.to(cuda)
+        if unc is not None:
+            unc.to(cpu)
+    elif stage == "decode":
+        te.to(cpu)
+        tr.to(cpu)
+        vae.to(cuda)
+        if unc is not None:
+            unc.to(cpu)
+    elif stage == "idle":
+        te.to(cpu)
+        tr.to(cpu)
+        vae.to(cpu)
+        if unc is not None:
+            unc.to(cpu)
+    else:
+        raise ValueError(f"unknown instant stage: {stage}")
+    _free_cuda(f"instant stage={stage}")
+
+
+def _strip_offload_hooks(module: torch.nn.Module | None) -> None:
+    if module is None:
+        return
+    try:
+        from accelerate.hooks import remove_hook_from_module
+
+        remove_hook_from_module(module, recurse=True)
+    except Exception as exc:
+        LOG.debug("remove_hook_from_module skipped: %s", exc)
+
+
+@torch.inference_mode()
+def _instant_infer(
+    pipe: Ideogram4Pipeline,
+    *,
+    prompt: str,
+    height: int,
+    width: int,
+    num_inference_steps: int = 8,
+    mu: float = 0.0,
+    std: float = 1.75,
+    generator: torch.Generator | None = None,
+    max_sequence_length: int = 512,
+    guidance_scale: float = 1.0,  # noqa: ARG001 — Instant is always single-branch
+    guidance_schedule=None,  # noqa: ARG001
+    **_ignored: Any,
+):
+    """fal Instant path: 8-step single-branch — never call unconditional_transformer.
+
+    Stock Diffusers always runs the CFG dummy every step. With model_cpu_offload that can
+    PCIe-thrash the BF16 DiT off GPU between steps. Skipping uncond keeps DiT resident.
+    Also uses a shorter packed text length than Diffusers' 2048 default (JSON captions).
+    """
+    from diffusers.pipelines.ideogram4.pipeline_ideogram4 import (  # noqa: WPS433
+        Ideogram4PipelineOutput,
+        _expand_tensor_to_effective_batch,
+        _logit_normal_sigmas,
+        _resolution_aware_mu,
+    )
+
+    if isinstance(prompt, str):
+        batch_size = 1
+        prompts: str | list[str] = prompt
+    else:
+        batch_size = len(prompt)
+        prompts = prompt
+
+    num_images_per_prompt = 1
+    staged = bool(getattr(pipe, "_ideogram_staged_vram", False))
+    cuda = torch.device("cuda")
+    device = cuda if staged else pipe._execution_device
+    t_enc = time.perf_counter()
+
+    grid_h = height // (pipe.vae_scale_factor * pipe.patch_size)
+    grid_w = width // (pipe.vae_scale_factor * pipe.patch_size)
+    num_image_tokens = grid_h * grid_w
+
+    if staged:
+        _instant_stage_devices(pipe, "encode")
+
+    llm_features, position_ids, segment_ids, indicator = pipe.encode_prompt(
+        prompt=prompts,
+        grid_h=grid_h,
+        grid_w=grid_w,
+        max_sequence_length=max_sequence_length,
+        device=device,
+    )
+    llm_features = _expand_tensor_to_effective_batch(llm_features, batch_size, num_images_per_prompt)
+    position_ids = _expand_tensor_to_effective_batch(position_ids, batch_size, num_images_per_prompt)
+    segment_ids = _expand_tensor_to_effective_batch(segment_ids, batch_size, num_images_per_prompt)
+    indicator = _expand_tensor_to_effective_batch(indicator, batch_size, num_images_per_prompt)
+    LOG.info(
+        "[timing] instant encode_prompt %.2fs (max_seq=%d%s)",
+        time.perf_counter() - t_enc,
+        max_sequence_length,
+        ", staged TE→GPU" if staged else "",
+    )
+
+    if staged:
+        _instant_stage_devices(pipe, "denoise")
+        device = cuda
+
+    schedule_mu = _resolution_aware_mu(height=height, width=width, base_mu=mu)
+    sigmas = _logit_normal_sigmas(num_inference_steps, schedule_mu, std=std, device=device)
+    pipe.scheduler.set_timesteps(sigmas=sigmas.tolist(), device=device)
+    timesteps = pipe.scheduler.timesteps
+
+    latent_dim = pipe.transformer.config.in_channels
+    latents = pipe.prepare_latents(
+        batch_size=batch_size * num_images_per_prompt,
+        num_image_tokens=num_image_tokens,
+        latent_dim=latent_dim,
+        dtype=torch.float32,
+        device=device,
+        generator=generator,
+        latents=None,
+    )
+
+    text_z_padding = torch.zeros(
+        batch_size * num_images_per_prompt,
+        max_sequence_length,
+        latent_dim,
+        dtype=torch.float32,
+        device=device,
+    )
+    llm_features = llm_features.to(pipe.transformer.dtype)
+
+    num_train_timesteps = pipe.scheduler.config.num_train_timesteps
+    t_den = time.perf_counter()
+    with pipe.progress_bar(total=num_inference_steps) as progress_bar:
+        for _i, t in enumerate(timesteps):
+            t_model = 1.0 - (t.float() / num_train_timesteps)
+            t_model = t_model.expand(batch_size * num_images_per_prompt).to(pipe.transformer.dtype)
+
+            pos_z = torch.cat([text_z_padding, latents], dim=1).to(pipe.transformer.dtype)
+            pos_out = pipe.transformer(
+                hidden_states=pos_z,
+                timestep=t_model,
+                encoder_hidden_states=llm_features,
+                position_ids=position_ids,
+                segment_ids=segment_ids,
+                indicator=indicator,
+                attention_kwargs=None,
+                return_dict=False,
+            )[0]
+            # guidance_scale=1.0 → v = pos_v (no uncond branch)
+            pos_v = pos_out[:, max_sequence_length:].to(torch.float32)
+            latents = pipe.scheduler.step(-pos_v, t, latents, return_dict=False)[0]
+            progress_bar.update()
+    LOG.info(
+        "[timing] instant denoise %d steps %.2fs (no CFG)",
+        num_inference_steps,
+        time.perf_counter() - t_den,
+    )
+
+    z = latents
+    bn_mean = pipe.vae.bn.running_mean.view(1, 1, -1).to(device=z.device, dtype=z.dtype)
+    bn_std = torch.sqrt(pipe.vae.bn.running_var + pipe.vae.config.batch_norm_eps).view(1, 1, -1)
+    bn_std = bn_std.to(device=z.device, dtype=z.dtype)
+    z = z * bn_std + bn_mean
+
+    patch = pipe.patch_size
+    ae_channels = z.shape[-1] // (patch * patch)
+    z = z.view(batch_size * num_images_per_prompt, grid_h, grid_w, patch, patch, ae_channels)
+    z = z.permute(0, 5, 1, 3, 2, 4).contiguous()
+    z = z.view(batch_size * num_images_per_prompt, ae_channels, grid_h * patch, grid_w * patch)
+
+    if staged:
+        _instant_stage_devices(pipe, "decode")
+
+    decoded = pipe.vae.decode(z.to(pipe.vae.dtype), return_dict=False)[0]
+    image = pipe.image_processor.postprocess(decoded.float(), output_type="pil")
+    # Drop decode/denoise activations; idle-park so VAE is not left on CUDA between runs.
+    del decoded, z, latents, llm_features, text_z_padding
+    if staged:
+        _instant_stage_devices(pipe, "idle")
+    if hasattr(pipe, "maybe_free_model_hooks"):
+        pipe.maybe_free_model_hooks()
+    _free_cuda("after instant infer")
+    return Ideogram4PipelineOutput(images=image)
+
+
+def _load_nf4_pipeline() -> Ideogram4Pipeline:
+    global _PIPE_NF4
+    if _PIPE_NF4 is not None:
+        return _PIPE_NF4
+
+    if not torch.cuda.is_available():
+        raise gr.Error("CUDA GPU is required for Ideogram 4.")
+
+    _drop_instant()
+    _patch_bnb_quantizer()
+    token = _hf_token()
+    t0 = time.perf_counter()
+    # Must be the Diffusers-layout NF4 repo (to_q/to_k/to_v). Native ideogram-4-nf4
+    # uses fused qkv/o and leaves meta tensors → Cannot copy out of meta tensor.
+    LOG.info("loading NF4 pipeline repo=%s", MODEL_ID)
+
+    try:
+        enhancer = Ideogram4PromptEnhancerHead.from_pretrained(
+            LM_HEAD_REPO,
+            torch_dtype=torch.bfloat16,
+            token=token,
+        )
+        pipe = Ideogram4Pipeline.from_pretrained(
+            MODEL_ID,
+            prompt_enhancer_head=enhancer,
+            torch_dtype=torch.bfloat16,
+            token=token,
+        )
+    except Exception:
+        LOG.exception("failed loading with local prompt enhancer; retrying without head")
+        pipe = Ideogram4Pipeline.from_pretrained(
+            MODEL_ID,
+            torch_dtype=torch.bfloat16,
+            token=token,
+        )
+
+    # Official Diffusers recipe is pipe.to("cuda"). cpu_offload breaks local Qwen
+    # upsample (grafted TE+LM head; Accelerate hooks leave weights on CPU).
+    # Opt-in only: IDEOGRAM_CPU_OFFLOAD=1
+    if _force_cpu_offload():
+        LOG.info("IDEOGRAM_CPU_OFFLOAD=1 — enable_model_cpu_offload() for NF4")
+        pipe.enable_model_cpu_offload()
+        pipe._ideogram_cpu_offload = True  # type: ignore[attr-defined]
+    else:
+        LOG.info("NF4 full GPU residency (pipe.to cuda) — local upsample compatible")
+        pipe.to("cuda")
+        pipe._ideogram_cpu_offload = False  # type: ignore[attr-defined]
+    _set_attention_backend(pipe, "NF4")
+    _PIPE_NF4 = pipe
+    LOG.info("NF4 pipeline ready in %.1fs", time.perf_counter() - t0)
+    return _PIPE_NF4
+
+
+def _load_instant_pipeline() -> Ideogram4Pipeline:
+    global _PIPE_INSTANT
+    if _PIPE_INSTANT is not None:
+        return _PIPE_INSTANT
+
+    if not torch.cuda.is_available():
+        raise gr.Error("CUDA GPU is required for Ideogram Instant.")
+
+    _drop_nf4()
+    _patch_bnb_quantizer()
+    token = _hf_token()
+    t0 = time.perf_counter()
+    LOG.info(
+        "loading Instant pipeline transformer=%s components=%s@%s",
+        INSTANT_REPO,
+        COMPONENTS_REPO,
+        COMPONENTS_REVISION or "main",
+    )
+
+    try:
+        transformer = Ideogram4Transformer2DModel.from_pretrained(
+            INSTANT_REPO,
+            subfolder="transformer",
+            torch_dtype=torch.bfloat16,
+            token=token,
+        )
+        from_kw: dict[str, Any] = {
+            "transformer": transformer,
+            "unconditional_transformer": None,
+            "torch_dtype": torch.bfloat16,
+            "token": token,
+        }
+        if COMPONENTS_REVISION:
+            from_kw["revision"] = COMPONENTS_REVISION
+        pipe = Ideogram4Pipeline.from_pretrained(COMPONENTS_REPO, **from_kw)
+    except Exception as exc:
+        LOG.exception("Instant pipeline load failed")
+        raise gr.Error(
+            "Failed to load fal Instant. Accept HF gates for "
+            f"`{INSTANT_REPO}` and `{COMPONENTS_REPO}` (or `{MODEL_ID}`), "
+            f"and ensure HF_TOKEN is set. Detail: {exc}"
+        ) from exc
+
+    # fal README uses pipe.to("cuda") on large VRAM. On 24GB use staged TE/DiT swap instead
+    # of accelerate offload — NF4 text_encoder on CPU via bnb is ~80s encode.
+    zero_unc = ZeroUnconditionalTransformer(dtype=torch.bfloat16)
+    pipe.register_modules(unconditional_transformer=zero_unc)
+
+    if _instant_uses_staged_vram():
+        LOG.info(
+            "Instant: staged VRAM (%.1fGB GPU) — TE on CUDA for encode, DiT for denoise",
+            _gpu_memory_gb(),
+        )
+        _instant_reset_offload(pipe)
+        pipe.to("cpu")
+        zero_unc.to("cuda")
+        pipe._ideogram_staged_vram = True  # type: ignore[attr-defined]
+        pipe._ideogram_cpu_offload = False  # type: ignore[attr-defined]
+    else:
+        try:
+            LOG.info("Instant: pipe.to(cuda) — IDEOGRAM_INSTANT_FULL_GPU or VRAM > %.0fGB", VRAM_OFFLOAD_GB)
+            pipe.to("cuda")
+            pipe._ideogram_staged_vram = False  # type: ignore[attr-defined]
+            pipe._ideogram_cpu_offload = False  # type: ignore[attr-defined]
+            if torch.cuda.is_available():
+                free_gb = torch.cuda.mem_get_info()[0] / (1024**3)
+                LOG.info("Instant GPU free after load: %.1fGB", free_gb)
+        except torch.cuda.OutOfMemoryError:
+            LOG.warning("Instant pipe.to(cuda) OOM — falling back to staged VRAM")
+            torch.cuda.empty_cache()
+            _instant_reset_offload(pipe)
+            pipe.to("cpu")
+            zero_unc.to("cuda")
+            pipe._ideogram_staged_vram = True  # type: ignore[attr-defined]
+            pipe._ideogram_cpu_offload = False  # type: ignore[attr-defined]
+
+    _set_attention_backend(pipe, "Instant")
+    _PIPE_INSTANT = pipe
+    LOG.info("Instant pipeline ready in %.1fs", time.perf_counter() - t0)
+    return _PIPE_INSTANT
+
+
+def _get_pipeline(mode: str) -> Ideogram4Pipeline:
+    preset = MODES.get(mode, MODES[MODE_DEFAULT])
+    if preset.get("kind") == "instant":
+        return _load_instant_pipeline()
+    return _load_nf4_pipeline()
+
+
+def _aspect_ratio(width: int, height: int) -> str:
+    d = math.gcd(int(width), int(height)) or 1
+    return f"{int(width) // d}x{int(height) // d}"
+
+
+def _remote_upsample(prompt: str, width: int, height: int) -> str:
+    if not IDEOGRAM_API_KEY:
+        raise RuntimeError("IDEOGRAM_API_KEY not set")
+    resp = requests.post(
+        IDEOGRAM_MAGIC_PROMPT_URL,
+        headers={"Api-Key": IDEOGRAM_API_KEY, "Content-Type": "application/json"},
+        json={"text_prompt": prompt, "aspect_ratio": _aspect_ratio(width, height)},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    jp = resp.json().get("json_prompt")
+    if not jp:
+        raise RuntimeError("Ideogram API returned no json_prompt")
+    jp.pop("aspect_ratio", None)
+    for el in jp.get("compositional_deconstruction", {}).get("elements", []):
+        if isinstance(el, dict):
+            el.pop("bbox", None)
+    return json.dumps(jp, ensure_ascii=False, separators=(",", ":"))
+
+
+def _local_upsample(pipe: Ideogram4Pipeline, prompt: str, width: int, height: int) -> str:
+    if not hasattr(pipe, "upsample_prompt"):
+        raise RuntimeError("Pipeline has no local upsampler (prompt_enhancer_head missing)")
+    if getattr(pipe, "prompt_enhancer_head", None) is None:
+        raise RuntimeError("prompt_enhancer_head not loaded — cannot run local Qwen upsampler")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    te = pipe.text_encoder
+    head = pipe.prompt_enhancer_head
+    offload = bool(getattr(pipe, "_ideogram_cpu_offload", False))
+
+    try:
+        if offload:
+            # .to(cuda) alone is NOT enough — CpuOffload hooks keep weights on CPU.
+            _strip_offload_hooks(te)
+            _strip_offload_hooks(head)
+            te.to(device)
+            head.to(device)
+        # Drop graft cached while modules were split / hooked.
+        pipe._prompt_enhancer = None
+        pipe._caption_logits_processor = None
+        gen = torch.Generator(device=device.type) if device.type == "cuda" else torch.Generator()
+        return pipe.upsample_prompt(
+            prompt,
+            height=int(height),
+            width=int(width),
+            generator=gen,
+            device=device,
+        )[0]
+    finally:
+        # Never `return` here — that would wipe the try result.
+        pipe._prompt_enhancer = None
+        pipe._caption_logits_processor = None
+        if offload:
+            try:
+                te.to("cpu")
+                head.to("cpu")
+                # Re-attach offload hooks for the diffusion pass.
+                pipe.enable_model_cpu_offload()
+                _free_cuda("after local upsample")
+            except Exception:
+                LOG.exception("failed restoring cpu_offload after local upsample")
+
+
+def _format_timing(
+    *,
+    mode: str,
+    width: int,
+    height: int,
+    steps: int | None,
+    upsampler: str,
+    pipeline_s: float,
+    upsample_s: float,
+    denoise_s: float,
+    total_s: float,
+    extra: str = "",
+) -> str:
+    pipe_note = "cold/switch" if pipeline_s >= 1.0 else "warm"
+    lines = [
+        f"mode={mode}  {width}×{height}  steps={steps if steps is not None else '?'}",
+        f"upsampler={upsampler}",
+        f"pipeline  {pipeline_s:7.2f}s  ({pipe_note})",
+        f"upsample  {upsample_s:7.2f}s",
+        f"denoise   {denoise_s:7.2f}s",
+        f"total     {total_s:7.2f}s",
+    ]
+    if extra:
+        lines.append(extra)
+    return "\n".join(lines)
+
+
+def _log_timing(
+    *,
+    mode: str,
+    width: int,
+    height: int,
+    steps: int | None,
+    upsampler: str,
+    pipeline_s: float,
+    upsample_s: float,
+    denoise_s: float,
+    total_s: float,
+    extra: str = "",
+) -> str:
+    text = _format_timing(
+        mode=mode,
+        width=width,
+        height=height,
+        steps=steps,
+        upsampler=upsampler,
+        pipeline_s=pipeline_s,
+        upsample_s=upsample_s,
+        denoise_s=denoise_s,
+        total_s=total_s,
+        extra=extra,
+    )
+    suffix = f" {extra}" if extra else ""
+    LOG.info(
+        "[timing] mode=%s %dx%d steps=%s upsampler=%r pipeline=%.2fs upsample=%.2fs "
+        "denoise=%.2fs total=%.2fs%s",
+        mode,
+        width,
+        height,
+        steps if steps is not None else "?",
+        upsampler,
+        pipeline_s,
+        upsample_s,
+        denoise_s,
+        total_s,
+        suffix,
+    )
+    return text
+
+
+def generate(
+    prompt: str,
+    mode: str = MODE_INSTANT,
+    upsampler: str = UPSAMPLERS[0],
+    width: int = 1024,
+    height: int = 1024,
+    seed: int = 0,
+    randomize_seed: bool = False,
+    max_sequence_length: int = MAX_SEQ_LEN_INSTANT,
+    park_vram: bool = PARK_AFTER_GENERATE,
+    unload_after: bool = UNLOAD_AFTER_GENERATE,
+    progress=gr.Progress(track_tqdm=True),
+):
+    if not prompt or not prompt.strip():
+        raise gr.Error("Prompt is required.")
+
+    t_total = time.perf_counter()
+    upsample_label = "skipped"
+
+    if randomize_seed or seed < 0:
+        seed = random.randint(0, MAX_SEED)
+
+    preset = dict(MODES.get(mode, MODES[MODE_DEFAULT]))
+    kind = preset.pop("kind", "nf4")
+    steps = preset.get("num_inference_steps")
+
+    t0 = time.perf_counter()
+    pipe = _get_pipeline(mode)
+    pipeline_s = time.perf_counter() - t0
+    if pipeline_s >= 0.05:
+        LOG.info("[timing] pipeline load/switch (%s) %.2fs", mode, pipeline_s)
+    else:
+        LOG.info("[timing] pipeline warm cache (%s) %.3fs", mode, pipeline_s)
+
+    final_prompt = prompt.strip()
+    t_upsample = time.perf_counter()
+
+    # Instant has no local enhancer head — prefer remote magic-prompt, else raw JSON/natural.
+    if upsampler == UPSAMPLERS[0]:
+        progress(0.0, desc="Upsampling (Ideogram remote)…")
+        try:
+            final_prompt = _remote_upsample(prompt, int(width), int(height))
+            upsample_label = "remote"
+        except Exception as exc:
+            LOG.warning("remote upsample failed: %r", exc)
+            if kind == "instant":
+                gr.Warning("Ideogram API unavailable — Instant using raw prompt (structured JSON recommended).")
+                final_prompt = prompt.strip()
+                upsample_label = "remote-failed-raw"
+            else:
+                gr.Warning("Ideogram API unavailable — falling back to local Qwen upsampler.")
+                progress(0.0, desc="Upsampling (local Qwen)…")
+                final_prompt = _local_upsample(pipe, prompt, int(width), int(height))
+                upsample_label = "remote-failed-local"
+    elif upsampler == UPSAMPLERS[1]:
+        if kind == "instant":
+            gr.Warning("Instant has no local Qwen enhancer — using raw prompt. Prefer remote upsampler.")
+            final_prompt = prompt.strip()
+            upsample_label = "instant-raw"
+        else:
+            progress(0.0, desc="Upsampling (local Qwen)…")
+            try:
+                final_prompt = _local_upsample(pipe, prompt, int(width), int(height))
+                upsample_label = "local"
+            except Exception as exc:
+                LOG.warning("local upsample failed: %r", exc)
+                gr.Warning("Local upsampler unavailable — using raw prompt.")
+                final_prompt = prompt.strip()
+                upsample_label = "local-failed-raw"
+    else:
+        upsample_label = "none"
+
+    upsample_s = time.perf_counter() - t_upsample
+    if upsample_label not in ("skipped", "none", "instant-raw") or upsample_s >= 0.05:
+        LOG.info("[timing] upsample (%s) %.2fs", upsample_label, upsample_s)
+
+    progress(0.05, desc="Generating image…")
+    generator = torch.Generator(device="cuda").manual_seed(int(seed))
+    t_denoise = time.perf_counter()
+    call_kw = dict(
+        prompt=final_prompt,
+        width=int(width),
+        height=int(height),
+        generator=generator,
+        **preset,
+    )
+    if max_sequence_length and int(max_sequence_length) > 0:
+        call_kw["max_sequence_length"] = int(max_sequence_length)
+    attn_retry = False
+    tried_offload_retry = False
+    try:
+        if kind == "instant":
+            LOG.info(
+                "Instant fast path: skip CFG + max_sequence_length=%s",
+                call_kw.get("max_sequence_length", MAX_SEQ_LEN_INSTANT),
+            )
+            image = _instant_infer(pipe, **call_kw).images[0]
+        else:
+            image = pipe(**call_kw).images[0]
+    except torch.cuda.OutOfMemoryError as exc:
+        if kind != "instant":
+            raise
+        tried_offload_retry = True
+        if bool(getattr(pipe, "_ideogram_staged_vram", False)):
+            LOG.warning("Instant staged VRAM OOM — retry shorter max_sequence_length (%s)", exc)
+            call_kw["max_sequence_length"] = min(int(call_kw.get("max_sequence_length", MAX_SEQ_LEN_INSTANT)), 256)
+        else:
+            LOG.warning("Instant OOM — switch to staged VRAM + shorter max_sequence_length (%s)", exc)
+            _instant_reset_offload(pipe)
+            pipe.to("cpu")
+            unc = getattr(pipe, "unconditional_transformer", None)
+            if unc is not None:
+                unc.to("cpu")
+            pipe._ideogram_staged_vram = True  # type: ignore[attr-defined]
+            pipe._ideogram_cpu_offload = False  # type: ignore[attr-defined]
+            call_kw["max_sequence_length"] = min(int(call_kw.get("max_sequence_length", MAX_SEQ_LEN_INSTANT)), 384)
+        _free_cuda("instant OOM retry", hard=True)
+        image = _instant_infer(pipe, **call_kw).images[0]
+    except ValueError as exc:
+        # Older boots may have selected _native_flash; Ideogram mask breaks it.
+        if "attn_mask" not in str(exc):
+            raise
+        attn_retry = True
+        LOG.warning("attention backend rejected attn_mask (%s) — forcing native and retry", exc)
+        for name in ("transformer", "unconditional_transformer"):
+            mod = getattr(pipe, name, None)
+            if mod is not None and hasattr(mod, "set_attention_backend"):
+                mod.set_attention_backend("native")
+        if kind == "instant":
+            image = _instant_infer(pipe, **call_kw).images[0]
+        else:
+            image = pipe(**call_kw).images[0]
+    denoise_s = time.perf_counter() - t_denoise
+
+    mem_extra = ""
+    if unload_after:
+        _unload_all_models()
+        mem_extra = "unloaded"
+    elif park_vram:
+        # Keep RAM cache; free VRAM between runs (fixes rising OOM).
+        if kind == "instant":
+            _park_pipeline_cpu(pipe, "Instant")
+        else:
+            _park_pipeline_cpu(pipe, "NF4")
+        mem_extra = "parked"
+    else:
+        _free_cuda("after generate")
+
+    total_s = time.perf_counter() - t_total
+
+    extra_bits: list[str] = []
+    if attn_retry:
+        extra_bits.append("attn_retry")
+    if tried_offload_retry:
+        extra_bits.append("instant_staged_retry")
+    if mem_extra:
+        extra_bits.append(mem_extra)
+    extra = ",".join(extra_bits)
+    timing_text = _log_timing(
+        mode=mode,
+        width=int(width),
+        height=int(height),
+        steps=steps,
+        upsampler=upsample_label,
+        pipeline_s=pipeline_s,
+        upsample_s=upsample_s,
+        denoise_s=denoise_s,
+        total_s=total_s,
+        extra=extra,
+    )
+    timing_text = f"{timing_text}\n\n{_vram_report()}"
+
+    try:
+        caption = json.loads(final_prompt)
+    except Exception:
+        caption = {"prompt": final_prompt}
+    return image, int(seed), caption, timing_text
+
+
+def build_app() -> gr.Blocks:
+    default_upsampler = UPSAMPLERS[0] if IDEOGRAM_API_KEY else UPSAMPLERS[1]
+    upsampler_info = (
+        "Remote Ideogram magic-prompt (free API key at developer.ideogram.ai). "
+        "Recommended for Instant (needs structured JSON). Falls back to local Qwen on NF4 modes."
+        if IDEOGRAM_API_KEY
+        else "Set IDEOGRAM_API_KEY for remote JSON captions (best with Instant). "
+        "Local Qwen upsampler works on NF4 modes only."
+    )
+
+    with gr.Blocks(title="Ideogram 4 One") as demo:
+        gr.Markdown(
+            "# Ideogram 4 One\n"
+            "NF4 full model + **fal Instant** (8-step, no runtime CFG). "
+            "Optimized for Olares One RTX 5090M 24GB.\n\n"
+            f"[NF4](https://huggingface.co/{MODEL_ID}) · "
+            f"[Instant](https://huggingface.co/{INSTANT_REPO}) · "
+            f"[Components](https://huggingface.co/{COMPONENTS_REPO})\n\n"
+            "Accept HF gates for **NF4**, **Instant**, and **nf4-diffusers** components; "
+            "set **HF_TOKEN** before first run. Instant on 24GB uses staged VRAM "
+            "(text encoder on GPU for encode, DiT for denoise)."
+        )
+
+        with gr.Row():
+            with gr.Column():
+                prompt = gr.Textbox(
+                    label="Prompt",
+                    value="a ginger cat wearing a tiny wizard hat reading a spellbook",
+                    lines=3,
+                )
+                mode = gr.Radio(
+                    choices=list(MODES.keys()),
+                    value=MODE_INSTANT,
+                    label="Mode (speed ↔ quality)",
+                    info="Instant 8 = fal distilled single-branch. Switching NF4↔Instant reloads weights.",
+                )
+                run = gr.Button("Generate", variant="primary")
+                with gr.Accordion("Advanced", open=False):
+                    upsampler = gr.Radio(
+                        choices=UPSAMPLERS,
+                        value=default_upsampler,
+                        label="Prompt upsampler",
+                        info=upsampler_info,
+                    )
+                    with gr.Row():
+                        width = gr.Slider(512, 2048, value=1024, step=64, label="Width")
+                        height = gr.Slider(512, 2048, value=1024, step=64, label="Height")
+                    with gr.Row():
+                        seed = gr.Number(label="Seed", value=0, precision=0)
+                        randomize = gr.Checkbox(label="Randomize seed", value=True)
+                    max_seq = gr.Slider(
+                        minimum=128,
+                        maximum=2048,
+                        value=MAX_SEQ_LEN_INSTANT,
+                        step=64,
+                        label="Max sequence length",
+                        info="Packed text tokens for DiT. Instant default 512; long JSON captions may need more.",
+                    )
+                    park_vram = gr.Checkbox(
+                        label="Park models on CPU after generate (free VRAM)",
+                        value=PARK_AFTER_GENERATE,
+                        info="Keeps weights in RAM; next generate reloads to GPU. Default ON — stops rising OOM.",
+                    )
+                    unload_after = gr.Checkbox(
+                        label="Unload models after generate (full free)",
+                        value=UNLOAD_AFTER_GENERATE,
+                        info="Drops NF4+Instant from memory. Next run cold-loads (~slow). Use if park is not enough.",
+                    )
+                with gr.Accordion("VRAM / Memory", open=True):
+                    mem_status = gr.Textbox(
+                        label="Memory status",
+                        lines=5,
+                        interactive=False,
+                        value=_vram_report(),
+                    )
+                    with gr.Row():
+                        btn_refresh = gr.Button("Refresh")
+                        btn_park = gr.Button("Force clear VRAM")
+                        btn_unload = gr.Button("Unload models", variant="stop")
+            with gr.Column():
+                out_image = gr.Image(label="Output", type="pil")
+                out_timing = gr.Textbox(
+                    label="Timing",
+                    lines=8,
+                    interactive=False,
+                    placeholder="pipeline / upsample / denoise / total + VRAM after Generate",
+                )
+                out_caption = gr.JSON(label="Caption fed to the model")
+
+        gr.Examples(
+            examples=[
+                ["a ginger cat wearing a tiny wizard hat reading a spellbook"],
+                ["an isometric illustration of a tiny city floating in the clouds"],
+                ["poster with bold text reading HELLO WORLD in neon colors"],
+            ],
+            inputs=[prompt],
+            outputs=[out_image, seed, out_caption, out_timing],
+            fn=generate,
+            cache_examples=False,
+        )
+
+        run.click(
+            generate,
+            inputs=[
+                prompt,
+                mode,
+                upsampler,
+                width,
+                height,
+                seed,
+                randomize,
+                max_seq,
+                park_vram,
+                unload_after,
+            ],
+            outputs=[out_image, seed, out_caption, out_timing],
+        ).then(lambda: _vram_report(), outputs=[mem_status])
+
+        btn_refresh.click(lambda: _vram_report(), outputs=[mem_status])
+        btn_park.click(_force_clear_vram, outputs=[mem_status])
+        btn_unload.click(_unload_all_models, outputs=[mem_status])
+
+    return demo
+
+
+if __name__ == "__main__":
+    _setup_logging()
+    LOG.info("starting Ideogram 4 One on 0.0.0.0:%s", SERVER_PORT)
+    app = build_app()
+    app.queue(default_concurrency_limit=1).launch(server_name="0.0.0.0", server_port=SERVER_PORT)

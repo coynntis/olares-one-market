@@ -1,0 +1,147 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sndrqwen3627bone: 1
+  sndrqwen3627bonecli: 1
+metadata:
+  name: sndrqwen3627bone
+  icon: https://cdn.olares.com/images/2026/08/a7d181ee18d78c40266fd46041ff07c7.png
+  description: SNDR Core Engine — Qwen3.6 27B INT4 + TQ k8v4 + MTP K=4 (1x)
+  title: SNDR Qwen36 27B One
+  version: 1.0.13
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: "27B"
+    badge: sndr mtp4
+    hero:
+      value: "MTP K=4"
+      label: "TQ k8v4"
+    specs:
+      - label: context
+        value: 48K
+      - label: pin
+        value: dev748
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: true
+        accept: 70
+    stack: SNDR · nightly digest · MTP K=4
+sharedEntrances:
+  - name: sndrqwen3627bone
+    host: sharedentrances-sndrqwen3627bone
+    port: 0
+    title: SNDR Qwen36 27B API
+    icon: https://cdn.olares.com/images/2026/08/a7d181ee18d78c40266fd46041ff07c7.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sndrqwen3627bonecli
+    port: 8080
+    host: sndrqwen3627bonecli
+    title: SNDR Qwen36 27B One
+    icon: https://cdn.olares.com/images/2026/08/a7d181ee18d78c40266fd46041ff07c7.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.13
+  featuredImage: https://cdn.olares.com/images/2026/08/49b28acafccab314d79e198622d86290.png
+  upgradeDescription: |
+    v1.0.13: Fix Mamba align assert — block_size 2128 requires max_num_batched_tokens >= 2128 (restore 4096). KV already OK at 48K (~58K capacity).
+    v1.0.12: Restore torch.compile (AOT on, drop --enforce-eager). Keep 48K ctx + combo-kernel bench off. SAM must stay stopped during boot or compile may OOM again.
+    v1.0.11: Fix KV OOM — after 16.9GiB weights only ~2.4GiB left for TQ KV; 78K needs 2.88GiB. Cap max_model_len 49152 (~48K). Disable P67/P67b (5090M shared-mem 101KB < kernel 176KB).
+    v1.0.10: Fix boot OOM — GPU VRAM has no swap. Disable AOT Inductor + --enforce-eager; gmu 0.88; batched 2048. Desktop ~5GiB + weights ~17GiB left no room for compile bench (+2.4GiB).
+    v1.0.9: Sticky soft-ready — keep :8000 for probes forever; vLLM binds :8001; soft-ready reverse-proxies when ready. Fixes CrashLoop (kube kills empty port during model load).
+    v1.0.8: CrashLoop attempt logs — persistent bootstrap.log boot counter, ERR/vllm exit rc, soft-ready shows boot_attempt+last_exit+attempts_tail.
+    v1.0.7: stop CrashLoop — hard-disable P65 (conflicts with P67/P67b); PN125 FULL CG off on 27B+TQ (tolist crash class). Boot stamp 1.0.7.
+    v1.0.6: fix P65↔P67 conflict (P65 off, keep P67); 35B 1×24GB: drop MTP K=5 + 8K ctx (FP8 weights ~18GiB OOM with MTP); prefer sndrqwen3627bone for agents.
+    v1.0.5: MUST upgrade — your logs show old --target install. Boot stamps SNDR_CHART_BOOT=1.0.5; always purge site-packages/sndr; PYTHONPATH=repo first; editable -e only (never --target sndr).
+    v1.0.4: fix EngineAdapter ImportError — drop --target for sndr; uv --system --no-deps -e (upstream install.sh) + PYTHONPATH=repo; purge broken site-packages/sndr.
+    v1.0.3: bump accelerator requiredCpu/Memory to cover server+client request sums (4+10m CPU, 24Gi+64Mi).
+    v1.0.2: soft-ready /health+/v1/models during boot; uv → persistent site-packages + UV_CACHE; attempt log at bootstrap.log; retries on git/uv.
+    v1.0.1: drop aamsellem image — official SNDR pin vllm/vllm-openai@sha256:6a93ae43 (dev748) + runtime sndr_core_engine install + sndr.apply. Qwen27 MTP K=4 + PN521/522; add 35B-A3B MTP K=5; Gemma/Diffusion from upstream ModelDefs.
+    v1.0.0: initial.
+  fullDescription: |
+    SNDR Core Engine (Sandermage) on Olares One — official pin.
+    
+    Image: vllm/vllm-openai@sha256:6a93ae43… (pins.yaml current = 0.23.1rc1.dev748+g2dfaae752)
+    Boot: soft-ready → uv cache → editable -e sndr (not --target) → sndr.apply → vllm serve
+    Attempts: /shared-models/sndr/<app>/bootstrap.log
+    Site-packages target: only optional deps (pyyaml); SNDR itself is editable/--system so vLLM plugin entry points work.
+    Preset base: qa-qwen3.6-27b-tq-1x (1×24GB)
+    Model: Lorbus/Qwen3.6-27B-int4-AutoRound
+    KV turboquant_k8v4 · MTP K=4 (2026-07-03 coherence retune; K=5 broke 27B tool-calls)
+    PN521/PN522 required for TQ×MTP
+    
+    Upstream: https://github.com/Sandermage/sndr_core_engine
+  developer: coynntis
+  website: https://github.com/Sandermage/sndr_core_engine
+  sourceCode: https://github.com/Sandermage/sndr_core_engine
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '5'
+      limitedCpu: '17'
+      requiredMemory: 25Gi
+      limitedMemory: 49Gi
+      requiredDisk: 40Gi
+      limitedDisk: 80Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCache: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: UV_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: PIP_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

@@ -4,12 +4,21 @@
   "private": true,
   "scripts": {
     "build:catalog": "node scripts/build-catalog.js",
-    "dev": "npm run build:catalog && wrangler dev",
-    "deploy": "npm run build:catalog && wrangler deploy",
-    "build": "npm run build:catalog"
+    "build:charts": "node scripts/package-charts.js",
+    "generate:icons": ".venv-icons/bin/python scripts/generate-app-icons.py && node scripts/upload-market-images.js",
+    "build:sensenovau1-chart": "node scripts/inject-sensenovau1-configmap.js",
+    "build:sensenovau1infov2-chart": "node scripts/inject-sensenovau1infov2-configmap.js",
+    "build:sensenovasi15-chart": "node scripts/inject-sensenovasi15-configmap.js",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "build": "npm run build:charts && npm run build:catalog",
+    "scaffold:lingbot": "python3 scripts/scaffold-lingbot-charts.py",
+    "inject:lingbot": "node scripts/inject-lingbot-configmaps.js"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "playwright-core": "^1.61.1",
+    "puppeteer-core": "^25.3.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241230.0",

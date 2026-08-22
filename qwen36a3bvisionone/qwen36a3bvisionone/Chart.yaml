@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.19
+description: qwen36a3bvisionone client proxy
+name: qwen36a3bvisionone
+type: application
+version: 1.0.19

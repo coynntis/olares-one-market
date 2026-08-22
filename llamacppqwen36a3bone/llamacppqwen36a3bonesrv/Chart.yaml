@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 2.0.27
+description: llamacppqwen36a3bone shared server
+name: llamacppqwen36a3bonesrv
+type: application
+version: 2.0.27

@@ -1,0 +1,122 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppqwythos9bone: 1
+  llamacppqwythos9bonecli: 1
+metadata:
+  name: llamacppqwythos9bone
+  icon: https://cdn.olares.com/images/2026/08/2368ac4aa82ec12f767947bbcbb0dd7d.png
+  description: Qwythos 9B Mythos — 64K ctx, buun turbo4, draft-MTP n=2
+  title: Qwythos 9B One
+  version: 1.0.19
+  categories:
+    - LLM Chat
+  bento:
+    family: qwen
+    size_label: 9B
+    badge: MTP
+    hero:
+      value: 64K
+      label: default context
+    specs:
+      - label: context
+        value: 64K
+      - label: vram
+        value: ~12 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: true
+        accept: 70
+    stack: buun 87c351d2 · q8_0/turbo4 · draft-MTP n=2
+sharedEntrances:
+  - name: llamacppqwythos9bone
+    host: sharedentrances-llamacppqwythos9bone
+    port: 0
+    title: Qwythos 9B API
+    icon: https://cdn.olares.com/images/2026/08/2368ac4aa82ec12f767947bbcbb0dd7d.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppqwythos9bonecli
+    port: 8080
+    host: llamacppqwythos9bonecli
+    title: Qwythos 9B
+    icon: https://cdn.olares.com/images/2026/08/2368ac4aa82ec12f767947bbcbb0dd7d.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.19
+  featuredImage: https://cdn.olares.com/images/2026/08/7a6f586ab4c0703d540f914af41e2d7e.png
+  upgradeDescription: |2
+    v1.0.17: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.14: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.13: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.11: add vision projector loading (mmproj F16) for image input support while
+    keeping buun + turbo4 + draft-MTP n=2 at 64K context.
+    v1.0.10: retry buun profile for Qwythos — restore buun:87c351d2 + q8_0/turbo4 KV,
+    set draft-MTP n=2, and raise default context to 64K.
+  fullDescription: |
+    Qwythos 9B Claude Mythos MTP Q4_K_M — compact long-context chat on Olares One.
+
+    Model: empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF → MTP-Q4_K_M.gguf (v3 embedded template).
+    Image: aamsellem/buun-llama-cpp:87c351d2 with --spec-type draft-mtp --spec-draft-n-max 2.
+    No external chat-template-file — GGUF peg-native template per Empero docs. q8_0/turbo4 KV cache, --swa-full.
+    Loads mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf for vision requests with --mmproj-gpu-swap.
+    64K default context (override via LLM_CONTEXT_WINDOW up to 262K).
+    Weights cached under /olares/share/ai/model. OpenAI-compatible API on port 8000; client entrance on 8080.
+  developer: aamsellem
+  website: https://github.com/aamsellem/olares-one-market
+  sourceCode: https://github.com/am17an/llama.cpp/tree/mtp-clean
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/ggml-org/llama.cpp/blob/master/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 25Gi
+      limitedDisk: 40Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

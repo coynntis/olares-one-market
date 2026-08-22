@@ -1,0 +1,149 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppnail35bone: 1
+  llamacppnail35bonecli: 1
+metadata:
+  name: llamacppnail35bone
+  icon: https://cdn.olares.com/images/2026/08/c18bcfb02c6e54f722828d631a5ca327.png
+  description: Nail Qwen3.6-35B-A3B MTP vision profile — fast long context on Olares One
+  title: Nail 35B Vision One
+  version: 1.0.0
+  categories:
+    - Vision
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: 35B-A3B
+    badge: nail mtp
+    hero:
+      value: 128K
+      label: context vision
+    specs:
+      - label: model
+        value: ~18.2 GB
+      - label: vram
+        value: 24 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: true
+    stack: buun-llama.cpp · IQ4_XS MTP · mmproj-gpu-swap · q8_0/turbo4 KV
+sharedEntrances:
+  - name: llamacppnail35bone
+    host: sharedentrances-llamacppnail35bone
+    port: 0
+    title: Nail 35B Vision API
+    icon: https://cdn.olares.com/images/2026/08/c18bcfb02c6e54f722828d631a5ca327.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppnail35bonecli
+    port: 8080
+    host: llamacppnail35bonecli
+    title: Nail 35B Vision One
+    icon: https://cdn.olares.com/images/2026/08/c18bcfb02c6e54f722828d631a5ca327.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.0
+  featuredImage: https://cdn.olares.com/images/2026/08/8053a00007127d6862782349a6824f3c.png
+  upgradeDescription: |
+    v1.0.0: initial release. Nail-Qwen3.6-35B-A3B-GGUF-MTP (IQ4_XS + mmproj) on buun-llama-cpp with --mmproj-gpu-swap, MTP, q8_0/turbo4 KV, 128K default context, and persistent crash logs.
+  fullDescription: |
+    Nail-Qwen3.6-35B-A3B-GGUF-MTP served via llama.cpp on Olares One.
+    Vision path enabled with mmproj-F16.gguf and --mmproj-gpu-swap.
+
+    Stack:
+    - Image: docker.io/aamsellem/buun-llama-cpp:87c351d2
+    - Model: peculiar-ragdoll/Nail-Qwen3.6-35B-A3B-GGUF-MTP
+      -> Nail-Qwen3.6-35B-A3B-MTP-UD-IQ4_XS.gguf (~18.2 GB)
+    - Vision: mmproj-F16.gguf (~899 MB)
+    - MTP: --spec-type draft-mtp --spec-draft-n-max 4
+    - Default context: 128K (131072 tokens)
+
+    OpenAI-compatible API on :8000 (via client proxy :8080).
+  developer: coynntis
+  website: https://huggingface.co/peculiar-ragdoll/Nail-Qwen3.6-35B-A3B-GGUF-MTP
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 35Gi
+      limitedDisk: 55Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_SPEC_DRAFT_N_MAX
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_BATCH_SIZE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_UBATCH_SIZE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_K
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_V
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PARALLEL
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

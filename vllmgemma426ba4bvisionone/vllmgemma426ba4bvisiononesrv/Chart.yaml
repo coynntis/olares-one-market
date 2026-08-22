@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.22
+description: vllmgemma426ba4bvisionone shared server
+name: vllmgemma426ba4bvisiononesrv
+type: application
+version: 1.0.22

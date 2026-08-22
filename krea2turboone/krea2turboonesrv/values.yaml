@@ -1,0 +1,15 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+  KREA_MODEL_ID: ""
+  KREA_EXTRA_LORAS: ""
+image:
+  repository: ""
+  tag: ""

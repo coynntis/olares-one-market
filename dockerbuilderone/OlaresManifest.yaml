@@ -1,0 +1,117 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  dockerbuilderone: 1
+  dockerbuilderonecli: 1
+metadata:
+  name: dockerbuilderone
+  icon: https://cdn.olares.com/images/2026/08/f8f3807f348764ce1884843bf3655511.png
+  description: Build Docker images from uploaded Dockerfile folders and push to ghcr.io
+  title: Docker Builder One
+  version: 1.0.40
+  categories:
+    - Developer
+sharedEntrances:
+  - name: dockerbuildermcp
+    host: sharedentrances-dockerbuilderone
+    port: 0
+    title: Docker Builder MCP API
+    icon: https://cdn.olares.com/images/2026/08/f8f3807f348764ce1884843bf3655511.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: dockerbuilderonecli
+    port: 8080
+    host: dockerbuilderonecli
+    title: Docker Builder One
+    icon: https://cdn.olares.com/images/2026/08/f8f3807f348764ce1884843bf3655511.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.40
+  featuredImage: https://cdn.olares.com/images/2026/08/3c2e168c63fb770562cff1e468bef8b3.png
+  fullDescription: |
+    Web UI for building container images on Olares One without leaving the browser.
+
+    Upload a zip of your Dockerfile project (persists under appData/dockerbuilder/projects).
+    Builder runtime: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel.
+    Builds use Kaniko from docker.io/martizih/kaniko (no privileged DinD — Olares OPA safe).
+    Kaniko executor is copied from the init container into /tools/kaniko/executor at pod start.
+    Kaniko layer cache is local only at appData/dockerbuilder/kaniko-cache (--no-push-cache);
+    set KANIKO_CACHE_REPO for remote cache. If base image pulls fail, set KANIKO_REGISTRY_MIRROR
+    or retry the build.
+
+    Builds run one at a time via an async queue worker; additional start_build requests are
+    queued with position shown in the UI and MCP get_build_queue. Queue order persists in
+    appData/dockerbuilder/jobs/queue.json across restarts.
+
+    Kaniko build+push streams live logs in the UI to ghcr.io using your GitHub PAT
+    (OLARES_USER_GITHUB_TOKEN).
+
+    Image must be ghcr.io/<user>/<repo>:<tag> — e.g. ghcr.io/<your-github-user>/my-app:1.0.0.
+    Uses OLARES_USER_GITHUB_USERNAME from your Olares user environment for ghcr.io login.
+
+    After push, make the package public at github.com/users/<user>/packages or configure
+    imagePullSecrets on apps that consume the image.
+
+    MCP (streamable HTTP) for agents: connect to /mcp/mcp on port 8080 (authLevel internal).
+    In-cluster: http://dockerbuilderone:8080/mcp/mcp or entrance dockerbuildermcp.
+    Tools: health_check, list_projects, upload_project (base64 zip), list_builds,
+    get_build_queue, get_build, get_build_logs, start_build, cancel_build.
+    Discovery: GET /api/mcp or /health. Optional MCP_CORS_ORIGIN=* (default).
+    MCP Host checks off by default (Olares entrance Host). Harden: MCP_DNS_REBINDING_PROTECTION=1
+    and MCP_ALLOWED_HOSTS=your-host.example.com:*,dockerbuilderone:*.
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market/tree/main/dockerbuilderone
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://opensource.org/licenses/MIT
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '5'
+      requiredMemory: 8Gi
+      limitedMemory: 50Gi
+      requiredDisk: 50Gi
+      limitedDisk: 200Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.40: keep GPU (gpuCount 1); RAM limit 48Gi + no livenessProbe — snapshot OOM/stall was the kill, not missing GPU.
+    v1.0.39: tried gpuCount 0; dropped liveness; RAM 48Gi.
+    v1.0.38: /livez + async log writes so health probes survive kaniko log floods.
+    v1.0.37: requiredMemory 4Gi (server 2Gi + client 64Mi requests must fit).
+    v1.0.36: raise builder RAM limit 8Gi→24Gi (Kaniko+CUDA ext builds OOM less).
+    v1.0.35: trim CPU/memory requests for denser multi-app packing (light).
+    v1.0.34: v3 polish — ConfigMap only in root templates; scrub OLARES_USER strings from inlined app source.
+    v1.0.31: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.30: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

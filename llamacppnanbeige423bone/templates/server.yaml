@@ -1,0 +1,474 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-nanbeige423-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_REPO: "Andgihat/Nanbeige4.2-3B-GGUF"
+  MODEL_FILE: "Nanbeige4.2-3B-Q8_0.gguf"
+  MODEL_URL: "https://huggingface.co/Andgihat/Nanbeige4.2-3B-GGUF/resolve/main/Nanbeige4.2-3B-Q8_0.gguf"
+  # Exact HF LFS size — complete .part must promote without re-wget (busybox wget -c on full → 416 under set -e)
+  MODEL_BYTES: "4434787232"
+  MODEL_MIN_BYTES: "4430000000"
+  MODEL_ALIAS: "nanbeige4.2-3b"
+  # Native 262144; 131K + q8 KV + ~4.4GB weights leaves huge headroom on 24GB
+  CONTEXT_SIZE: "131072"
+  N_GPU_LAYERS: "99"
+  THREADS: "16"
+  BUILD_JOBS: "8"
+  # Blackwell 5090M: prefer sm_120a
+  CUDA_ARCH: "120a"
+  LLAMA_CPP_REPO: "https://github.com/Nanbeige/llama.cpp"
+  LLAMA_CPP_REF: "26cfdc4409cfc67d27be9b71c9de79adaf5f306f"
+  LLAMA_CPP_BRANCH: "nanbeige42"
+  CHART_BOOT: "1.0.1"
+  # Nanbeige llama.cpp expects SvelteKit UI (manifest.webmanifest, sw.js, …) — NOT b9596 flat bundle.js
+  UI_HF_REF: "latest"
+  UI_HF_BUCKET: "ggml-org/llama-ui"
+  # Nanbeige reasoning / chat defaults (agent/tool-use often uses temp 1.0 via client)
+  TEMP: "0.6"
+  TOP_P: "0.95"
+  TOP_K: "20"
+  MIN_P: "0"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppnanbeige423bone
+  name: llamacppnanbeige423bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppnanbeige423bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppnanbeige423bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppnanbeige423bone
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eu
+              log() { echo "$(date -Iseconds) [nanbeige423:init] $*" >&2; }
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+
+              bytes_of() { wc -c < "$1" | tr -d ' '; }
+
+              file_ok() {
+                local f min_bytes exact_bytes size
+                f="$1"; min_bytes="$2"; exact_bytes="${3:-}"
+                [ -f "$f" ] || return 1
+                size=$(bytes_of "$f")
+                if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                  [ "$size" -eq "$exact_bytes" ] && return 0
+                  return 1
+                fi
+                [ "$size" -ge "$min_bytes" ]
+              }
+
+              resolve_part() {
+                local dest cand
+                dest="$1"
+                PART_FILE="${dest}.part"
+                for cand in "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp"; do
+                  if [ -f "$cand" ]; then
+                    if [ "$cand" != "$PART_FILE" ]; then
+                      log "migrating incomplete $(basename "$cand") → $(basename "$PART_FILE") size=$(bytes_of "$cand")"
+                      mv -f "$cand" "$PART_FILE"
+                    fi
+                    return 0
+                  fi
+                done
+                return 1
+              }
+
+              promote_part() {
+                local dest label part
+                dest="$1"; label="$2"; part="$3"
+                mv -f "$part" "$dest"
+                log "$label promoted ($(bytes_of "$dest") bytes)"
+              }
+
+              download_one() {
+                local name url min_bytes exact_bytes dest part wget_rc last size delta prog_pid
+                name="$1"; url="$2"; min_bytes="$3"; exact_bytes="${4:-0}"
+                dest="$SHARED_DIR/$name"
+                if type link_from_comfy_llms >/dev/null 2>&1; then
+                  if link_from_comfy_llms "$dest"; then
+                    if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                      log "ok $name via ComfyUI Common — skip download"
+                      rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" 2>/dev/null || true
+                      return 0
+                    fi
+                    rm -f "$dest"
+                  fi
+                fi
+
+                if [ -f "$MODELS_DIR/$name" ] && [ ! -f "$dest" ]; then
+                  log "migrate $name from per-app cache"
+                  mv "$MODELS_DIR/$name" "$dest"
+                fi
+
+                if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                  log "ok $name ($(bytes_of "$dest") bytes)"
+                  rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp"
+                  return 0
+                fi
+                if [ -f "$dest" ]; then
+                  log "REJECT truncated $name size=$(bytes_of "$dest") — removing final"
+                  rm -f "$dest"
+                fi
+
+                PART_FILE="${dest}.part"
+                resolve_part "$dest" || true
+                part="$PART_FILE"
+
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  log "$name .part complete — promoting (skip wget)"
+                  promote_part "$dest" "$name" "$part"
+                  return 0
+                fi
+
+                if [ -f "$part" ]; then
+                  log "resuming $name from $(bytes_of "$part") bytes"
+                else
+                  log "downloading $url"
+                fi
+
+                (
+                  last=0
+                  while true; do
+                    sleep 15
+                    [ -f "$part" ] || continue
+                    size=$(bytes_of "$part")
+                    delta=$((size - last))
+                    log "progress $name: size=$size (+${delta}B / 15s)"
+                    last=$size
+                  done
+                ) &
+                prog_pid=$!
+
+                wget_rc=0
+                if [ -n "${HF_TOKEN:-}" ]; then
+                  wget -c --header="Authorization: Bearer $HF_TOKEN" -O "$part" "$url" || wget_rc=$?
+                else
+                  wget -c -O "$part" "$url" || wget_rc=$?
+                fi
+                kill "$prog_pid" 2>/dev/null || true
+                wait "$prog_pid" 2>/dev/null || true
+
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  if [ "$wget_rc" -ne 0 ]; then
+                    log "$name wget exit=$wget_rc but .part OK — promoting"
+                  fi
+                  promote_part "$dest" "$name" "$part"
+                  return 0
+                fi
+                size=$(bytes_of "$part" 2>/dev/null || echo 0)
+                log "ERROR incomplete $name wget_rc=$wget_rc size=$size min=$min_bytes exact=$exact_bytes"
+                exit 1
+              }
+
+              download_one "$MODEL_FILE" "$MODEL_URL" "$MODEL_MIN_BYTES" "$MODEL_BYTES"
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-nanbeige423-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends git cmake build-essential ca-certificates curl wget
+              rm -rf /var/lib/apt/lists/*
+
+              mkdir -p /workspace
+              REPO_DIR="/workspace/llama.cpp"
+              REPO_URL="${LLAMA_CPP_REPO:-https://github.com/Nanbeige/llama.cpp}"
+              REPO_REF="${LLAMA_CPP_REF:-26cfdc4409cfc67d27be9b71c9de79adaf5f306f}"
+              REPO_BRANCH="${LLAMA_CPP_BRANCH:-nanbeige42}"
+              CHART_BOOT="${CHART_BOOT:-1.0.1}"
+              STAMP="/workspace/.llama_cpp_ref"
+              WANT_STAMP="${REPO_REF}|${CHART_BOOT}|ui-disttar"
+
+              need_clone=0
+              if [ ! -d "$REPO_DIR/.git" ]; then
+                need_clone=1
+              fi
+              if [ -e "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+                ts="$(date +%Y%m%d%H%M%S)"
+                mv "$REPO_DIR" "${REPO_DIR}.bak.${ts}"
+                need_clone=1
+              fi
+              if [ "$need_clone" = "1" ]; then
+                git clone --branch "$REPO_BRANCH" --single-branch "$REPO_URL" "$REPO_DIR"
+              fi
+              git -C "$REPO_DIR" remote set-url origin "$REPO_URL"
+              git -C "$REPO_DIR" fetch --tags --prune origin
+              git -C "$REPO_DIR" checkout --force "$REPO_REF"
+              git -C "$REPO_DIR" reset --hard "$REPO_REF"
+              echo "Nanbeige llama.cpp @ $(git -C "$REPO_DIR" rev-parse HEAD) chart_boot=$CHART_BOOT"
+
+              # Provision embedded Web UI via official dist.tar.gz (matches Nanbeige ui-assets.cmake).
+              # Old b9596 flat files (bundle.js/css) make llama-ui-embed fail: missing
+              # manifest.webmanifest / sw.js / build.json / version.json / workbox*.js
+              UI_DIST="$REPO_DIR/tools/ui/dist"
+              UI_REF="${UI_HF_REF:-latest}"
+              UI_BUCKET="${UI_HF_BUCKET:-ggml-org/llama-ui}"
+              UI_BASE="https://huggingface.co/buckets/${UI_BUCKET}/resolve/${UI_REF}"
+              UI_MARK="$UI_DIST/.ui-dist-stamp"
+              UI_WANT="${UI_REF}|dist.tar.gz|${CHART_BOOT}"
+              need_ui=1
+              if [ -f "$UI_MARK" ] && grep -qxF "$UI_WANT" "$UI_MARK" \
+                && [ -s "$UI_DIST/index.html" ] \
+                && [ -f "$UI_DIST/manifest.webmanifest" ] \
+                && [ -f "$UI_DIST/sw.js" ]; then
+                echo "UI dist already provisioned ($UI_WANT)"
+                need_ui=0
+              fi
+              if [ "$need_ui" = "1" ]; then
+                echo "Downloading UI dist.tar.gz from ${UI_BASE} ..."
+                rm -rf "$UI_DIST"
+                mkdir -p "$UI_DIST" /tmp/llama-ui
+                if ! curl -fL --retry 5 --retry-delay 3 --connect-timeout 30 \
+                  "${UI_BASE}/dist.tar.gz?download=true" -o /tmp/llama-ui/dist.tar.gz; then
+                  echo "ERROR: failed to download UI dist.tar.gz" >&2
+                  exit 1
+                fi
+                if curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 \
+                  "${UI_BASE}/dist.tar.gz.sha256?download=true" -o /tmp/llama-ui/dist.tar.gz.sha256; then
+                  expect=$(awk '{print tolower($1)}' /tmp/llama-ui/dist.tar.gz.sha256 | head -1)
+                  actual=$(sha256sum /tmp/llama-ui/dist.tar.gz | awk '{print tolower($1)}')
+                  if [ -n "$expect" ] && [ "$expect" != "$actual" ]; then
+                    echo "ERROR: UI dist.tar.gz sha256 mismatch expect=$expect actual=$actual" >&2
+                    exit 1
+                  fi
+                  echo "UI dist.tar.gz checksum OK"
+                else
+                  echo "WARN: could not fetch dist.tar.gz.sha256 — continuing without verify"
+                fi
+                tar -xzf /tmp/llama-ui/dist.tar.gz -C "$UI_DIST"
+                rm -rf /tmp/llama-ui
+                # Drop stale gzip cache if any leftover from prior failed builds
+                rm -rf "$UI_DIST/_gzip"
+                if [ ! -s "$UI_DIST/index.html" ] || [ ! -f "$UI_DIST/manifest.webmanifest" ]; then
+                  echo "ERROR: UI archive missing required assets" >&2
+                  ls -la "$UI_DIST" || true
+                  exit 1
+                fi
+                echo "$UI_WANT" > "$UI_MARK"
+                echo "UI assets ready:"
+                ls -lh "$UI_DIST/index.html" "$UI_DIST/manifest.webmanifest" "$UI_DIST/sw.js" 2>/dev/null || ls -lh "$UI_DIST" | head
+              fi
+
+              cd "$REPO_DIR"
+              rebuild=1
+              if [ -x ./build/bin/llama-server ] && [ -f "$STAMP" ] && grep -qxF "$WANT_STAMP" "$STAMP"; then
+                echo "llama-server already built for $WANT_STAMP — skip cmake"
+                rebuild=0
+              fi
+              if [ "$rebuild" = "1" ]; then
+                rm -rf build
+                cmake -B build \
+                  -DGGML_CUDA=ON \
+                  "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH:-120a}" \
+                  -DLLAMA_BUILD_UI=ON \
+                  -DLLAMA_USE_PREBUILT_UI=ON
+                cmake --build build -j"${BUILD_JOBS:-8}" --target llama-server
+                echo "$WANT_STAMP" > "$STAMP"
+              fi
+
+              SHARED="/shared-models/llms"
+              MODEL="$SHARED/${MODEL_FILE}"
+
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+
+              CTX="${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-131072}}"
+
+              exec ./build/bin/llama-server \
+                --host 0.0.0.0 --port 8000 \
+                --ui \
+                --model "$MODEL" \
+                --alias "${MODEL_ALIAS}" \
+                --ctx-size "$CTX" \
+                --n-gpu-layers "${N_GPU_LAYERS:-99}" \
+                --threads "${THREADS:-16}" \
+                --cache-type-k q8_0 --cache-type-v q8_0 \
+                --batch-size 512 --ubatch-size 512 \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload \
+                --jinja \
+                --temp "${TEMP:-0.6}" --top-p "${TOP_P:-0.95}" \
+                --top-k "${TOP_K:-20}" --min-p "${MIN_P:-0}" \
+                "${EXTRA_LLM_ARGS[@]}"
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-nanbeige423-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/llamacppnanbeige423bone-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppnanbeige423bone
+  name: llamacppnanbeige423bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppnanbeige423bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppnanbeige423bone
+  name: sharedentrances-llamacppnanbeige423bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppnanbeige423bone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppnanbeige423bone

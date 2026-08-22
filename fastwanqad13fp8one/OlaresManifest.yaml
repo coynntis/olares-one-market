@@ -1,0 +1,105 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  fastwanqad13fp8one: 1
+  fastwanqad13fp8cli: 1
+metadata:
+  name: fastwanqad13fp8one
+  icon: https://cdn.olares.com/images/2026/08/e3253522578d43d8fb472994fcdf320d.png
+  description: FastWan QAD FP8 — 4090/Ada fallback when NVFP4 OOM (~3.4s T2V)
+  title: FastWan QAD FP8 4090 Fallback
+  version: 1.0.12
+  categories:
+    - AI
+sharedEntrances:
+  - name: fastwanqad13fp8one
+    host: sharedentrances-fastwanqad13fp8one
+    port: 0
+    title: FastWan QAD FP8 API
+    icon: https://cdn.olares.com/images/2026/08/e3253522578d43d8fb472994fcdf320d.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: fastwanqad13fp8cli
+    port: 8080
+    host: fastwanqad13fp8cli
+    title: FastWan QAD FP8 Fallback
+    icon: https://cdn.olares.com/images/2026/08/e3253522578d43d8fb472994fcdf320d.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.12
+  featuredImage: https://cdn.olares.com/images/2026/08/83ea52a5819f0935b8e456d037937731.png
+  fullDescription: |
+    **RTX 4090 / Ada / Hopper fallback** when FastWan NVFP4 apps (flagship or SA2) OOM on 24GB VRAM.
+
+    Gradio UI for FastVideo/FastWan-QAD-FP8-1.3B — same QAD 3-step recipe, FP8-friendly path:
+      - FP8 linear layers + SageAttention2++ (no Blackwell NVFP4 / ATTN_QAT_INFER)
+      - TAEHV tiny decoder (~3.4s for 5s 480p on RTX 4090; works on Olares One too)
+      - 81 frames @ 16fps (832×480)
+      - Text encoder on CPU by default (memory-safe on 24GB)
+
+    Try this if fastwanqad13bone or fastwanqad13bsa2one crash at denoise 0/3.
+
+    Image: ghcr.io/hao-ai-lab/fastvideo/fastvideo-dev:py3.12-sha-f889e6b (~8.4 GB pull).
+    ghcr.io: set OLARES_USER_GITHUB_TOKEN (read:packages) — chart uses it as imagePullSecret.
+    T2V only (no image-to-video).
+  developer: Hao AI Lab / FastVideo
+  website: https://huggingface.co/FastVideo/FastWan-QAD-FP8-1.3B
+  sourceCode: https://github.com/hao-ai-lab/FastVideo
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/FastVideo/FastWan-QAD-FP8-1.3B/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 9Gi
+      limitedMemory: 49Gi
+      requiredDisk: 60Gi
+      limitedDisk: 120Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.12: trim CPU/memory requests for denser multi-app packing (videoheavy).
+    v1.0.11: move ConfigMap inject to root templates/ (was dead under *srv; helm never rendered it).
+    v1.0.10: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.9: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

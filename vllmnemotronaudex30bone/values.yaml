@@ -1,0 +1,10 @@
+workloads:
+  vllmnemotronaudex30bone:
+    replicaCount: 1
+  vllmnemotronaudex30bonecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

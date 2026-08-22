@@ -1,0 +1,285 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: locateanything3bone-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_REPO: "nvidia/LocateAnything-3B"
+  MODEL_DIR: "/models/LocateAnything-3B"
+  MODEL_PATH: "/models/LocateAnything-3B"
+  SERVER_PORT: "7860"
+  DEVICE: "cuda"
+  DTYPE: "bfloat16"
+  GENERATION_MODE: "hybrid"
+  HF_HOME: "/models/huggingface"
+  LOG_LEVEL: "INFO"
+  APP_SRC: {{ ternary "/app-src" "/app" .Values.deps.bootstrapOnDevice | quote }}
+  DEPS_DIR: "/workspace/deps"
+  VENV_PATH: "/workspace/deps/venv"
+  DEPS_MARKER: "/workspace/deps/.bootstrap-{{ .Values.deps.markerVersion }}.ok"
+  INSTALL_MAGIATTENTION: {{ ternary "1" "0" .Values.deps.installMagiAttention | quote }}
+  MAGI_ATTENTION_PREBUILD_FFA: "0"
+  MAGI_ATTENTION_KERNEL_BACKEND: "fa4"
+  GRADIO_TEMP_DIR: "/output/gradio"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: locateanything3bone
+  name: locateanything3bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+spec:
+  replicas: {{ .Values.workloads.locateanything3bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: locateanything3bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: locateanything3bone
+    spec:
+      {{- $token := .Values.olaresEnv.GITHUB_TOKEN | trim -}}
+      {{- $repo := .Values.image.repository | default "" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) (not .Values.deps.bootstrapOnDevice) }}
+      imagePullSecrets:
+        - name: locateanything3bone-ghcr
+      {{- end }}
+      initContainers:
+        - name: volume-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              chmod -R 777 /models /output{{ if .Values.deps.bootstrapOnDevice }} /workspace/deps{{ end }} || true
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/output"
+              name: output
+            {{- if .Values.deps.bootstrapOnDevice }}
+            - mountPath: "/workspace/deps"
+              name: deps
+            {{- end }}
+          securityContext:
+            runAsUser: 0
+        {{- if .Values.deps.bootstrapOnDevice }}
+        - name: deps-builder
+          image: "pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel"
+          command:
+            - bash
+            - "-lc"
+            - |
+              set -eux
+              apt-get update
+              apt-get install -y --no-install-recommends ca-certificates build-essential ninja-build
+              apt-get install -y --no-install-recommends git
+              apt-get install -y --only-upgrade git || true
+              git --version
+              rm -rf /var/lib/apt/lists/*
+              bash /app-src/bootstrap_deps.sh
+          envFrom:
+            - configMapRef:
+                name: locateanything3bone-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: "/workspace/deps"
+              name: deps
+            - mountPath: "/app-src"
+              name: app-source
+        {{- end }}
+        - name: model-downloader
+          image: "python:3.11-slim"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              python -m pip install --no-cache-dir --break-system-packages -U pip huggingface_hub tqdm
+              python -u - <<'PY'
+              import logging
+              import os
+              import sys
+              import time
+
+              logging.basicConfig(
+                  level=logging.INFO,
+                  format="%(asctime)s | %(levelname)s | %(message)s",
+                  stream=sys.stdout,
+                  force=True,
+              )
+              log = logging.getLogger("model-downloader")
+
+              from huggingface_hub import snapshot_download
+
+              repo_id = os.environ["MODEL_REPO"]
+              local_dir = os.environ["MODEL_DIR"]
+              token = os.environ.get("HF_TOKEN") or None
+              endpoint = os.environ.get("HF_ENDPOINT") or None
+              if endpoint:
+                  os.environ["HF_ENDPOINT"] = endpoint
+              kwargs = {"token": token} if token else {}
+
+              log.info("snapshot_download start repo=%s dest=%s", repo_id, local_dir)
+              t0 = time.monotonic()
+              snapshot_download(repo_id=repo_id, local_dir=local_dir, **kwargs)
+              log.info("snapshot_download done elapsed_s=%.1f", time.monotonic() - t0)
+              PY
+          envFrom:
+            - configMapRef:
+                name: locateanything3bone-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+      containers:
+        - name: locateanything3bone
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+          {{- if .Values.deps.bootstrapOnDevice }}
+          command:
+            - bash
+            - "-lc"
+            - |
+              set -eux
+              source "${VENV_PATH}/bin/activate"
+              export PYTHONPATH="${APP_SRC}:${PYTHONPATH:-}"
+              mkdir -p "${GRADIO_TEMP_DIR:-/output/gradio}"
+              exec python -m uvicorn app:app --host 0.0.0.0 --port "${SERVER_PORT}" --app-dir "${APP_SRC}"
+          {{- else }}
+          command:
+            - /app/entrypoint.sh
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: locateanything3bone-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/output"
+              name: output
+            {{- if .Values.deps.bootstrapOnDevice }}
+            - mountPath: "/workspace/deps"
+              name: deps
+            - mountPath: "/app-src"
+              name: app-source
+            {{- end }}
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        {{- if .Values.deps.bootstrapOnDevice }}
+        - name: deps
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/locateanything3bone-deps"
+            type: DirectoryOrCreate
+        - name: app-source
+          configMap:
+            name: locateanything3bone-source
+        {{- end }}
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/locateanything3bone-output"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: locateanything3bone
+  name: locateanything3bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: locateanything3bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: locateanything3bone
+  name: sharedentrances-locateanything3bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "locateanything3bone"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: locateanything3bone

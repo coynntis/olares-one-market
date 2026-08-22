@@ -1,0 +1,10 @@
+name: fast_dacpp
+title: Fast DA3.cpp (experimental)
+status: experimental
+stages:
+  sfm: skip
+  geometry: da3_cpp
+  matching: none
+  representation: 3dgs
+  densification: default_adc
+iterations: 7000

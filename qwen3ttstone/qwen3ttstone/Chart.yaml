@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.26
+description: qwen3ttstone client proxy
+name: qwen3ttstone
+type: application
+version: 1.0.26

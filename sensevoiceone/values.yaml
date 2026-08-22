@@ -1,0 +1,10 @@
+workloads:
+  sensevoiceone:
+    replicaCount: 1
+  sensevoiceonecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.4"
+description: Qwen3.6 27B Fable Fusion 711 — MTP-Q4_K_M + turbo3 KV + vision + tools
+name: llamacppqwen36fable27bone
+type: application
+version: 1.0.4

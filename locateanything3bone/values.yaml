@@ -1,0 +1,23 @@
+admin: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+image:
+  repository: ghcr.io/coynntis/locate-anything
+  tag: 0.1.2
+  pullPolicy: IfNotPresent
+deps:
+  bootstrapOnDevice: false
+  installMagiAttention: true
+  markerVersion: v1
+workloads:
+  locateanything3bone:
+    replicaCount: 1
+  locateanything3bonecli:
+    replicaCount: 1

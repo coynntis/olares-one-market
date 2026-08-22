@@ -1,0 +1,9 @@
+metadata:
+  title: Qwopus 27B MTP v2 One
+  description: "Qwopus3.6-27B-v2-MTP Q4_K_M — draft-MTP speculative decode on Olares One"
+
+spec:
+  fullDescription: |
+    Qwopus3.6-27B-v2-MTP Q4_K_M with buun draft-MTP speculative decoding (~1.66× vs dense).
+    Jackrong HF GGUF, froggeric Qwen chat template, q8_0/turbo4 KV, 128K default context.
+    --reasoning off. OpenAI-compatible API on port 8000 (llama-server); client entrance on 8080.

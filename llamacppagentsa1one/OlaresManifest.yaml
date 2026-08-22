@@ -1,0 +1,176 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppagentsa1one: 1
+  llamacppagentsa1onecli: 1
+metadata:
+  name: llamacppagentsa1one
+  icon: https://cdn.olares.com/images/2026/08/bc50817200b3d8619a706bc2f784b100.png
+  description: Agents-A1 MoE agentic VLM — fast vision + long context on Olares One
+  title: Agents-A1 Vision One
+  version: 1.0.17
+  categories:
+    - Vision
+    - AI Agents
+  bento:
+    family: agents-a1
+    size_label: MoE VLM
+    badge: agentic
+    hero:
+      value: 128K
+      label: context vision fast
+    specs:
+      - label: model
+        value: 21.2 GB
+      - label: vram
+        value: 24 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      moe:
+        enabled: true
+    stack: buun-llama.cpp · Q4_K_M · mmproj-gpu-swap · q8_0/turbo4 KV
+sharedEntrances:
+  - name: llamacppagentsa1one
+    host: sharedentrances-llamacppagentsa1one
+    port: 0
+    title: Agents-A1 Vision API
+    icon: https://cdn.olares.com/images/2026/08/bc50817200b3d8619a706bc2f784b100.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppagentsa1onecli
+    port: 8080
+    host: llamacppagentsa1onecli
+    title: Agents-A1 Vision One
+    icon: https://cdn.olares.com/images/2026/08/bc50817200b3d8619a706bc2f784b100.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.17
+  featuredImage: https://cdn.olares.com/images/2026/08/ef451bc7e2ef83e110ae7aa728cf9bc0.png
+  upgradeDescription: |2
+    v1.0.17: LLM_REASONING on|off|auto (default on). Template stays GGUF-embedded unless LLM_CHAT_TEMPLATE_SOURCE=froggeric|url. LLM_ENABLE_THINKING / LLM_PRESERVE_THINKING for --chat-template-kwargs.
+    v1.0.16: fast long-context tuning + crash logs. Default ctx 131072, batch/ubatch 1024/512, KV q8_0/turbo4, runtime knobs via envs, persistent logs at /shared-models/llms/logs/llamacppagentsa1one.
+    v1.0.13: download harden (same as Qwen MTP) — bash helpers use local (fix dest overwrite → .tmp.tmp / 416); exact MODEL_BYTES/MMPROJ_BYTES; .part + migrate legacy .tmp; promote complete file without re-wget.
+    v1.0.12: fix silent CrashLoop when Agents-A1-Q4_K_M.gguf.tmp already complete (~19.7GiB). Skip re-wget / promote .tmp; tolerate wget 416; progress logs every 15s.
+    v1.0.11: fix download CrashLoop — MODEL_MIN_BYTES was 22e9 but HF file is exactly 21166757632; every full download failed size check and wiped .tmp. Now min=21e9; keep .tmp for wget -c resume across restarts.
+    v1.0.10: reject truncated GGUF and re-download (tensor out of bounds).
+    v1.0.9: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.3: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.2: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.1: turbo4 KV + 64K default context (was 32K q8_0) for MoE VLM agent workloads.
+  fullDescription: |
+    InternScience Agents-A1 MoE agentic vision-language model served via llama.cpp — optimized for Olares One.
+    Multimodal: accepts images via OpenAI-compatible vision API (image_url format).
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+
+    Model: InternScience/Agents-A1-Q4_K_M-GGUF (Agents-A1-Q4_K_M.gguf, 21.2 GB) + Agents-A1-mmproj.gguf.
+    Image: docker.io/aamsellem/buun-llama-cpp:87c351d2 (CUDA 13.2 compatible).
+    Flags: --mmproj --mmproj-gpu-swap --n-gpu-layers 99 --cache-type-k q8_0 --cache-type-v turbo4 --batch-size 1024 --ubatch-size 512 --jinja.
+    Default context: 128K (131072 tokens). Alias: agents-a1.
+    Downloads model + mmproj on first launch (~22 GB total). OpenAI-compatible API on port 8080.
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/ggerganov/llama.cpp/blob/master/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 35Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_BATCH_SIZE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_UBATCH_SIZE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_K
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_V
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PARALLEL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_REASONING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CHAT_TEMPLATE_SOURCE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CHAT_TEMPLATE_URL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_ENABLE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PRESERVE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

@@ -1,0 +1,7 @@
+metadata:
+  title: LocateAnything 3B One
+  description: NVIDIA LocateAnything-3B visual grounding with Gradio and REST API
+spec:
+  fullDescription: |
+    Locate objects, text, and GUI regions from natural language on Olares One.
+    Pre-built image ghcr.io/coynntis/locate-anything:0.1.2 — MagiAttention v1.1.1, MAGI_ATTENTION_KERNEL_BACKEND=fa4 (Blackwell), Gradio + REST.

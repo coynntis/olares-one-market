@@ -1,0 +1,135 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllmgepardone: 1
+  vllmgepardonecli: 1
+metadata:
+  name: vllmgepardone
+  icon: https://cdn.olares.com/images/2026/08/a1eb16c8006d4dcf98e9a3495114ad6b.png
+  description: Gepard 1.0 streaming TTS via vLLM — Cartesia-compatible API
+  title: Gepard TTS One
+  version: 1.0.5
+  categories:
+    - TTS
+  bento:
+    family: gepard
+    size_label: 555M
+    badge: streaming tts
+    hero:
+      value: 25x RT
+      label: realtime
+    specs:
+      - label: params
+        value: 555M
+      - label: vram
+        value: 4-8 GB
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: true
+      mtp:
+        enabled: false
+    stack: vLLM · Gepard · NanoCodec
+sharedEntrances:
+  - name: vllmgepardone
+    host: sharedentrances-vllmgepardone
+    port: 0
+    title: Gepard TTS API
+    icon: https://cdn.olares.com/images/2026/08/a1eb16c8006d4dcf98e9a3495114ad6b.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmgepardonecli
+    port: 8080
+    host: vllmgepardonecli
+    title: Gepard TTS One
+    icon: https://cdn.olares.com/images/2026/08/a1eb16c8006d4dcf98e9a3495114ad6b.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.5
+  featuredImage: https://cdn.olares.com/images/2026/08/356fc1a7007f1e1f18606513fa80cc81.png
+  upgradeDescription: |2
+        v1.0.2: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.1: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.0: initial release — nineninesix/gepard-1.0 via gepard-vLLM (ylankgz/gepard-vllm).
+    Cartesia-compatible API: POST /tts/bytes, WebSocket /tts/websocket, POST /voices/clone.
+    Fast-ready launcher (/health 200 immediately); Postgres sidecar for voice store.
+    TTS_GPU_MEMORY_UTILIZATION default 0.38 for RTX 5090M 24GB. Set OLARES_USER_HUGGINGFACE_TOKEN for model download.
+  fullDescription: |
+    Gepard 1.0 — autoregressive streaming TTS (555M params, Qwen3.5 backbone + NeMo NanoCodec).
+    Served via [gepard-vLLM](https://github.com/nineninesix-ai/gepard-vllm) on Olares One RTX 5090M.
+    ~25× realtime, ~50 ms time-to-first-audio on Blackwell. English, Spanish, Portuguese, Dutch.
+
+    **API (Cartesia-compatible, not OpenAI /v1/audio/speech):**
+    - `POST /tts/bytes` — batch synthesis (JSON body with transcript + voice)
+    - `WebSocket /tts/websocket` — streaming sentence-by-sentence TTS
+    - `POST /voices/clone` — zero-shot voice clone from WAV clip (multipart)
+    - `GET /voices`, `GET|DELETE /voices/{id}` — voice management
+    - `GET /health` — readiness (launcher returns 200 immediately; `ready:true` when model loaded)
+
+    In-cluster: `http://vllmgepardone:8000`
+    Shared entrance: `http://<route-id>.shared.olares.com/tts/bytes`
+
+    Example batch:
+    ```bash
+    curl -X POST http://vllmgepardone:8000/tts/bytes \
+      -H 'Content-Type: application/json' \
+      -d '{"transcript":"Hello from Gepard.","voice":{"mode":"id","id":"<uuid>"},"output_format":{"container":"wav","encoding":"pcm_s16le","sample_rate":22050}}' \
+      -o out.wav
+    ```
+
+    Clone a voice first via `POST /voices/clone` (3–10 s reference WAV), then use returned uuid.
+    Omit voice id for built-in default voice.
+
+    Pipecat / LiveKit: point Cartesia plugin `base_url` at this server (see gepard-vllm README).
+
+    Shared HF cache: `/olares/share/ai/model/speech/huggingface`.
+    Voice store: local Postgres sidecar (persisted under appData/postgres).
+  developer: coynntis
+  website: https://huggingface.co/nineninesix/gepard-1.0
+  sourceCode: https://github.com/nineninesix-ai/gepard-vllm
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 22Gi
+      requiredDisk: 15Gi
+      limitedDisk: 30Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: TTS_GPU_MEMORY_UTILIZATION
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: GEPARD_BOOTSTRAP_TIMEOUT_SEC
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

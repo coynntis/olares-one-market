@@ -1,0 +1,136 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  dshone: 1
+  dshonecli: 1
+metadata:
+  name: dshone
+  appid: dshone
+  icon: https://cdn.olares.com/images/2026/08/3c3118834200a56873f1c486abedd7f2.png
+  description: DeepSeek Harness Web UI — upgrade dsh from Settings without a chart bump
+  title: DeepSeek Harness One
+  version: 1.0.5
+  categories:
+    - Developer
+sharedEntrances:
+  - name: dshone
+    host: sharedentrances-dshone
+    port: 0
+    title: DeepSeek Harness API
+    icon: https://cdn.olares.com/images/2026/08/3c3118834200a56873f1c486abedd7f2.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: dshonecli
+    port: 8080
+    host: dshonecli
+    title: DeepSeek Harness
+    icon: https://cdn.olares.com/images/2026/08/3c3118834200a56873f1c486abedd7f2.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.5
+  featuredImage: https://cdn.olares.com/images/2026/08/7d5f9a9c26806c6e3452ed4318271485.png
+  runAsUser: true
+  fullDescription: |
+    DeepSeek Harness (dsh) Web UI on Olares One. Everything is a plugin — models,
+    tools, sessions, and the agent loop are swappable.
+
+    Harness version is NOT pinned in this chart. Set DSH_VERSION in app Settings
+    (default 0.1.0-rc.7, current npm). applyOnChange restarts the pod and runs
+    npx -y @deepseek-ai/dsh@<version> web. Bumping dsh does not require a chart
+    upgrade. Use latest to track npm latest (preview has breaking changes).
+
+    Runtime image ghcr.io/coynntis/dsh-runtime:22.19-1 is Node 22.19 + git/python
+    tools only — dsh is not baked in. Sessions and settings persist under appData;
+    npm cache under appCache.
+
+    dsh web binds 127.0.0.1:3080 (refuses 0.0.0.0). Same-pod nginx exposes :8080
+    to the cluster; client nginx is the desktop entrance.
+
+    Configure models in the Web UI (Settings → Models). Optional keys from Olares
+    user env: DeepSeek, OpenAI, Anthropic, custom OpenAI-compatible gateway
+    (point at a local llama.cpp shared entrance /v1).
+  developer: coynntis
+  website: https://github.com/deepseek-ai/deepseek-harness
+  sourceCode: https://github.com/coynntis/olares-one-market/tree/main/dshone
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://opensource.org/licenses/MIT
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: cpu
+      requiredCpu: '2'
+      limitedCpu: '10'
+      requiredMemory: 3Gi
+      limitedMemory: 10Gi
+      requiredDisk: 10Gi
+      limitedDisk: 50Gi
+  upgradeDescription: |
+    v1.0.5: fix persistent permissions for /data/dsh-home (credentials-local requires owner-only 600); on boot failure reset profiles/web once to recover stale UI plugin includes.
+    v1.0.4: drop --trusted-host / DSH_TRUSTED_HOST* — inner nginx loopback rewrite is enough; entrance host never written to env.
+    v1.0.3: rewrite Host+Origin to 127.0.0.1:3080 — settings/credentials are PRIVILEGED_METHODS (loopback-only; --trusted-host ignored).
+    v1.0.2: pass entrance Host to dsh + --trusted-host (Origin vs rewritten 127.0.0.1 caused /api 403).
+    v1.0.1: probe dsh on 127.0.0.1 (exec) not pod IP — tcp probe never succeeded, Service had no endpoints, install stuck + 502.
+    v1.0.0: DeepSeek Harness Web UI. DSH_VERSION Settings env (default 0.1.0-rc.7)
+    installs @deepseek-ai/dsh via npx at boot — harness upgrades need no chart bump.
+permission:
+  appData: true
+  appCache: true
+envs:
+  - envName: DSH_VERSION
+    required: false
+    editable: true
+    applyOnChange: true
+    default: '0.1.0-rc.7'
+    description: npm version or tag of @deepseek-ai/dsh (e.g. 0.1.0-rc.7 or latest). Changing this restarts the pod and pulls that version — no chart upgrade.
+  - envName: DEEPSEEK_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+    type: password
+    description: DeepSeek platform API key (Settings → Models also works)
+  - envName: OPENAI_API_KEY
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_OPENAI_APIKEY
+  - envName: ANTHROPIC_API_KEY
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_ANTHROPIC_APIKEY
+  - envName: CUSTOM_OPENAI_BASE_URL
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_CUSTOM_OPENAI_SERVICE
+  - envName: CUSTOM_OPENAI_API_KEY
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_CUSTOM_OPENAI_APIKEY
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

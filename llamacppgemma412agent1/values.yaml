@@ -1,0 +1,15 @@
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+workloads:
+  llamacppgemma412agent1:
+    replicaCount: 1
+  llamacppgemma412agent1cli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

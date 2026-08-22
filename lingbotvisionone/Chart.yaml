@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.8"
+description: Vision backbone PCA Gradio + REST (ViT-L)
+name: lingbotvisionone
+type: application
+version: 1.0.8

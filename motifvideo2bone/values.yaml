@@ -1,10 +1,17 @@
-admin: ""
+admin: ''
 bfl:
-  username: ""
+  username: ''
 userspace:
-  appData: ""
-  appCache: ""
-  userData: ""
+  appData: ''
+  appCache: ''
+  userData: ''
 olaresEnv:
-  HF_TOKEN: ""
-  HF_ENDPOINT: ""
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+workloads:
+  motifvideo2bone:
+    replicaCount: 1
+  motifvideo2bonecli:
+    replicaCount: 1

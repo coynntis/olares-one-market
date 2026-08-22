@@ -1,0 +1,281 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: omnivoiceone
+  name: omnivoiceone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.omnivoiceone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: omnivoiceone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: omnivoiceone
+    spec:
+      initContainers:
+        - name: fix-shared-speech-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /shared-models/speech/huggingface /shared-models/speech/modelscope /shared-models/llms
+              chmod -R 777 /shared-models
+              echo "$(date -Iseconds) [omnivoiceone] shared speech dirs ready:"
+              ls -la /shared-models/speech/
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: omnivoice
+          image: "docker.io/diogod2r/omnivoice-fastapi:latest"
+          command:
+            - "sh"
+            - "-c"
+            - |
+              cat > /app/start-backend.sh << 'SHEOF'
+              #!/bin/bash
+              set -euo pipefail
+              cd /app
+              echo "$(date -Iseconds) [omnivoiceone] starting OmniVoice backend on :8881..."
+              exec uvicorn main:app --host 127.0.0.1 --port 8881 --workers 1
+              SHEOF
+              chmod +x /app/start-backend.sh
+
+              cat > /app/launcher.py << 'PYEOF'
+              import asyncio
+              import os
+              import subprocess
+              import traceback
+              import urllib.error
+              import urllib.request
+              from contextlib import asynccontextmanager
+              from typing import Optional
+
+              from fastapi import FastAPI, HTTPException, Request, Response
+              from fastapi.responses import JSONResponse, RedirectResponse
+
+              _phase = "starting"
+              _bootstrap_error: Optional[str] = None
+              _backend_proc: Optional[subprocess.Popen] = None
+              _backend_port = 8881
+
+
+              def log(msg: str) -> None:
+                  print(f"[omnivoiceone] {msg}", flush=True)
+
+
+              def backend_healthy_sync() -> bool:
+                  try:
+                      with urllib.request.urlopen(
+                          f"http://127.0.0.1:{_backend_port}/health", timeout=3
+                      ) as resp:
+                          return resp.status == 200
+                  except Exception:
+                      return False
+
+
+              def wait_for_backend_sync() -> None:
+                  global _phase
+                  import time
+
+                  for _ in range(360):
+                      if _backend_proc is not None and _backend_proc.poll() is not None:
+                          raise RuntimeError(f"OmniVoice exited {_backend_proc.returncode}")
+                      if backend_healthy_sync():
+                          _phase = "ready"
+                          log("OmniVoice backend ready — proxying API traffic")
+                          return
+                      time.sleep(5)
+                  raise RuntimeError("OmniVoice backend health timeout")
+
+
+              def bootstrap_sync() -> None:
+                  global _phase, _bootstrap_error, _backend_proc
+                  try:
+                      _phase = "loading_model"
+                      log("background: starting OmniVoice (model download/load)...")
+                      _backend_proc = subprocess.Popen(["/app/start-backend.sh"])
+                      wait_for_backend_sync()
+                  except Exception as exc:
+                      _bootstrap_error = str(exc)
+                      _phase = "error"
+                      log(f"bootstrap failed: {exc}")
+                      traceback.print_exc()
+
+
+              @asynccontextmanager
+              async def lifespan(app: FastAPI):
+                  log("fast-ready: launcher on :8880 — OmniVoice starts in background on :8881")
+                  asyncio.create_task(asyncio.to_thread(bootstrap_sync))
+                  yield
+
+
+              app = FastAPI(title="OmniVoice launcher", lifespan=lifespan)
+
+
+              @app.get("/health")
+              async def health():
+                  ready = _phase == "ready"
+                  backend_ok = ready and await asyncio.to_thread(backend_healthy_sync)
+                  body = {
+                      "status": _phase,
+                      "ready": ready and backend_ok,
+                      "model": os.environ.get("MODEL_ID"),
+                      "bootstrap_error": _bootstrap_error,
+                  }
+                  if ready and not backend_ok:
+                      return JSONResponse(status_code=503, content={**body, "backend": "down"})
+                  return JSONResponse(status_code=200, content=body)
+
+
+              async def proxy_request(request: Request, full_path: str = ""):
+                  if _phase != "ready":
+                      raise HTTPException(503, detail=f"not ready (phase={_phase})")
+                  if not await asyncio.to_thread(backend_healthy_sync):
+                      raise HTTPException(503, detail="OmniVoice backend down")
+                  try:
+                      import httpx
+                  except ImportError:
+                      raise HTTPException(503, detail="httpx not available for proxy")
+
+                  url = f"http://127.0.0.1:{_backend_port}/{full_path}"
+                  if request.url.query:
+                      url = f"{url}?{request.url.query}"
+                  headers = {
+                      k: v
+                      for k, v in request.headers.items()
+                      if k.lower() not in ("host", "content-length")
+                  }
+                  body = await request.body()
+                  async with httpx.AsyncClient(timeout=None) as client:
+                      upstream = await client.request(
+                          request.method,
+                          url,
+                          headers=headers,
+                          content=body if body else None,
+                      )
+                  return Response(
+                      content=upstream.content,
+                      status_code=upstream.status_code,
+                      headers=dict(upstream.headers),
+                  )
+
+
+              @app.get("/")
+              async def root():
+                  if _phase != "ready":
+                      raise HTTPException(503, detail=f"not ready (phase={_phase})")
+                  return RedirectResponse(url="/web", status_code=307)
+
+
+              @app.api_route(
+                  "/{full_path:path}",
+                  methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+              )
+              async def proxy(full_path: str, request: Request):
+                  return await proxy_request(request, full_path)
+
+
+              if __name__ == "__main__":
+                  import uvicorn
+
+                  uvicorn.run(app, host="0.0.0.0", port=8880, log_level="info")
+              PYEOF
+
+              exec python /app/launcher.py
+          env:
+            - name: HF_HOME
+              value: "/shared-models/speech/huggingface"
+            - name: TRANSFORMERS_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: MODEL_ID
+              value: "k2-fsa/OmniVoice"
+            - name: DEVICE
+              value: "cuda:0"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            {{- if .Values.olaresEnv.HF_ENDPOINT }}
+            - name: HF_ENDPOINT
+              value: {{ .Values.olaresEnv.HF_ENDPOINT | quote }}
+            {{- end }}
+          ports:
+            - containerPort: 8880
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8880
+              scheme: HTTP
+            timeoutSeconds: 15
+            periodSeconds: 60
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8880
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 16Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      volumes:
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: omnivoiceone
+  name: omnivoiceone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "omnivoice"
+      port: 8000
+      targetPort: 8880
+  selector:
+    io.kompose.service: omnivoiceone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: omnivoiceone
+  name: sharedentrances-omnivoiceone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "omnivoiceone"
+      port: 80
+      targetPort: 8880
+  selector:
+    io.kompose.service: omnivoiceone

@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.16
+description: sensenovau1lightllmone shared server
+name: sensenovau1lightllmonesrv
+type: application
+version: 1.0.16

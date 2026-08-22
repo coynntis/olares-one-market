@@ -1,0 +1,17 @@
+metadata:
+  description: "SNDR Core Engine — Qwen3.6 27B INT4 + TQ k8v4 + MTP K=4 (1x)"
+  title: SNDR Qwen36 27B One
+spec:
+  fullDescription: |
+    SNDR Core Engine (Sandermage) on Olares One — official pin.
+    
+    Image: vllm/vllm-openai@sha256:6a93ae43… (pins.yaml current = 0.23.1rc1.dev748+g2dfaae752)
+    Boot: soft-ready → uv cache → editable -e sndr (not --target) → sndr.apply → vllm serve
+    Attempts: /shared-models/sndr/<app>/bootstrap.log
+    Site-packages target: only optional deps (pyyaml); SNDR itself is editable/--system so vLLM plugin entry points work.
+    Preset base: qa-qwen3.6-27b-tq-1x (1×24GB)
+    Model: Lorbus/Qwen3.6-27B-int4-AutoRound
+    KV turboquant_k8v4 · MTP K=4 (2026-07-03 coherence retune; K=5 broke 27B tool-calls)
+    PN521/PN522 required for TQ×MTP
+    
+    Upstream: https://github.com/Sandermage/sndr_core_engine

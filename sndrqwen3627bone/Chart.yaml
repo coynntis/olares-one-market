@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.13"
+description: "SNDR Core Engine — Qwen3.6 27B INT4 + TQ k8v4 + MTP K=4 (1x)"
+name: sndrqwen3627bone
+type: application
+version: 1.0.13

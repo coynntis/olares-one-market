@@ -1,0 +1,12 @@
+metadata:
+  description: "Multi-engine web search MCP server for Olares One agents — no API keys"
+  title: Open WebSearch One
+spec:
+  fullDescription: |
+    Multi-engine web search MCP server for Olares One agents — no API keys required.
+    MCP server runs on port 3000; Olares app entrance proxies port 8080 to the backend.
+    In-cluster MCP URL: http://openwebsearchone:3000/mcp
+    Shared entrance openwebsearchmcp routes external agents to the same backend.
+    All entrances authLevel internal (Olares session required).
+    Tools: search, fetchWebContent, fetchGithubReadme, fetchCsdnArticle, fetchJuejinArticle.
+    Optional USE_PROXY/PROXY_URL; PLAYWRIGHT_WS_ENDPOINT=ws://browserlessone:3000/ for Bing browser mode.

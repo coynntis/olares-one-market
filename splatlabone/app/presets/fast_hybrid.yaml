@@ -1,0 +1,12 @@
+name: fast_hybrid
+title: Fast hybrid dacpp + infer_gs (experimental)
+status: experimental
+stages:
+  sfm: skip
+  geometry: da3_cpp
+  matching: none
+  representation: 3dgs
+  densification: default_adc
+  extras:
+    - infer_gs_python
+iterations: 7000

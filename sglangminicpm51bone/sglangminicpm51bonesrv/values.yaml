@@ -1,0 +1,18 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+# 1B model: low static fraction + tight token caps (65536 max-total-tokens wastes VRAM).
+sglang:
+  contextLength: "8192"
+  memFractionStatic: "0.35"
+  maxRunningRequests: "1"
+  maxTotalTokens: "12288"
+  chunkedPrefillSize: "2048"
+  disableRadixCache: true

@@ -1,0 +1,17 @@
+name: robust
+title: Robust (VGGT-X → 2DGS + MCMC)
+summary: COLMAP-free feed-forward geometry with 2DGS and MCMC densification.
+license: Apache-2.0
+vram_gb: 20
+time_est_min: 60
+iterations: 30000
+checkpoint_interval: 7000
+lambda_dist: 0.01
+mcmc_noise: 0.1
+stages:
+  sfm: skip
+  geometry: vggt_omega
+  representation: 2dgs
+  densification: mcmc
+  pose_opt: joint
+  repair: none

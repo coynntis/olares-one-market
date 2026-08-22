@@ -1,0 +1,103 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  dflashqwen3627bone: 1
+  dflashqwen3627bonecli: 1
+metadata:
+  name: dflashqwen3627bone
+  icon: https://cdn.olares.com/images/2026/08/6a3e90f452a596563efe946a8d11ec83.png
+  description: Qwen3.6-27B DFlash DDTree on Olares One sm_120
+  title: Qwen36 27B DFlash One
+  version: 1.0.22
+  categories:
+    - AI
+sharedEntrances:
+  - name: dflashqwen3627bone
+    host: sharedentrances-dflashqwen3627bone
+    port: 0
+    title: Qwen36 27B DFlash API
+    icon: https://cdn.olares.com/images/2026/08/6a3e90f452a596563efe946a8d11ec83.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: dflashqwen3627bonecli
+    port: 8080
+    host: dflashqwen3627bonecli
+    title: Qwen36 27B DFlash
+    icon: https://cdn.olares.com/images/2026/08/6a3e90f452a596563efe946a8d11ec83.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.22
+  featuredImage: https://cdn.olares.com/images/2026/08/834185ea602892ec68d5cf0622977e56.png
+  fullDescription: |
+    Lucebox DFlash (block-diffusion draft) plus DDTree verify for Qwen3.6-27B GGUF,
+    targeting unsloth/Qwen3.6-27B-GGUF Q4_K_M weights and z-lab Qwen3.6-27B-DFlash draft (see Luce-Org/lucebox-hub dflash).
+    Built with CMAKE_CUDA_ARCHITECTURES=120 for NVIDIA Blackwell (RTX 5090 / 5090M, sm_120). Not sm_121a (GB10).
+    CUDA 13.x devel image; first boot clones the repo with submodules, compiles test_dflash, then runs
+    scripts/server.py (FastAPI) OpenAI-compatible API on port 8080.
+    Weights are downloaded with curl in the init container (~16 GB GGUF + draft safetensors).
+    Configure Olares system Hugging Face credentials (user settings) so the platform injects
+    OLARES_USER_HUGGINGFACE_TOKEN into HF_TOKEN and HUGGING_FACE_HUB_TOKEN; optional HF_ENDPOINT
+    from OLARES_USER_HUGGINGFACE_SERVICE for mirrors. Declared in manifest envs like other HF apps.
+    Research stack: https://github.com/Luce-Org/lucebox-hub — greedy decode only; temperature in API ignored per upstream.
+  developer: coynntis
+  website: https://github.com/Luce-Org/lucebox-hub
+  sourceCode: https://github.com/Luce-Org/lucebox-hub
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/Luce-Org/lucebox-hub/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 27Gi
+      requiredDisk: 45Gi
+      limitedDisk: 80Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+        v1.0.21: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.20: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

@@ -1,0 +1,10 @@
+name: robust_gluemap
+title: Robust GlueMap (experimental)
+status: experimental
+stages:
+  sfm: skip
+  geometry: gluemap
+  matching: none
+  representation: 2dgs
+  densification: mcmc
+  pose_opt: joint

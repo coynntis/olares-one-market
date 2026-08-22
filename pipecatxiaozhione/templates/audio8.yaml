@@ -1,0 +1,144 @@
+{{- $audio8 := .Values.audio8 | default dict -}}
+{{- $olaresEnv := .Values.olaresEnv | default dict -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhiaudio8
+  name: pipecatxiaozhiaudio8
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.workloads.pipecatxiaozhiaudio8.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: pipecatxiaozhiaudio8
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: pipecatxiaozhiaudio8
+    spec:
+      {{- $token := ($olaresEnv.GITHUB_TOKEN | default "") | trim -}}
+      {{- $repo := $audio8.repository | default "ghcr.io/coynntis/audio8-tts-onnx" -}}
+      {{- $tag := $audio8.tag | default "0.6b-int4" -}}
+      {{- $pull := $audio8.pullPolicy | default "IfNotPresent" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) }}
+      imagePullSecrets:
+        - name: pipecatxiaozhione-ghcr
+      {{- end }}
+      initContainers:
+        - name: fix-audio8-dirs
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /shared-models/speech/audio8-tts/model
+              mkdir -p /shared-models/speech/audio8-tts/voices
+              chmod -R 777 /shared-models/speech/audio8-tts
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: audio8
+          image: "{{ $repo }}:{{ $tag }}"
+          imagePullPolicy: "{{ $pull }}"
+          ports:
+            - containerPort: 8024
+              name: http
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8024"
+            - name: ARKTTS_MODEL_DIR
+              value: "/models"
+            - name: ARKTTS_VOICES_DIR
+              value: "/voices"
+            - name: ARKTTS_THREADS
+              value: {{ $audio8.threads | default "24" | quote }}
+            - name: OMP_NUM_THREADS
+              value: {{ $audio8.threads | default "24" | quote }}
+            - name: MKL_NUM_THREADS
+              value: {{ $audio8.threads | default "24" | quote }}
+            - name: OPENBLAS_NUM_THREADS
+              value: {{ $audio8.threads | default "24" | quote }}
+            - name: HF_TOKEN
+              value: {{ $olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HF_ENDPOINT
+              value: {{ $olaresEnv.HF_ENDPOINT | default "" | quote }}
+          volumeMounts:
+            - mountPath: /models
+              name: shared-models
+              subPath: speech/audio8-tts/model
+            - mountPath: /voices
+              name: shared-models
+              subPath: speech/audio8-tts/voices
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8024
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 8024
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 15
+            # First start downloads ~1 GiB ONNX + registers seed voices.
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "24"
+              memory: 6Gi
+            requests:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhiaudio8
+  name: pipecatxiaozhiaudio8
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 8024
+      targetPort: 8024
+  selector:
+    io.kompose.service: pipecatxiaozhiaudio8
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: pipecatxiaozhiaudio8
+  name: sharedentrances-pipecatxiaozhiaudio8
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "pipecatxiaozhiaudio8"
+      port: 80
+      targetPort: 8024
+  selector:
+    io.kompose.service: pipecatxiaozhiaudio8

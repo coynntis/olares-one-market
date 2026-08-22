@@ -1,0 +1,132 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllmqwen3635bnvfp4fone: 1
+  vllmqwen3635bnvfp4fonecli: 1
+metadata:
+  name: vllmqwen3635bnvfp4fone
+  icon: https://cdn.olares.com/images/2026/08/4110528ede1bf9c308787b21e3e7ebcd.png
+  description: Qwen3.6 35B-A3B NVFP4-Fast — vLLM TurboQuant KV + llama.cpp web UI on Olares One
+  title: Qwen3.6 35B NVFP4 Fast One
+  version: 1.0.16
+  categories:
+    - Vision
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: 35B-A3B
+    badge: NVFP4
+    hero:
+      value: 32K
+      label: fp8 KV
+    specs:
+      - label: context
+        value: 32K
+      - label: vram
+        value: 24 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: false
+    stack: vLLM 0.25.1 · NVFP4-Fast · fp8 · llama.cpp UI
+sharedEntrances:
+  - name: vllmqwen3635bnvfp4fone
+    host: sharedentrances-vllmqwen3635bnvfp4fone
+    port: 0
+    title: Qwen36 35B NVFP4 Fast API
+    icon: https://cdn.olares.com/images/2026/08/4110528ede1bf9c308787b21e3e7ebcd.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmqwen3635bnvfp4fonecli
+    port: 8080
+    host: vllmqwen3635bnvfp4fonecli
+    title: Qwen36 35B NVFP4 Fast
+    icon: https://cdn.olares.com/images/2026/08/4110528ede1bf9c308787b21e3e7ebcd.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.16
+  featuredImage: https://cdn.olares.com/images/2026/08/e0f2ec3b01285f7ca29fc9c541433d3d.png
+  upgradeDescription: |
+    v1.0.16: keep PIECEWISE cudagraphs; drop max_model_len 8192→7168 and util 0.95→0.97 so KV fits after torch.compile (was 0.43 GiB vs 0.43 needed).
+    v1.0.15: match Unsloth HF recipe — image v0.25.1-x86_64 (CUDA 13, not cu129) + pip flashinfer-python>=0.6.13 nvidia-cutlass-dsl>=4.5.2 compressed-tensors>=0.17.
+    v1.0.6: probe QuantizationArgs / null actorder fallback for old CT.
+    v1.0.5: pin v0.25.1 (wrong cu129 variant).
+    v1.0.4: --kv-cache-dtype fp8.
+    v1.0.3: helm render fix.
+    v1.0.2: sanitize webui→vLLM; wrap errors.
+    v1.0.1: soft-ready /v1/models; stub /cors-proxy.
+    v1.0.0: initial release.
+
+  fullDescription: |
+    Unsloth Qwen3.6-35B-A3B-NVFP4-Fast (MoE VLM, ~23.6 GB weights). Upstream notes 32GB VRAM preferred — tight on 24GB 5090M; fp8 KV + PIECEWISE CUDA graphs + 32K default ctx to leave headroom.
+    
+    Stack:
+    - Image: vllm/vllm-openai:v0.25.1-x86_64 (CUDA 13)
+    - --kv-cache-dtype fp8
+    - Native multimodal vision (limit-mm image=1) — no separate mmproj
+    - MTP off on 24GB VRAM (weights fill GPU; re-enable on 32GB+)
+    - Default max_model_len 32768 (raise via LLM_CONTEXT_WINDOW if VRAM allows)
+    
+    Entrance: llama.cpp web UI proxying OpenAI API to vLLM.
+  developer: coynntis
+  website: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-NVFP4-Fast
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: "2"
+      limitedCpu: "13"
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 40Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  LLMGatewaySupported: true
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

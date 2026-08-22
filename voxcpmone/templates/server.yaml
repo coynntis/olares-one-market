@@ -1,0 +1,508 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: voxcpmone
+  name: voxcpmone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.voxcpmone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: voxcpmone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: voxcpmone
+    spec:
+      initContainers:
+        - name: setup-speech-runtime
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              log() { echo "$(date -Iseconds) [voxcpmone:init] $*"; }
+              log "starting setup-speech-runtime"
+              mkdir -p /shared-models/speech/huggingface /shared-models/speech/modelscope /shared-models/llms
+              log "fixing permissions on speech cache dirs only..."
+              chmod -R 777 /shared-models/speech /shared-models/llms
+              mkdir -p /opt/speech-bin
+              if [ -x /opt/speech-bin/ffmpeg ]; then
+                log "ffmpeg already present — skip download"
+              else
+                log "downloading static ffmpeg (~40MB, first boot only)..."
+                wget -O /tmp/ff.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+                log "extracting ffmpeg..."
+                cd /tmp && tar xf ff.tar.xz
+                cp /tmp/ffmpeg-*-static/ffmpeg /tmp/ffmpeg-*-static/ffprobe /opt/speech-bin/
+                chmod 755 /opt/speech-bin/*
+                log "ffmpeg ready"
+              fi
+              log "setup-speech-runtime complete"
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/opt/speech-bin"
+              name: speech-bin
+      containers:
+        - name: voxcpm
+          image: "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"
+          command:
+            - bash
+            - '-c'
+            - |
+              set -e
+              export DEBIAN_FRONTEND=noninteractive
+              export PATH="/opt/speech-bin:$PATH"
+              export TORCHDYNAMO_DISABLE=1
+              export TORCH_COMPILE_DISABLE=1
+              VENV="/models/venv"
+              log() { echo "$(date -Iseconds) [voxcpmone] $*"; }
+
+              log "shared cache HF_HOME=$HF_HOME"
+              ls -la /shared-models/speech/ 2>/dev/null || true
+
+              apt-get update
+              apt-get install -y --no-install-recommends libsndfile1 python3-venv
+
+              mkdir -p /app
+              if [ ! -x "$VENV/bin/pip" ]; then
+                if [ -d "$VENV" ]; then
+                  log "broken/partial venv at $VENV — recreating"
+                  rm -rf "$VENV"
+                fi
+                log "creating venv at $VENV"
+                python -m venv "$VENV"
+                if [ ! -x "$VENV/bin/pip" ]; then
+                  log "pip missing after venv — running ensurepip"
+                  "$VENV/bin/python" -m ensurepip --upgrade
+                fi
+              else
+                log "reusing venv at $VENV"
+              fi
+              if [ ! -x "$VENV/bin/pip" ]; then
+                log "FATAL: $VENV/bin/pip missing after venv create"
+                exit 1
+              fi
+              "$VENV/bin/pip" install -q --upgrade pip
+              "$VENV/bin/pip" install -q fastapi uvicorn python-multipart gradio
+
+              cat > /app/bootstrap-deps.sh << 'BOOTEOF'
+              #!/bin/bash
+              set -euo pipefail
+              VENV="/models/venv"
+              log() { echo "$(date -Iseconds) [voxcpmone] $*"; }
+              if [ -f "$VENV/.ready-v3" ]; then
+                log "deps already installed — skip"
+                exit 0
+              fi
+              log "first boot: VoxCPM deps (background)..."
+              "$VENV/bin/pip" install --upgrade pip setuptools wheel
+              "$VENV/bin/pip" install voxcpm soundfile numpy huggingface_hub gradio
+              touch "$VENV/.ready-v3"
+              log "venv install complete"
+              BOOTEOF
+              chmod +x /app/bootstrap-deps.sh
+
+              log "writing API server (fast-ready)..."
+              cat > /app/server.py << 'PYEOF'
+              import asyncio
+              import base64
+              import io
+              import os
+              import subprocess
+              import tempfile
+              import traceback
+              from contextlib import asynccontextmanager
+              from typing import Optional
+
+              from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+              from fastapi.responses import JSONResponse, Response
+              from pydantic import BaseModel
+
+              _model = None
+              _model_error: Optional[str] = None
+              _phase = "starting"
+              _bootstrap_error: Optional[str] = None
+              MODEL_ID = os.environ.get("VOXCPM_MODEL", "openbmb/VoxCPM2")
+
+
+              def log(msg: str) -> None:
+                  print(f"[voxcpmone] {msg}", flush=True)
+
+
+              def cache_summary() -> str:
+                  return f"HF_HOME={os.environ.get('HF_HOME', '?')}"
+
+
+              def install_deps_sync() -> None:
+                  global _phase, _bootstrap_error
+                  if os.path.isfile("/models/venv/.ready-v3"):
+                      return
+                  _phase = "installing_deps"
+                  log("background: installing VoxCPM deps...")
+                  proc = subprocess.run(["/app/bootstrap-deps.sh"], capture_output=False)
+                  if proc.returncode != 0:
+                      _bootstrap_error = f"bootstrap-deps.sh exited {proc.returncode}"
+                      _phase = "error"
+                      raise RuntimeError(_bootstrap_error)
+
+
+              def load_model_sync():
+                  global _model, _model_error, _phase
+                  if _model is not None or _model_error is not None:
+                      return
+                  try:
+                      import os as _os
+                      _os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
+                      _os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
+                      import torch
+                      from voxcpm import VoxCPM
+                      device = "cuda" if torch.cuda.is_available() else "cpu"
+                      _phase = "loading_model"
+                      log(f"downloading/loading {MODEL_ID} on {device} (optimize=False — no torch.compile) — {cache_summary()}")
+                      _model = VoxCPM.from_pretrained(
+                          MODEL_ID,
+                          load_denoiser=False,
+                          device=device,
+                          optimize=False,
+                      )
+                      _phase = "ready"
+                      log(f"model ready — {cache_summary()}")
+                      subprocess.run(["du", "-sh", os.environ.get("HF_HOME", "/shared-models/speech/huggingface")], check=False)
+                  except Exception as exc:
+                      _model_error = str(exc)
+                      _phase = "error"
+                      log(f"model load failed: {exc}")
+                      traceback.print_exc()
+
+
+              def bootstrap_sync() -> None:
+                  global _phase, _bootstrap_error
+                  try:
+                      install_deps_sync()
+                      if _phase == "error":
+                          return
+                      load_model_sync()
+                  except Exception as exc:
+                      _bootstrap_error = str(exc)
+                      _phase = "error"
+                      log(f"bootstrap failed: {exc}")
+                      traceback.print_exc()
+
+
+              @asynccontextmanager
+              async def lifespan(app: FastAPI):
+                  log("fast-ready: API listening — bootstrap runs in background")
+                  asyncio.create_task(asyncio.to_thread(bootstrap_sync))
+                  yield
+
+
+              app = FastAPI(title="VoxCPM TTS", lifespan=lifespan)
+
+
+              def get_model():
+                  if _bootstrap_error:
+                      raise HTTPException(503, f"bootstrap failed: {_bootstrap_error}")
+                  if _model_error:
+                      raise HTTPException(503, f"model load failed: {_model_error}")
+                  if _model is None:
+                      raise HTTPException(503, f"not ready (phase={_phase})")
+                  return _model
+
+
+              def to_wav_bytes(audio, sr: int) -> bytes:
+                  import numpy as np
+                  import soundfile as sf
+
+                  if hasattr(audio, "detach"):
+                      audio = audio.detach().cpu().numpy()
+                  audio = np.asarray(audio)
+                  if audio.ndim > 1:
+                      audio = np.squeeze(audio)
+                  buf = io.BytesIO()
+                  sf.write(buf, audio, sr, format="WAV")
+                  buf.seek(0)
+                  return buf.read()
+
+
+              def run_generate(
+                  text: str,
+                  prompt_wav_path: Optional[str] = None,
+                  prompt_text: Optional[str] = None,
+                  cfg_value: float = 2.0,
+                  inference_timesteps: int = 10,
+              ) -> bytes:
+                  m = get_model()
+                  kwargs = {
+                      "text": text,
+                      "cfg_value": cfg_value,
+                      "inference_timesteps": inference_timesteps,
+                      "normalize": True,
+                      "denoise": False,
+                  }
+                  if prompt_wav_path:
+                      kwargs["prompt_wav_path"] = prompt_wav_path
+                      kwargs["prompt_text"] = prompt_text
+                  wav = m.generate(**kwargs)
+                  sr = getattr(getattr(m, "tts_model", m), "sample_rate", 16000)
+                  return to_wav_bytes(wav, sr)
+
+
+              class SpeechRequest(BaseModel):
+                  input: str
+                  model: str = "voxcpm2"
+                  voice: str = "default"
+                  response_format: str = "wav"
+                  cfg_value: float = 2.0
+                  inference_timesteps: int = 10
+                  prompt_text: Optional[str] = None
+                  prompt_audio_b64: Optional[str] = None
+
+
+              @app.get("/health")
+              async def health():
+                  ready = _model is not None and _phase == "ready"
+                  return JSONResponse(
+                      status_code=200,
+                      content={
+                          "status": _phase,
+                          "ready": ready,
+                          "model": MODEL_ID,
+                          "cache": cache_summary() if ready else None,
+                          "bootstrap_error": _bootstrap_error,
+                          "model_error": _model_error,
+                      },
+                  )
+
+
+              @app.get("/v1/models")
+              async def models():
+                  get_model()
+                  return {"data": [{"id": "voxcpm2", "object": "model"}]}
+
+
+              @app.post("/v1/audio/speech")
+              async def speech(req: SpeechRequest):
+                  prompt_path = None
+                  try:
+                      if req.prompt_audio_b64:
+                          if not req.prompt_text:
+                              raise HTTPException(400, "prompt_text required with prompt_audio_b64")
+                          raw = base64.b64decode(req.prompt_audio_b64)
+                          fd, prompt_path = tempfile.mkstemp(suffix=".wav")
+                          os.write(fd, raw)
+                          os.close(fd)
+                      wav = await asyncio.to_thread(
+                          run_generate,
+                          req.input,
+                          prompt_path,
+                          req.prompt_text,
+                          req.cfg_value,
+                          req.inference_timesteps,
+                      )
+                      return Response(content=wav, media_type="audio/wav")
+                  finally:
+                      if prompt_path and os.path.exists(prompt_path):
+                          os.remove(prompt_path)
+
+
+              @app.post("/v1/audio/clone")
+              async def clone(
+                  text: str = Form(...),
+                  prompt_text: str = Form(...),
+                  prompt_audio: UploadFile = File(...),
+                  cfg_value: float = Form(2.0),
+                  inference_timesteps: int = Form(10),
+              ):
+                  fd, prompt_path = tempfile.mkstemp(suffix=".wav")
+                  try:
+                      os.write(fd, await prompt_audio.read())
+                      os.close(fd)
+                      wav = await asyncio.to_thread(
+                          run_generate,
+                          text,
+                          prompt_path,
+                          prompt_text,
+                          cfg_value,
+                          inference_timesteps,
+                      )
+                      return Response(content=wav, media_type="audio/wav")
+                  finally:
+                      if os.path.exists(prompt_path):
+                          os.remove(prompt_path)
+
+
+              def _status_line() -> str:
+                  if _bootstrap_error:
+                      return f"bootstrap failed: {_bootstrap_error}"
+                  if _model_error:
+                      return f"model failed: {_model_error}"
+                  if _phase != "ready":
+                      return f"loading… phase={_phase}"
+                  return "ready"
+
+
+              def _require_ready() -> None:
+                  if _bootstrap_error:
+                      raise RuntimeError(_bootstrap_error)
+                  if _model_error:
+                      raise RuntimeError(_model_error)
+                  if _model is None:
+                      raise RuntimeError(f"not ready (phase={_phase})")
+
+
+              def _bytes_to_audio(wav_bytes: bytes):
+                  import numpy as np
+                  import soundfile as sf
+
+                  data, sr = sf.read(io.BytesIO(wav_bytes))
+                  return (sr, np.asarray(data))
+
+
+              def mount_test_ui() -> None:
+                  import gradio as gr
+
+                  def ui_tts(text, prompt_audio_path, prompt_text):
+                      try:
+                          _require_ready()
+                          if not text:
+                              return None, "enter text"
+                          wav = run_generate(
+                              text,
+                              prompt_audio_path if prompt_audio_path else None,
+                              prompt_text or None,
+                          )
+                          return _bytes_to_audio(wav), _status_line()
+                      except Exception as exc:
+                          return None, str(exc)
+
+                  with gr.Blocks(title="VoxCPM2 Test") as demo:
+                      gr.Markdown("# VoxCPM2 TTS — test UI")
+                      status = gr.Textbox(label="Status", value=_status_line())
+                      refresh = gr.Button("Refresh status")
+                      text = gr.Textbox(label="Text to speak", lines=3)
+                      prompt_audio = gr.Audio(type="filepath", label="Optional clone reference")
+                      prompt_text = gr.Textbox(label="Optional reference transcription", lines=2)
+                      out_audio = gr.Audio(label="Output")
+                      go = gr.Button("Synthesize", variant="primary")
+                      refresh.click(lambda: _status_line(), outputs=status)
+                      go.click(
+                          ui_tts,
+                          inputs=[text, prompt_audio, prompt_text],
+                          outputs=[out_audio, status],
+                      )
+
+                  gr.mount_gradio_app(app, demo, path="/")
+
+
+              mount_test_ui()
+              PYEOF
+
+              log "starting uvicorn (fast-ready — deps/model load in background)..."
+              exec "$VENV/bin/uvicorn" server:app --host 0.0.0.0 --port 8000 --app-dir /app --log-level info
+          env:
+            - name: HF_HOME
+              value: "/shared-models/speech/huggingface"
+            - name: TRANSFORMERS_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: VOXCPM_MODEL
+              value: "openbmb/VoxCPM2"
+            - name: TORCHDYNAMO_DISABLE
+              value: "1"
+            - name: TORCH_COMPILE_DISABLE
+              value: "1"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "24400m"
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            timeoutSeconds: 15
+            periodSeconds: 60
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 16Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/opt/speech-bin"
+              name: speech-bin
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: speech-bin
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/speech-bin"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: voxcpmone
+  name: voxcpmone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "voxcpm"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: voxcpmone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: voxcpmone
+  name: sharedentrances-voxcpmone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "voxcpmone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: voxcpmone

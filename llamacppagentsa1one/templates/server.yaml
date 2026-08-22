@@ -1,0 +1,464 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-agentsa1-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_URL: "https://huggingface.co/InternScience/Agents-A1-Q4_K_M-GGUF/resolve/main/Agents-A1-Q4_K_M.gguf"
+  MODEL_FILE: "Agents-A1-Q4_K_M.gguf"
+  # Exact HF LFS size — complete .part must promote without re-wget (busybox wget -c on full → HTTP 416 under set -e)
+  MODEL_BYTES: "21166757632"
+  MODEL_MIN_BYTES: "21000000000"
+  MMPROJ_URL: "https://huggingface.co/InternScience/Agents-A1-Q4_K_M-GGUF/resolve/main/Agents-A1-mmproj.gguf"
+  MMPROJ_FILE: "Agents-A1-mmproj.gguf"
+  MMPROJ_BYTES: "899282976"
+  MMPROJ_MIN_BYTES: "890000000"
+  MODEL_ALIAS: "agents-a1"
+  CONTEXT_SIZE: "131072"
+  N_GPU_LAYERS: "99"
+  THREADS: "16"
+  BATCH_SIZE: "1024"
+  UBATCH_SIZE: "512"
+  CACHE_TYPE_K: "q8_0"
+  CACHE_TYPE_V: "turbo4"
+  PARALLEL: "1"
+  CHAT_TEMPLATE_URL: "https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja"
+  CHAT_TEMPLATE_FILE: "chat_template.jinja"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: llamacppagentsa1one
+  name: llamacppagentsa1one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppagentsa1one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppagentsa1one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppagentsa1one
+    spec:
+      {{- $token := .Values.olaresEnv.GITHUB_TOKEN | trim -}}
+      {{- if $token }}
+      imagePullSecrets:
+        - name: llamacppagentsa1one-ghcr
+      {{- end }}
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models/llms && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - '-c'
+            - |
+              set -eu
+              # MUST log to stderr — stdout pollution breaks helpers; local vars required
+              # (without local, file_ok dest= overwrote download dest → .tmp.tmp / same-file mv / 416 loops)
+              log() { echo "$(date -Iseconds) [agents-a1:init] $*" >&2; }
+              bytes_of() { wc -c < "$1" 2>/dev/null | tr -d ' \n' || echo 0; }
+              file_ok() {
+                local f min_bytes exact_bytes size
+                f="$1"; min_bytes="$2"; exact_bytes="${3:-}"
+                [ -f "$f" ] || return 1
+                size=$(bytes_of "$f")
+                if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                  [ "$size" -eq "$exact_bytes" ] && return 0
+                  return 1
+                fi
+                if [ -n "$min_bytes" ] && [ "$size" -lt "$min_bytes" ]; then
+                  return 1
+                fi
+                return 0
+              }
+              promote_part() {
+                local part dest label
+                part="$1"; dest="$2"; label="$3"
+                if [ ! -f "$part" ]; then
+                  log "ERROR: promote missing part=$part"
+                  exit 1
+                fi
+                if [ "$part" = "$dest" ] || { [ -e "$dest" ] && [ "$part" -ef "$dest" ]; }; then
+                  log "$label already at final path: $dest size=$(bytes_of "$dest")"
+                  return 0
+                fi
+                mv -f "$part" "$dest"
+                log "$label promoted: $(ls -lh "$dest" | awk '{print $5}') size=$(bytes_of "$dest")"
+              }
+              # Find best incomplete path; migrate legacy .tmp* → .part. Sets PART_FILE.
+              resolve_part() {
+                local dest cand
+                dest="$1"
+                PART_FILE="${dest}.part"
+                for cand in "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" "${dest}.tmp.tmp.tmp"; do
+                  if [ -f "$cand" ]; then
+                    if [ "$cand" != "$PART_FILE" ]; then
+                      log "migrating incomplete $(basename "$cand") → $(basename "$PART_FILE") size=$(bytes_of "$cand")"
+                      mv -f "$cand" "$PART_FILE"
+                    fi
+                    return 0
+                  fi
+                done
+                return 0
+              }
+              download() {
+                local url dest label min_bytes exact_bytes part wget_rc prog_pid last size delta rate
+                url="$1"; dest="$2"; label="$3"; min_bytes="$4"; exact_bytes="${5:-}"
+                if type link_from_comfy_llms >/dev/null 2>&1; then
+                  if link_from_comfy_llms "$dest"; then
+                    if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                      log "$label OK via ComfyUI Common — skip download"
+                      return 0
+                    fi
+                    rm -f "$dest"
+                  fi
+                fi
+                if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                  log "$label OK: $dest ($(ls -lh "$dest" | awk '{print $5}'))"
+                  rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" "${dest}.tmp.tmp.tmp"
+                  return 0
+                fi
+                if [ -f "$dest" ]; then
+                  log "REJECT truncated $label size=$(bytes_of "$dest") — removing final, keeping incomplete for resume"
+                  rm -f "$dest"
+                fi
+                resolve_part "$dest"
+                part="$PART_FILE"
+                # CRITICAL: if .part/.tmp already complete, promote — do NOT re-wget.
+                # busybox wget -c on a finished file → HTTP 416 under set -e (CrashLoop).
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  log "$label .part already complete size=$(bytes_of "$part") — promoting (skip wget)"
+                  promote_part "$part" "$dest" "$label"
+                  return 0
+                fi
+                if [ -f "$part" ]; then
+                  log "Resuming $label from $(bytes_of "$part") bytes in $part (min=$min_bytes exact=${exact_bytes:-none})"
+                else
+                  log "Downloading $label from $url (resume via .part, min=$min_bytes) ..."
+                fi
+                (
+                  last=0
+                  while true; do
+                    sleep 15
+                    [ -f "$part" ] || continue
+                    size=$(bytes_of "$part")
+                    delta=$((size - last))
+                    rate=$((delta / 15))
+                    log "progress $label: size=$size (+${delta}B / ${rate}B/s)"
+                    last=$size
+                  done
+                ) &
+                prog_pid=$!
+                wget_rc=0
+                if [ -n "${HF_TOKEN:-}" ]; then
+                  wget -c --header="Authorization: Bearer $HF_TOKEN" -O "$part" "$url" || wget_rc=$?
+                else
+                  wget -c -O "$part" "$url" || wget_rc=$?
+                fi
+                kill "$prog_pid" 2>/dev/null || true
+                wait "$prog_pid" 2>/dev/null || true
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  if [ "$wget_rc" -ne 0 ]; then
+                    log "$label wget exit=$wget_rc but size OK — promoting anyway"
+                  fi
+                  promote_part "$part" "$dest" "$label"
+                  return 0
+                fi
+                size=$(bytes_of "$part")
+                log "ERROR: $label incomplete wget_rc=$wget_rc size=$size min=$min_bytes exact=${exact_bytes:-none} — keeping $part for resume"
+                exit 1
+              }
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              MODEL_PATH="$SHARED_DIR/${MODEL_FILE}"
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                link_from_comfy_llms "$MODEL_PATH" || true
+              fi
+              if [ -f "$MODELS_DIR/${MODEL_FILE}" ] && [ ! -f "$MODEL_PATH" ]; then
+                log "Migrating model from per-app cache"
+                mv "$MODELS_DIR/${MODEL_FILE}" "$MODEL_PATH"
+              fi
+              download "$MODEL_URL" "$MODEL_PATH" "model" "${MODEL_MIN_BYTES:-21000000000}" "${MODEL_BYTES:-21166757632}"
+              MMPROJ_PATH="$SHARED_DIR/${MMPROJ_FILE}"
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                link_from_comfy_llms "$MMPROJ_PATH" || true
+              fi
+              if [ -f "$MODELS_DIR/${MMPROJ_FILE}" ] && [ ! -f "$MMPROJ_PATH" ]; then
+                log "Migrating mmproj from per-app cache"
+                mv "$MODELS_DIR/${MMPROJ_FILE}" "$MMPROJ_PATH"
+              fi
+              download "$MMPROJ_URL" "$MMPROJ_PATH" "mmproj" "${MMPROJ_MIN_BYTES:-890000000}" "${MMPROJ_BYTES:-899282976}"
+              log "setup complete"
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-agentsa1-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "docker.io/aamsellem/buun-llama-cpp:87c351d2"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              REASONING_ARGS=()
+              REASONING_MODE="$(echo "${LLM_REASONING:-on}" | tr '[:upper:]' '[:lower:]')"
+              case "$REASONING_MODE" in
+                off|0|false|no) REASONING_ARGS=(--reasoning off) ;;
+                auto) REASONING_ARGS=(--reasoning auto) ;;
+                *) REASONING_ARGS=(--reasoning on) ;;
+              esac
+              CTK_ARGS=()
+              if [ -n "${LLM_ENABLE_THINKING:-}" ] || [ -n "${LLM_PRESERVE_THINKING:-}" ]; then
+                json_bool() { case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in 1|true|yes|on) echo true ;; *) echo false ;; esac; }
+                kw="{"
+                [ -n "${LLM_ENABLE_THINKING:-}" ] && kw="${kw}\"enable_thinking\":$(json_bool "$LLM_ENABLE_THINKING"),"
+                [ -n "${LLM_PRESERVE_THINKING:-}" ] && kw="${kw}\"preserve_thinking\":$(json_bool "$LLM_PRESERVE_THINKING"),"
+                kw="${kw%,}}"
+                CTK_ARGS=(--chat-template-kwargs "$kw")
+              fi
+              TEMPLATE_ARGS=(--jinja)
+              TEMPLATE_SRC="$(echo "${LLM_CHAT_TEMPLATE_SOURCE:-embedded}" | tr '[:upper:]' '[:lower:]')"
+              case "$TEMPLATE_SRC" in
+                froggeric|remote|hf|url|custom|bundled|local|chart)
+                  CHAT_TEMPLATE="${MODELS_DIR:-/models}/${CHAT_TEMPLATE_FILE:-chat_template.jinja}"
+                  mkdir -p "$(dirname "$CHAT_TEMPLATE")"
+                  case "$TEMPLATE_SRC" in
+                    url|custom)
+                      if [ -z "${LLM_CHAT_TEMPLATE_URL:-}" ]; then echo "LLM_CHAT_TEMPLATE_URL required when source=url"; exit 1; fi
+                      curl -fL --retry 10 --retry-delay 5 -o "$CHAT_TEMPLATE" "$LLM_CHAT_TEMPLATE_URL"
+                      ;;
+                    *)
+                      HF_HDR=()
+                      if [ -n "${HF_TOKEN:-}" ]; then HF_HDR=(-H "Authorization: Bearer $HF_TOKEN"); fi
+                      curl -fL --retry 10 --retry-delay 5 "${HF_HDR[@]}" \
+                        "${CHAT_TEMPLATE_URL:-https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja}" \
+                        -o "$CHAT_TEMPLATE"
+                      ;;
+                  esac
+                  TEMPLATE_ARGS=(--jinja --chat-template-file "$CHAT_TEMPLATE")
+                  ;;
+                embedded|gguf|*)
+                  ;;
+              esac
+              CACHE_K="${LLM_CACHE_TYPE_K:-${CACHE_TYPE_K:-q8_0}}"
+              CACHE_V="${LLM_CACHE_TYPE_V:-${CACHE_TYPE_V:-turbo4}}"
+              BATCH="${LLM_BATCH_SIZE:-${BATCH_SIZE:-1024}}"
+              UBATCH="${LLM_UBATCH_SIZE:-${UBATCH_SIZE:-512}}"
+              PAR="${LLM_PARALLEL:-${PARALLEL:-1}}"
+              CTX="${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-131072}}"
+              LOGDIR="/shared-models/llms/logs/llamacppagentsa1one"
+              mkdir -p "$LOGDIR"
+              LOGFILE="$LOGDIR/server.$(date +%Y%m%d-%H%M%S).log"
+              set +e
+              /app/llama-server \
+                --host 0.0.0.0 --port 8080 \
+                --model "/shared-models/llms/${MODEL_FILE}" \
+                --mmproj "/shared-models/llms/${MMPROJ_FILE}" \
+                --mmproj-gpu-swap \
+                --alias "${MODEL_ALIAS}" \
+                --ctx-size "${CTX}" \
+                --n-gpu-layers "${N_GPU_LAYERS}" \
+                --threads "${THREADS}" \
+                --cache-type-k "${CACHE_K}" --cache-type-v "${CACHE_V}" \
+                --batch-size "${BATCH}" --ubatch-size "${UBATCH}" \
+                --parallel "${PAR}" \
+                --flash-attn auto \
+                --op-offload \
+                "${TEMPLATE_ARGS[@]}" \
+                --slot-save-path /cache \
+                --no-context-shift \
+                "${CTK_ARGS[@]}" \
+                "${REASONING_ARGS[@]}" \
+                "${EXTRA_LLM_ARGS[@]}" 2>&1 | tee -a "$LOGFILE"
+              exit_code=${PIPESTATUS[0]}
+              ln -sfn "$LOGFILE" "$LOGDIR/last-run.log"
+              if [ "$exit_code" -ne 0 ]; then
+                printf 'timestamp=%s exit_code=%s log=%s\n' "$(date -Iseconds)" "$exit_code" "$LOGFILE" > "$LOGDIR/last-exit.txt"
+              fi
+              exit "$exit_code"
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: LLM_BATCH_SIZE
+              value: {{ .Values.olaresEnv.LLM_BATCH_SIZE | default "" | quote }}
+            - name: LLM_UBATCH_SIZE
+              value: {{ .Values.olaresEnv.LLM_UBATCH_SIZE | default "" | quote }}
+            - name: LLM_CACHE_TYPE_K
+              value: {{ .Values.olaresEnv.LLM_CACHE_TYPE_K | default "" | quote }}
+            - name: LLM_CACHE_TYPE_V
+              value: {{ .Values.olaresEnv.LLM_CACHE_TYPE_V | default "" | quote }}
+            - name: LLM_PARALLEL
+              value: {{ .Values.olaresEnv.LLM_PARALLEL | default "" | quote }}
+            - name: LLM_REASONING
+              value: {{ .Values.olaresEnv.LLM_REASONING | default "" | quote }}
+            - name: LLM_CHAT_TEMPLATE_SOURCE
+              value: {{ .Values.olaresEnv.LLM_CHAT_TEMPLATE_SOURCE | default "" | quote }}
+            - name: LLM_CHAT_TEMPLATE_URL
+              value: {{ .Values.olaresEnv.LLM_CHAT_TEMPLATE_URL | default "" | quote }}
+            - name: LLM_ENABLE_THINKING
+              value: {{ .Values.olaresEnv.LLM_ENABLE_THINKING | default "" | quote }}
+            - name: LLM_PRESERVE_THINKING
+              value: {{ .Values.olaresEnv.LLM_PRESERVE_THINKING | default "" | quote }}
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: MODELS_DIR
+              value: "/models"
+          envFrom:
+            - configMapRef:
+                name: llamacpp-agentsa1-env
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/cache"
+              name: cache
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: cache
+          emptyDir: {}
+      restartPolicy: Always
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: llamacppagentsa1one
+  name: llamacppagentsa1one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: llamacppagentsa1one
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppagentsa1one
+  name: sharedentrances-llamacppagentsa1one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppagentsa1one"
+      port: 80
+      targetPort: 8080
+  selector:
+    io.kompose.service: llamacppagentsa1one

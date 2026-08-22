@@ -1,0 +1,16 @@
+workloads:
+  mossttslocalone:
+    replicaCount: 1
+  mossttslocalonecli:
+    replicaCount: 1
+image:
+  repository: docker.io/lmsysorg/sglang-omni
+  tag: dev
+  pullPolicy: IfNotPresent
+model:
+  id: OpenMOSS-Team/MOSS-TTS-Local-Transformer-v1.5
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

@@ -1,0 +1,234 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-nail35-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  TARGET_MODEL: "peculiar-ragdoll/Nail-Qwen3.6-35B-A3B-GGUF-MTP"
+  TARGET_FILE: "Nail-Qwen3.6-35B-A3B-MTP-UD-IQ4_XS.gguf"
+  MODEL_MIN_BYTES: "18000000000"
+  MODEL_BYTES: "0"
+  MMPROJ_FILE: "mmproj-F16.gguf"
+  MMPROJ_MIN_BYTES: "890000000"
+  MMPROJ_BYTES: "0"
+  MODEL_ALIAS: "nail-qwen36-35b-a3b"
+  THREADS: "16"
+  SPEC_DRAFT_N_MAX: "4"
+  CONTEXT_SIZE: "131072"
+  BATCH_SIZE: "1024"
+  UBATCH_SIZE: "512"
+  PARALLEL: "1"
+  CACHE_TYPE_K: "q8_0"
+  CACHE_TYPE_V: "turbo4"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppnail35bone
+  name: llamacppnail35bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppnail35bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppnail35bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppnail35bone
+    spec:
+      initContainers:
+        - name: fix-shared-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command: ["sh", "-c", "mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo perms-fixed"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "docker.io/aamsellem/buun-llama-cpp:87c351d2"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              MODELS_DIR=${MODELS_DIR:-/models}
+              SHARED_DIR=${SHARED_DIR:-/shared-models/llms}
+              mkdir -p "$MODELS_DIR" "$SHARED_DIR"
+              download() {
+                local repo="$1" file="$2" dest="$3" min_bytes="$4" exact_bytes="${5:-0}"
+                if [ -f "$dest" ]; then
+                  sz=$(wc -c < "$dest" | tr -d ' ')
+                  if [ "$sz" -ge "$min_bytes" ] && { [ "$exact_bytes" = "0" ] || [ "$sz" = "$exact_bytes" ]; }; then
+                    return 0
+                  fi
+                fi
+                HF_HDR=()
+                if [ -n "${HF_TOKEN:-}" ]; then HF_HDR=(-H "Authorization: Bearer $HF_TOKEN"); fi
+                curl -fL -C - --retry 20 --retry-delay 15 --retry-all-errors --connect-timeout 30 \
+                  "${HF_HDR[@]}" "https://huggingface.co/${repo}/resolve/main/${file}" -o "${dest}.part"
+                mv -f "${dest}.part" "$dest"
+              }
+              MODEL_PATH="$SHARED_DIR/$TARGET_FILE"
+              MMPROJ_PATH="$SHARED_DIR/$MMPROJ_FILE"
+              download "$TARGET_MODEL" "$TARGET_FILE" "$MODEL_PATH" "${MODEL_MIN_BYTES:-18000000000}" "${MODEL_BYTES:-0}"
+              download "$TARGET_MODEL" "$MMPROJ_FILE" "$MMPROJ_PATH" "${MMPROJ_MIN_BYTES:-890000000}" "${MMPROJ_BYTES:-0}"
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              DRAFT_N="${LLM_SPEC_DRAFT_N_MAX:-${SPEC_DRAFT_N_MAX:-4}}"
+              CACHE_K="${LLM_CACHE_TYPE_K:-${CACHE_TYPE_K:-q8_0}}"
+              CACHE_V="${LLM_CACHE_TYPE_V:-${CACHE_TYPE_V:-turbo4}}"
+              BATCH="${LLM_BATCH_SIZE:-${BATCH_SIZE:-1024}}"
+              UBATCH="${LLM_UBATCH_SIZE:-${UBATCH_SIZE:-512}}"
+              PAR="${LLM_PARALLEL:-${PARALLEL:-1}}"
+              CTX="${LLM_CONTEXT_WINDOW:-${CONTEXT_SIZE:-131072}}"
+              LOGDIR="${SHARED_DIR}/logs/llamacppnail35bone"
+              mkdir -p "$LOGDIR"
+              LOGFILE="$LOGDIR/server.$(date +%Y%m%d-%H%M%S).log"
+              set +e
+              /app/llama-server \
+                --model "$MODEL_PATH" \
+                --mmproj "$MMPROJ_PATH" \
+                --mmproj-gpu-swap \
+                --alias "$MODEL_ALIAS" \
+                --host 0.0.0.0 --port 8000 \
+                --ctx-size "$CTX" \
+                --n-gpu-layers 99 \
+                --threads "${THREADS:-16}" \
+                --cache-type-k "$CACHE_K" --cache-type-v "$CACHE_V" \
+                --batch-size "$BATCH" --ubatch-size "$UBATCH" \
+                --parallel "$PAR" \
+                --flash-attn auto \
+                --op-offload --jinja \
+                --spec-type draft-mtp \
+                --spec-draft-n-max "$DRAFT_N" \
+                "${EXTRA_LLM_ARGS[@]}" 2>&1 | tee -a "$LOGFILE"
+              exit_code=${PIPESTATUS[0]}
+              ln -sfn "$LOGFILE" "$LOGDIR/last-run.log"
+              if [ "$exit_code" -ne 0 ]; then
+                printf 'timestamp=%s exit_code=%s log=%s\n' "$(date -Iseconds)" "$exit_code" "$LOGFILE" > "$LOGDIR/last-exit.txt"
+              fi
+              exit "$exit_code"
+          envFrom:
+            - configMapRef:
+                name: llamacpp-nail35-env
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HF_ENDPOINT
+              value: {{ .Values.olaresEnv.HF_ENDPOINT | default "" | quote }}
+            - name: MODELS_DIR
+              value: "/models"
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: LLM_SPEC_DRAFT_N_MAX
+              value: {{ .Values.olaresEnv.LLM_SPEC_DRAFT_N_MAX | default "" | quote }}
+            - name: LLM_BATCH_SIZE
+              value: {{ .Values.olaresEnv.LLM_BATCH_SIZE | default "" | quote }}
+            - name: LLM_UBATCH_SIZE
+              value: {{ .Values.olaresEnv.LLM_UBATCH_SIZE | default "" | quote }}
+            - name: LLM_CACHE_TYPE_K
+              value: {{ .Values.olaresEnv.LLM_CACHE_TYPE_K | default "" | quote }}
+            - name: LLM_CACHE_TYPE_V
+              value: {{ .Values.olaresEnv.LLM_CACHE_TYPE_V | default "" | quote }}
+            - name: LLM_PARALLEL
+              value: {{ .Values.olaresEnv.LLM_PARALLEL | default "" | quote }}
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 600
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppnail35bone
+  name: llamacppnail35bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppnail35bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppnail35bone
+  name: sharedentrances-llamacppnail35bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppnail35bone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppnail35bone

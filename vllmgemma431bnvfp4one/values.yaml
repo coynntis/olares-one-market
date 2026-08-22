@@ -1,0 +1,13 @@
+workloads:
+  vllmgemma431bnvfp4one:
+    replicaCount: 1
+  vllmgemma431bnvfp4onecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+  LLM_CONTEXT_WINDOW: ""
+  LLM_MAX_OUTPUT_TOKENS: ""
+  LLM_API_KEY: ""

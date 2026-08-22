@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.22"
+description: Qwen3.6-27B DFlash DDTree via Lucebox on Olares One (sm_120)
+name: dflashqwen3627bone
+type: application
+version: 1.0.22

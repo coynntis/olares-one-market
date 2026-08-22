@@ -1,0 +1,95 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllm: 1
+  vllmdiffusiongemma26a4bcli: 1
+metadata:
+  name: llamacppdiffusiongemma26a4bone
+  icon: https://cdn.olares.com/images/2026/08/f06d52b3361a8a753c7c850ec88c693a.png
+  description: DiffusionGemma 26B-A4B Instruct via vLLM — OpenAI API on Olares One
+  title: DiffusionGemma 26B MTP One
+  version: 1.0.16
+  categories:
+    - AI
+    - Agents
+sharedEntrances:
+  - name: vllmdiffusiongemma26a4bone
+    host: sharedentrances-vllm
+    port: 0
+    title: DiffusionGemma 26B MTP (vLLM)
+    invisible: true
+    authLevel: internal
+    icon: https://cdn.olares.com/images/2026/08/f06d52b3361a8a753c7c850ec88c693a.png
+entrances:
+  - name: vllmdiffusiongemma26a4bcli
+    port: 8080
+    host: vllmdiffusiongemma26a4bcli
+    title: DiffusionGemma 26B MTP One
+    icon: https://cdn.olares.com/images/2026/08/f06d52b3361a8a753c7c850ec88c693a.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.16
+  featuredImage: https://cdn.olares.com/images/2026/08/1c5b40b4fc0279419b257549bff8bee3.png
+  fullDescription: |
+    ## IMPORTANT NOTE ##
+    This is a high-performance shared app. Once installed by the Olares Admin, all users in the cluster can use it through reference app.
+
+    ## MODEL ##
+    DiffusionGemma 26B-A4B Instruct served via vLLM.
+    Optimized with Multi-Token Prediction (MTP) for champion-tier throughput.
+    Auto-registers with LiteLLM Gateway if installed.
+  developer: orales-market
+  website: https://github.com/aamsellem/olares-one-market
+  submitter: orales-market
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/ggerganov/llama.cpp/blob/master/LICENSE
+  supportArch:
+    - amd64
+    - arm64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '10'
+      requiredMemory: 3Gi
+      limitedMemory: 26Gi
+      requiredDisk: 15Gi
+      limitedDisk: 30Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 12Gi
+  upgradeDescription: |2
+        v1.0.11: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.10: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+  appCache: true
+  userData:
+    - Home/LlamaCpp
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

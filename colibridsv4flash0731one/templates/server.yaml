@@ -1,0 +1,269 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: colibri-dsv4flash0731-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_DIR_NAME: "DeepSeek-V4-Flash-0731"
+  MODEL_REPO: "deepseek-ai/DeepSeek-V4-Flash-0731"
+  COLIBRI_REPO: "https://github.com/JustVugg/colibri"
+  COLIBRI_REF_DEFAULT: "6546cdde7296f28771e2ba1a1d7c1d4b0cb550aa"
+  CHART_BOOT: "1.0.0"
+  # Approximate total checkpoint size (bytes) for readiness stamp — tree API sum
+  MODEL_BYTES_MIN: "160000000000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: colibridsv4flash0731one
+  name: colibridsv4flash0731one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.workloads.colibridsv4flash0731one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: colibridsv4flash0731one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: colibridsv4flash0731one
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: colibri-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                git build-essential ca-certificates curl wget python3 python3-pip python3-venv
+              rm -rf /var/lib/apt/lists/*
+
+              SHARED="/shared-models/llms"
+              MODEL_NAME="${MODEL_DIR_NAME:-DeepSeek-V4-Flash-0731}"
+              MODEL_DIR="${SHARED}/${MODEL_NAME}"
+              REPO_DIR="/workspace/colibri"
+              REPO_URL="${COLIBRI_REPO:-https://github.com/JustVugg/colibri}"
+              REPO_REF="${COLIBRI_REF:-${COLIBRI_REF_DEFAULT:-6546cdde7296f28771e2ba1a1d7c1d4b0cb550aa}}"
+              CHART_BOOT="${CHART_BOOT:-1.0.0}"
+              STAMP="/workspace/.colibri_ref"
+              WANT_STAMP="${REPO_REF}|${CHART_BOOT}|deepseek-v4"
+
+              mkdir -p /workspace "$SHARED"
+
+              # --- clone / pin colibri ---
+              need_clone=0
+              if [ ! -d "$REPO_DIR/.git" ]; then need_clone=1; fi
+              if [ -e "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+                mv "$REPO_DIR" "${REPO_DIR}.bak.$(date +%Y%m%d%H%M%S)"
+                need_clone=1
+              fi
+              if [ "$need_clone" = "1" ]; then
+                git clone --single-branch "$REPO_URL" "$REPO_DIR"
+              fi
+              git -C "$REPO_DIR" remote set-url origin "$REPO_URL"
+              git -C "$REPO_DIR" fetch --tags --prune origin
+              git -C "$REPO_DIR" checkout --force "$REPO_REF"
+              git -C "$REPO_DIR" reset --hard "$REPO_REF"
+              echo "colibri @ $(git -C "$REPO_DIR" rev-parse HEAD) chart_boot=$CHART_BOOT"
+
+              # --- build deepseek-v4 ---
+              rebuild=1
+              if [ -x "$REPO_DIR/c/deepseek_v4" ] && [ -f "$STAMP" ] && grep -qxF "$WANT_STAMP" "$STAMP"; then
+                echo "deepseek_v4 already built for $WANT_STAMP — skip make"
+                rebuild=0
+              fi
+              if [ "$rebuild" = "1" ]; then
+                make -C "$REPO_DIR/c" deepseek-v4 -j"$(nproc)"
+                echo "$WANT_STAMP" > "$STAMP"
+              fi
+
+              # --- download official checkpoint (~155 GB) ---
+              pip3 install --break-system-packages -q "huggingface_hub[cli]>=0.26.0" || \
+                pip3 install -q "huggingface_hub[cli]>=0.26.0"
+
+              export HF_HUB_ENABLE_HF_TRANSFER=0
+              if [ -n "${HF_ENDPOINT:-}" ]; then
+                export HF_ENDPOINT
+              fi
+              if [ -n "${HF_TOKEN:-}" ]; then
+                export HF_TOKEN HUGGING_FACE_HUB_TOKEN="$HF_TOKEN"
+              fi
+
+              INDEX="${MODEL_DIR}/model.safetensors.index.json"
+              if [ ! -f "$INDEX" ]; then
+                for d in /comfyui-llms/$MODEL_NAME /comfyui-llms/*/$MODEL_NAME /comfyui-llms/*/*/$MODEL_NAME; do
+                  if [ -f "$d/model.safetensors.index.json" ]; then
+                    echo "reuse ComfyUI Common checkpoint dir $d → $MODEL_DIR"
+                    rm -rf "$MODEL_DIR"
+                    ln -sfn "$d" "$MODEL_DIR"
+                    INDEX="${MODEL_DIR}/model.safetensors.index.json"
+                    break
+                  fi
+                done
+              fi
+              READY="${MODEL_DIR}/.colibri-model-ready"
+              need_dl=1
+              if [ -f "$INDEX" ] && [ -f "$READY" ]; then
+                echo "model stamp present — skip download"
+                need_dl=0
+              fi
+              if [ -f "$INDEX" ] && [ -L "$MODEL_DIR" ]; then
+                echo "reused ComfyUI Common dir — skip download"
+                need_dl=0
+                [ -f "$READY" ] || date -Iseconds > "$READY"
+              fi
+              if [ "$need_dl" = "1" ]; then
+                echo "Downloading ${MODEL_REPO} → $MODEL_DIR (expect ~155 GB; hours on first boot)"
+                mkdir -p "$MODEL_DIR"
+                if command -v hf >/dev/null 2>&1; then
+                  hf download "${MODEL_REPO}" --local-dir "$MODEL_DIR"
+                else
+                  huggingface-cli download "${MODEL_REPO}" \
+                    --local-dir "$MODEL_DIR" \
+                    --local-dir-use-symlinks False
+                fi
+                # Basic sanity: index + at least one shard
+                if [ ! -f "$INDEX" ]; then
+                  echo "ERROR: missing $INDEX after download" >&2
+                  exit 1
+                fi
+                shard_count=$(find "$MODEL_DIR" -maxdepth 1 -name 'model-*.safetensors' | wc -l)
+                if [ "$shard_count" -lt 40 ]; then
+                  echo "ERROR: expected ~48 safetensor shards, found $shard_count" >&2
+                  exit 1
+                fi
+                date -Iseconds > "$READY"
+                echo "download complete shards=$shard_count"
+              fi
+
+              RAM_GB="${COLIBRI_RAM_GB:-48}"
+              API_ARGS=()
+              if [ -n "${LLM_API_KEY:-}" ]; then
+                API_ARGS+=(--api-key "$LLM_API_KEY")
+              fi
+
+              free -h || true
+              cd "$REPO_DIR/c"
+              # coli serve → OpenAI-compatible gateway (openai_server) on :8000
+              exec python3 ./coli serve \
+                --host 0.0.0.0 \
+                --port 8000 \
+                --model "$MODEL_DIR" \
+                --ram "$RAM_GB" \
+                "${API_ARGS[@]}"
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HF_ENDPOINT
+              value: {{ .Values.olaresEnv.HF_ENDPOINT | default "" | quote }}
+            - name: COLIBRI_RAM_GB
+              value: {{ .Values.olaresEnv.COLIBRI_RAM_GB | default "48" | quote }}
+            - name: COLIBRI_REF
+              value: {{ .Values.olaresEnv.COLIBRI_REF | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: colibri-dsv4flash0731-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 600
+            timeoutSeconds: 10
+            periodSeconds: 60
+            failureThreshold: 10
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 180
+            timeoutSeconds: 10
+            periodSeconds: 30
+            # ~6h — compile + ~155GB download + warm caches
+            failureThreshold: 720
+          resources:
+            limits:
+              cpu: "22"
+              memory: 64Gi
+            requests:
+              cpu: "8"
+              memory: 8Gi
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/colibridsv4flash0731one-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: colibridsv4flash0731one
+  name: colibridsv4flash0731one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "colibri"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: colibridsv4flash0731one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: colibridsv4flash0731one
+  name: sharedentrances-colibridsv4flash0731one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "colibri"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: colibridsv4flash0731one

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guide — SplatLab One</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>SplatLab One</h1>
+    <nav>
+      <a href="/index.html">Dashboard</a>
+      <a href="/import.html">Import</a>
+      <a href="/pipeline.html">Pipeline</a>
+      <a href="/jobs.html">Jobs</a>
+      <a href="/viewer.html">Viewer</a>
+      <a href="/guide.html">Guide</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card" id="overview">
+      <h2>Pipeline overview</h2>
+      <p>Ingest → SfM (GLOMAP/COLMAP) → optional geometry (VGGT-X, DA3) → train (3DGS/2DGS+MCMC) → export.</p>
+      <pre class="status">SfM ──► Geometry? ──► gsplat train ──► .splat / .ply</pre>
+    </section>
+    <section class="card" id="glomap">
+      <h2>GLOMAP</h2>
+      <p>Fast global mapper — best NVS for dense photo sets on Olares One (24-core CPU matching + GPU).</p>
+    </section>
+    <section class="card" id="vggt_x">
+      <h2>VGGT-X</h2>
+      <p>Memory-efficient VGGT for COLMAP-free pose + depth. Used in <strong>robust</strong> preset with 2DGS+MCMC.</p>
+    </section>
+    <section class="card" id="2dgs">
+      <h2>2DGS vs 3DGS</h2>
+      <p>2DGS (surfels) improves geometry on hard scenes. 3DGS is default for quality preset.</p>
+    </section>
+    <section class="card" id="mcmc">
+      <h2>MCMC densification</h2>
+      <p>Handles noisy feed-forward initialization — pair with VGGT-X / DA3 front-ends.</p>
+    </section>
+    <section class="card" id="da3">
+      <h2>Depth Anything 3</h2>
+      <p><span class="badge nc">CC BY-NC</span> on Giant model — fast preview only if license OK. Use GLOMAP+gsplat for commercial.</p>
+    </section>
+    <section class="card" id="realtime">
+      <h2>Realtime modes</h2>
+      <ul>
+        <li><strong>geometry_preview</strong> — WS frame ingest, coarse point cloud in seconds</li>
+        <li><strong>progressive_splat</strong> — gsplat checkpoints every N iters, viewer hot-reload</li>
+      </ul>
+    </section>
+    <section class="card" id="docker_build">
+      <h2>Building the runtime image</h2>
+      <ol>
+        <li>Install <strong>dockerbuilderone</strong> on Olares; add its MCP in Cursor</li>
+        <li>Zip <code>splatlabone/docker/</code> (Dockerfile at zip root)</li>
+        <li><code>upload_project("splatlabone", zip_base64)</code></li>
+        <li><code>start_build("splatlabone", "ghcr.io/coynntis/splatlabone:1.0.0", "Dockerfile")</code></li>
+        <li>Set <code>GITHUB_TOKEN</code> on splatlabone for ghcr pull</li>
+      </ol>
+    </section>
+    <section class="card" id="mcp">
+      <h2>MCP for agents</h2>
+      <p>SplatLab MCP at <code>/mcp/mcp</code> — ingest, create_job, get_scene_urls. Image builds use <strong>dockerbuilderone MCP</strong>, not SplatLab.</p>
+    </section>
+    <section class="card">
+      <h2>Olares One constraints</h2>
+      <ul>
+        <li>RTX 5090M 24 GB VRAM — chunk dense VGGT/DA3 runs</li>
+        <li>PyTorch cu128 + gsplat CUDA 12.8 for sm_120</li>
+        <li>96 GB RAM — GLOMAP CPU matching benefits from 16 threads</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2>Preset mapping</h2>
+      <table>
+        <tr><th>Preset</th><th>Pipeline</th></tr>
+        <tr><td>quality</td><td>GLOMAP → 3DGS</td></tr>
+        <tr><td>robust</td><td>VGGT-X → 2DGS + MCMC + joint pose</td></tr>
+        <tr><td>fast</td><td>DA3 infer_gs</td></tr>
+        <tr><td>sparse</td><td>InstantSplat</td></tr>
+        <tr><td>stream</td><td>DA3 chunks + geometry preview</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

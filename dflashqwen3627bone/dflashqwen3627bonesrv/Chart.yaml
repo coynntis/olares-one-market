@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.20
+description: dflashqwen3627bone shared server
+name: dflashqwen3627bonesrv
+type: application
+version: 1.0.20

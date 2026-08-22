@@ -1,0 +1,235 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-bonsai8b-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_URL: "https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B.gguf"
+  MODEL_FILE: "Bonsai-8B.gguf"
+  MODEL_ALIAS: "bonsai-8b"
+  N_GPU_LAYERS: "99"
+  THREADS: "16"
+  BUILD_JOBS: "8"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppbonsai8bone
+  name: llamacppbonsai8bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+
+spec:
+  replicas: {{ .Values.workloads.llamacppbonsai8bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppbonsai8bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppbonsai8bone
+      annotations:
+        dev.bytetrade.io/dev-containers: "1"
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              MODEL_PATH="$SHARED_DIR/${MODEL_FILE}"
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                link_from_comfy_llms "$MODEL_PATH" || true
+              fi
+              if [ -f "$MODELS_DIR/${MODEL_FILE}" ] && [ ! -f "$MODEL_PATH" ]; then mv "$MODELS_DIR/${MODEL_FILE}" "$MODEL_PATH"; fi
+              if [ -f "$MODEL_PATH" ]; then
+                echo "Model already present: $MODEL_PATH"
+                ls -lh "$MODEL_PATH"
+              else
+                echo "Downloading model from $MODEL_URL ..."
+                wget -O "$MODEL_PATH.tmp" "$MODEL_URL"
+                mv "$MODEL_PATH.tmp" "$MODEL_PATH"
+                echo "Download complete."
+                ls -lh "$MODEL_PATH"
+              fi
+          envFrom:
+            - configMapRef:
+                name: llamacpp-bonsai8b-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "nvidia/cuda:13.1.0-devel-ubuntu24.04"
+          command:
+            - "sh"
+            - "-c"
+            - |
+              set -ux
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends git cmake build-essential ca-certificates
+              rm -rf /var/lib/apt/lists/*
+
+              mkdir -p /workspace
+              REPO_DIR="/workspace/llama.cpp"
+              REPO_URL="https://github.com/PrismML-Eng/llama.cpp"
+
+              if [ -d "$REPO_DIR/.git" ]; then
+                echo "Repo already exists at $REPO_DIR — skipping clone"
+                git -C "$REPO_DIR" remote set-url origin "$REPO_URL" || true
+                git -C "$REPO_DIR" fetch --tags --prune origin || true
+                git -C "$REPO_DIR" pull --ff-only || true
+              elif [ -e "$REPO_DIR" ]; then
+                echo "Path exists but is not a git repo: $REPO_DIR"
+                echo "Renaming aside and cloning fresh..."
+                ts="$(date +%Y%m%d%H%M%S)"
+                mv "$REPO_DIR" "${REPO_DIR}.bak.${ts}"
+                git clone "$REPO_URL" "$REPO_DIR"
+              else
+                echo "Cloning PrismML llama.cpp into $REPO_DIR ..."
+                git clone "$REPO_URL" "$REPO_DIR"
+              fi
+
+              cd "$REPO_DIR"
+              set -x
+              cmake --version
+              rm -rf build
+              cmake -B build -DGGML_CUDA=ON "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH:-120a}"
+              cmake --build build -j"${BUILD_JOBS}" --verbose
+
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              exec ./build/bin/llama-server \
+                --model "/models/${MODEL_FILE}" \
+                --host 0.0.0.0 \
+                --port 8000 \
+                --ctx-size "${LLM_CONTEXT_WINDOW:-8192}" \
+                --n-gpu-layers "${N_GPU_LAYERS}" \
+                --threads "${THREADS}" \
+                --alias "${MODEL_ALIAS}" \
+                --op-offload \
+                "${EXTRA_LLM_ARGS[@]}"
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-bonsai8b-env
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3600
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/workspace"
+              name: workspace
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/llamacppbonsai8bone-workspace"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppbonsai8bone
+  name: llamacppbonsai8bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppbonsai8bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppbonsai8bone
+  name: sharedentrances-llamacppbonsai8bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppbonsai8bone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppbonsai8bone

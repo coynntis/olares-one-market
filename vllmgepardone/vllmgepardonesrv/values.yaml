@@ -1,0 +1,11 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  TTS_GPU_MEMORY_UTILIZATION: ""
+  GEPARD_BOOTSTRAP_TIMEOUT_SEC: ""

@@ -1,0 +1,630 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensenovau1-serve-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  # Variants (same NeoChat MoT stack):
+  #   sensenova/SenseNova-U1-8B-MoT              (default generalist)
+  #   sensenova/SenseNova-U1-8B-MoT-Infographic-V2
+  #   sensenova/SenseNova-U1-8B-MoT-Interleaved
+  # Infographic/Interleaved: set USE_GGUF_WEIGHTS=0 (GGUF merger is base-only) + VRAM_MODE=balanced.
+  MODEL_REPO: "sensenova/SenseNova-U1-8B-MoT"
+  MODEL_DIR: "/models/SenseNova-U1-8B-MoT"
+  # Merger weights: GGUF from smthem. MODEL_REPO snapshot keeps config/tokenizer only when USE_GGUF_WEIGHTS=1 (skips *.safetensors). Set USE_GGUF_WEIGHTS=0 to pull full HF weights.
+  USE_GGUF_WEIGHTS: "1"
+  GGUF_REPO: "smthem/SenseNova-U1-8B-MoT-Merger-gguf"
+  GGUF_DIR: "/models/gguf"
+  # Active default at boot (see GGUF_DOWNLOAD_FILES to prefetch more for runtime switching).
+  GGUF_FILE: "SenseNova-U1-8B-MoT-Q6_K.gguf"
+  # Comma-separated basenames from GGUF_REPO (~67GiB if all four). Trim to one file to save disk.
+  GGUF_DOWNLOAD_FILES: "SenseNova-U1-8B-MoT-8step-Q4_K_S.gguf,SenseNova-U1-8B-MoT-SFT-fm-Q6_K.gguf,SenseNova-U1-8B-MoT-Q6_K.gguf,SenseNova-U1-8B-MoT-SFT-fm-Q8_0.gguf"
+  SN_REPO_URL: "https://github.com/OpenSenseNova/SenseNova-U1.git"
+  SERVER_PORT: "7860"
+  DEVICE: "cuda"
+  DTYPE: "bfloat16"
+  # Upstream: full=no layer offload (weights on GPU). low=sync 1-layer resident (tiny VRAM, very slow).
+  # Olares One 5090M 24GB: default GGUF ~16GiB fits GPU; use low only if OOM.
+  VRAM_MODE: "full"
+  # Upstream: auto | flash | sdpa. flash = FA2-class flash_attn package (not FA3/FA4).
+  ATTENTION_BACKEND: {{ .Values.flashAttn.backend | quote }}
+  INSTALL_FLASH_ATTN: {{ ternary "1" "0" .Values.flashAttn.enabled | quote }}
+  # Prebuilt .whl URL (required for reliable boot). Empty = try sm_120 community + Dao cu13 candidates.
+  FLASH_ATTN_PIP_SPEC: {{ .Values.flashAttn.pipSpec | quote }}
+  # Soft-fail: never CrashLoop mid-install; fall back to SDPA.
+  FLASH_ATTN_SOFT_FAIL: {{ ternary "1" "0" (default true .Values.flashAttn.softFail) | quote }}
+  FLASH_ATTN_WHEEL_DIR: "/workspace/wheels"
+  # Build FA2 for sm_120 once when no matching wheel (cached under /workspace/wheels).
+  FLASH_ATTN_ALLOW_SOURCE: {{ ternary "1" "0" (default true .Values.flashAttn.allowSource) | quote }}
+  TORCH_CUDA_ARCH_LIST: "12.0"
+  FLASH_ATTN_CUDA_ARCHS: "120"
+  NVCC_THREADS: "1"
+  # Parallel nvcc for FA2 source build (OOM risk if too high on 24GB).
+  FLASH_ATTN_MAX_JOBS: {{ .Values.flashAttn.maxJobs | quote }}
+  INSTALL_GGUF_DEPS: "0"
+  HF_HOME: "/models/huggingface"
+  LOG_LEVEL: "INFO"
+  # Optional diagnostics (uncomment): see GET /api/v1/capabilities → diagnostics_env
+  # INTERLEAVE_VERBOSE: "1"      # upstream: partial text to stdout; tqdm per diffusion on stderr
+  # INTERLEAVE_LOG_PRINTS: "1"   # with VERBOSE: mirror print() to app logger for kubectl logs
+  # INFERENCE_TIMING: "1"        # INFO: wall-clock + cuda sync per t2i/vqa/editing/interleave call
+  # Park weights on CPU after each generate (free VRAM; next call reloads GPU). Default ON in app.
+  SENSENOVA_PARK_AFTER_GENERATE: "1"
+  # Drop runtime entirely after generate (slow disk reload). Default OFF.
+  SENSENOVA_UNLOAD_AFTER_GENERATE: "0"
+  # Gradio gallery / serialized outputs; host path = userspace appData + sensenovau1serveone-output/gradio
+  GRADIO_TEMP_DIR: "/output/gradio"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: sensenovau1serveone
+  name: sensenovau1serveone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+spec:
+  replicas: {{ .Values.workloads.sensenovau1serveone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: sensenovau1serveone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: sensenovau1serveone
+    spec:
+      initContainers:
+        - name: model-downloader
+          image: "python:3.11-slim"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              apt-get update
+              apt-get install -y --no-install-recommends ca-certificates curl
+              rm -rf /var/lib/apt/lists/*
+              python -m pip install --no-cache-dir --break-system-packages -U pip huggingface_hub tqdm
+              python -u - <<'PY'
+              import logging
+              import os
+              import subprocess
+              import sys
+              import threading
+              import time
+
+              logging.basicConfig(
+                  level=logging.INFO,
+                  format="%(asctime)s | %(levelname)s | %(message)s",
+                  datefmt="%Y-%m-%dT%H:%M:%S",
+                  stream=sys.stdout,
+                  force=True,
+              )
+              log = logging.getLogger("model-downloader")
+
+              # kubectl logs: force HF/tqdm progress (no TTY otherwise hides bars)
+              os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "0"
+              os.environ["TQDM_DISABLE"] = "0"
+              os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
+              from huggingface_hub import hf_hub_download, snapshot_download
+              from huggingface_hub.utils import logging as hf_logging
+              from tqdm.auto import tqdm as std_tqdm
+
+              try:
+                  from huggingface_hub.utils import enable_progress_bars
+
+                  enable_progress_bars()
+              except Exception:
+                  pass
+
+              hf_logging.set_verbosity_info()
+
+              class LogTqdm(std_tqdm):
+                  """Emit full log lines (kubectl-friendly) instead of \\r overwrites."""
+
+                  def __init__(self, *args, **kwargs):
+                      kwargs.setdefault("mininterval", 5.0)
+                      kwargs.setdefault("miniters", 1)
+                      kwargs.setdefault("file", sys.stdout)
+                      kwargs.setdefault("ascii", True)
+                      kwargs.setdefault("dynamic_ncols", False)
+                      kwargs["disable"] = False
+                      kwargs["leave"] = True
+                      super().__init__(*args, **kwargs)
+
+                  def display(self, msg=None, pos=None):
+                      try:
+                          meter = self.format_meter(**{**self.format_dict, "ncols": 120})
+                      except Exception:
+                          return
+                      # Replace CR with space so kubectl shows each tick as a line.
+                      print("[hf-download] " + meter.replace("\r", " ").strip(), flush=True)
+
+              try:
+                  import huggingface_hub.utils.tqdm as hf_tqdm_mod
+
+                  hf_tqdm_mod.tqdm = LogTqdm
+              except Exception as exc:
+                  log.warning("could not patch huggingface_hub tqdm: %s", exc)
+
+              def human(n):
+                  x = float(n)
+                  for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+                      if x < 1024.0:
+                          return f"{x:.2f} {unit}"
+                      x /= 1024.0
+                  return f"{x:.2f} PiB"
+
+              def is_temp_name(name):
+                  low = name.lower()
+                  return (
+                      low.endswith(".incomplete")
+                      or low.endswith(".partial")
+                      or low.endswith(".part")
+                      or ".incomplete." in low
+                  )
+
+              def scan_roots(roots):
+                  """Scan download roots. Prefer *.incomplete/*.part (HF/curl grow these; final GGUF stays 0 until move)."""
+                  total = 0
+                  nfiles = 0
+                  temps = []
+                  seen = set()
+                  for root in roots:
+                      if not root:
+                          continue
+                      root = os.path.abspath(root)
+                      if root in seen or not os.path.exists(root):
+                          continue
+                      seen.add(root)
+                      if os.path.isfile(root):
+                          if not is_temp_name(os.path.basename(root)):
+                              continue
+                          try:
+                              sz = os.path.getsize(root)
+                          except OSError:
+                              continue
+                          temps.append((root, sz))
+                          total += sz
+                          nfiles += 1
+                          continue
+                      for dirpath, _, files in os.walk(root):
+                          for name in files:
+                              fp = os.path.join(dirpath, name)
+                              try:
+                                  sz = os.path.getsize(fp)
+                              except OSError:
+                                  continue
+                              nfiles += 1
+                              total += sz
+                              if is_temp_name(name):
+                                  temps.append((fp, sz))
+                  return nfiles, total, temps
+
+              def watch_progress(roots, label, stop_evt, interval=10.0):
+                  """Watch temp download artifacts (dflash .part / vllm *.incomplete) — not final GGUF path."""
+                  if isinstance(roots, str):
+                      roots = [roots]
+                  last_b = -1
+                  t_start = time.monotonic()
+                  while not stop_evt.wait(interval):
+                      n, b, temps = scan_roots(roots)
+                      if temps:
+                          b = sum(sz for _, sz in temps)
+                          n = len(temps)
+                      elapsed = time.monotonic() - t_start
+                      delta = (b - last_b) if last_b >= 0 else 0
+                      rate = (delta / interval) if last_b >= 0 else ((b / elapsed) if elapsed > 0 else 0.0)
+                      samples = ",".join(
+                          f"{os.path.basename(p)}={human(sz)}"
+                          for p, sz in sorted(temps, key=lambda x: -x[1])[:3]
+                      ) or "none"
+                      log.info(
+                          "%s progress temp_files=%s size=%s delta=%s rate=%s/s elapsed_s=%.0f temps=[%s]",
+                          label,
+                          n,
+                          human(b),
+                          human(delta) if last_b >= 0 else "n/a",
+                          human(rate),
+                          elapsed,
+                          samples,
+                      )
+                      last_b = b
+
+              def run_with_progress(label, roots, fn):
+                  if isinstance(roots, str):
+                      roots = [roots]
+                  stop = threading.Event()
+                  thr = threading.Thread(
+                      target=watch_progress,
+                      args=(roots, label, stop),
+                      kwargs={"interval": 10.0},
+                      daemon=True,
+                      name=f"watch-{label}",
+                  )
+                  thr.start()
+                  t0 = time.monotonic()
+                  try:
+                      return fn()
+                  finally:
+                      stop.set()
+                      thr.join(timeout=2.0)
+                      n, b, temps = scan_roots(roots)
+                      log.info(
+                          "%s done files=%s size=%s temp_left=%s elapsed_s=%.1f",
+                          label,
+                          n,
+                          human(b),
+                          len(temps),
+                          time.monotonic() - t0,
+                      )
+
+              def curl_to_part(repo, filename, dest_dir, token=None, endpoint=None):
+                  """dflash-style: curl → .part (grows during download) → rename. Do not watch final path."""
+                  dest = os.path.join(dest_dir, filename)
+                  part = dest + ".part"
+                  if os.path.isfile(dest) and os.path.getsize(dest) > 1_000_000_000:
+                      log.info("gguf already present: %s (%s)", dest, human(os.path.getsize(dest)))
+                      return dest
+                  base = (endpoint or "https://huggingface.co").rstrip("/")
+                  url = f"{base}/{repo}/resolve/main/{filename}"
+                  log.info("curl download start repo=%s file=%s -> %s", repo, filename, part)
+                  cmd = [
+                      "curl",
+                      "--fail",
+                      "--location",
+                      "--progress-bar",
+                      "--continue-at",
+                      "-",
+                      "--retry",
+                      "20",
+                      "--retry-delay",
+                      "15",
+                      "--retry-all-errors",
+                      "--connect-timeout",
+                      "30",
+                      "--output",
+                      part,
+                      url,
+                  ]
+                  if token:
+                      cmd[1:1] = ["-H", f"Authorization: Bearer {token}"]
+                  stop = threading.Event()
+                  thr = threading.Thread(
+                      target=watch_progress,
+                      args=([part], f"gguf:{filename}", stop),
+                      kwargs={"interval": 10.0},
+                      daemon=True,
+                      name=f"watch-gguf-{filename}",
+                  )
+                  thr.start()
+                  t0 = time.monotonic()
+                  try:
+                      subprocess.check_call(cmd)
+                  finally:
+                      stop.set()
+                      thr.join(timeout=2.0)
+                  if not os.path.isfile(part):
+                      raise RuntimeError(f"curl finished but missing {part}")
+                  os.replace(part, dest)
+                  log.info(
+                      "gguf done: %s (%s) elapsed_s=%.1f",
+                      dest,
+                      human(os.path.getsize(dest)),
+                      time.monotonic() - t0,
+                  )
+                  return dest
+
+              repo_id = os.environ["MODEL_REPO"]
+              local_dir = os.environ["MODEL_DIR"]
+              token = os.environ.get("HF_TOKEN") or None
+              endpoint = (os.environ.get("HF_ENDPOINT") or "").strip() or None
+              hf_home = os.environ.get("HF_HOME") or ""
+
+              kwargs = {}
+              if token:
+                  kwargs["token"] = token
+              if endpoint:
+                  os.environ["HF_ENDPOINT"] = endpoint
+
+              use_gguf = os.environ.get("USE_GGUF_WEIGHTS", "0").strip().lower() in (
+                  "1",
+                  "true",
+                  "yes",
+                  "on",
+              )
+              if use_gguf:
+                  # GGUF replaces HF shards; senseNova still needs HF layout (config, tokenizer, processors).
+                  kwargs["ignore_patterns"] = ["*.safetensors", "*.safetensors.index.json"]
+                  log.info(
+                      "USE_GGUF_WEIGHTS=1: skipping *.safetensors in MODEL_REPO snapshot (weights from GGUF)"
+                  )
+
+              hub_dl_kwargs = {k: v for k, v in kwargs.items() if k != "ignore_patterns"}
+
+              snap_roots = [
+                  local_dir,
+                  os.path.join(local_dir, ".cache"),
+                  hf_home,
+                  os.path.join(hf_home, "hub") if hf_home else "",
+              ]
+              n0, b0, _ = scan_roots([local_dir])
+              log.info(
+                  "snapshot_download start repo=%s dest=%s resume=yes",
+                  repo_id,
+                  local_dir,
+              )
+              log.info("already_present files=%s size=%s", n0, human(b0))
+              os.makedirs(local_dir, exist_ok=True)
+              run_with_progress(
+                  "snapshot",
+                  snap_roots,
+                  lambda: snapshot_download(repo_id=repo_id, local_dir=local_dir, **kwargs),
+              )
+
+              if use_gguf:
+                  # Belt-and-suspenders: pull tokenizer + model config from MODEL_REPO (GGUF repo has none).
+                  model_aux_files = (
+                      "config.json",
+                      "tokenizer_config.json",
+                      "special_tokens_map.json",
+                      "added_tokens.json",
+                      "vocab.json",
+                      "merges.txt",
+                  )
+                  os.makedirs(local_dir, exist_ok=True)
+                  for aux in model_aux_files:
+                      log.info(
+                          "hf_hub_download MODEL_REPO aux repo=%s filename=%s -> %s",
+                          repo_id,
+                          aux,
+                          local_dir,
+                      )
+                      # Small files — no size watcher on final path (HF uses tmp until rename).
+                      hf_hub_download(
+                          repo_id=repo_id,
+                          filename=aux,
+                          local_dir=local_dir,
+                          **hub_dl_kwargs,
+                      )
+
+                  gguf_repo = os.environ["GGUF_REPO"]
+                  gguf_dir = os.environ["GGUF_DIR"]
+                  primary = os.environ["GGUF_FILE"].strip()
+                  extra = os.environ.get("GGUF_DOWNLOAD_FILES", "").strip()
+                  todo = {primary}
+                  if extra:
+                      for part in extra.split(","):
+                          name = part.strip()
+                          if name:
+                              todo.add(name)
+                  os.makedirs(gguf_dir, exist_ok=True)
+                  for gguf_file in sorted(todo):
+                      curl_to_part(
+                          gguf_repo,
+                          gguf_file,
+                          gguf_dir,
+                          token=token,
+                          endpoint=endpoint,
+                      )
+              PY
+          envFrom:
+            - configMapRef:
+                name: sensenovau1-serve-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/root/.cache/huggingface"
+              name: hf-cache
+      containers:
+        - name: sensenovau1-serve
+          # CUDA 13 + PyTorch 2.11 + Python 3.12; pin FA2 sm_120 wheel (values.yaml flashAttn.pipSpec).
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export PIP_DISABLE_PIP_VERSION_CHECK=1
+              if command -v apt-get >/dev/null 2>&1; then
+                apt-get update
+                apt-get install -y --no-install-recommends git ca-certificates curl
+                rm -rf /var/lib/apt/lists/*
+              fi
+
+              mkdir -p "${HF_HOME}" /workspace/SenseNova-U1 /workspace/wheels /app-src
+
+              export MODEL_PATH="${MODEL_DIR}"
+              if [ "${USE_GGUF_WEIGHTS:-0}" = "1" ]; then
+                export GGUF_CHECKPOINT="${GGUF_DIR}/${GGUF_FILE}"
+              else
+                unset GGUF_CHECKPOINT || true
+              fi
+
+              if [ ! -f /workspace/SenseNova-U1/pyproject.toml ]; then
+                rm -rf /workspace/SenseNova-U1
+                git clone --depth 1 "${SN_REPO_URL}" /workspace/SenseNova-U1
+              fi
+
+              # PyTorch devel images may ship Python 3.12+; SenseNova-U1 caps requires-python at <3.12.
+              python - <<'PY'
+              import re
+              import sys
+              from pathlib import Path
+              if sys.version_info < (3, 12):
+                  raise SystemExit(0)
+              p = Path("/workspace/SenseNova-U1/pyproject.toml")
+              t = p.read_text(encoding="utf-8")
+              t2, n = re.subn(
+                  r'requires-python\s*=\s*">=3\.11,<3\.12"',
+                  'requires-python = ">=3.11,<3.14"',
+                  t,
+                  count=1,
+              )
+              if n:
+                  p.write_text(t2, encoding="utf-8")
+              PY
+
+              python -m pip install --upgrade pip --break-system-packages
+              python -m pip install -e "/workspace/SenseNova-U1" --no-deps --break-system-packages
+              python -m pip install --break-system-packages \
+                "transformers==4.57.1" \
+                "tokenizers==0.22.1" \
+                "accelerate==1.10.1" \
+                "huggingface-hub==0.36.2" \
+                "safetensors==0.6.2" \
+                "sentencepiece==0.2.1" \
+                "numpy>=2.2.0,<3" \
+                "pillow>=12.0.0,<13" \
+                "tqdm>=4.67.1" \
+                "packaging>=25.0" \
+                "httpx>=0.27,<1" \
+                "einops"
+
+              if [ "${INSTALL_GGUF_DEPS}" = "1" ] || [ "${USE_GGUF_WEIGHTS:-0}" = "1" ] || [ -n "${GGUF_CHECKPOINT:-}" ]; then
+                python -m pip install --break-system-packages "gguf>=0.10.0" "diffusers>=0.30.0"
+              fi
+
+              if [ "${INSTALL_FLASH_ATTN:-0}" = "1" ]; then
+                python -m pip install --break-system-packages packaging wheel
+                # Never let flash install CrashLoop the pod (set -e): soft-fail → SDPA
+                set +e
+                python /app-src/install_flash_attn.py
+                fa_rc=$?
+                set -e
+                if [ "$fa_rc" -ne 0 ] || ! python -c "import flash_attn" 2>/dev/null; then
+                  echo "[flash-attn] unavailable — forcing ATTENTION_BACKEND=sdpa"
+                  export ATTENTION_BACKEND=sdpa
+                fi
+              fi
+
+              python -m pip install --break-system-packages -r /app-src/requirements.txt
+
+              exec python -m uvicorn app:app --host 0.0.0.0 --port "${SERVER_PORT}" --app-dir /app-src
+          envFrom:
+            - configMapRef:
+                name: sensenovau1-serve-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            # First boot may source-build flash-attn (~30–90 min) then load model.
+            failureThreshold: 360
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+            - mountPath: "/output"
+              name: output
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/sensenovau1serveone-workspace"
+            type: DirectoryOrCreate
+        - name: hf-cache
+          hostPath:
+            path: "{{ .Values.userspace.appCache }}/huggingface"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+        - name: app-source
+          configMap:
+            name: sensenovau1serveone-source
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/sensenovau1serveone-output"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sensenovau1serveone
+  name: sensenovau1serveone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: sensenovau1serveone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sensenovau1serveone
+  name: sharedentrances-sensenovau1serveone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sensenovau1serveone"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: sensenovau1serveone

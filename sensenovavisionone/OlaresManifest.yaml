@@ -1,0 +1,137 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sensenovavisionone: 1
+  sensenovavisiononecli: 1
+metadata:
+  name: sensenovavisionone
+  icon: https://cdn.olares.com/images/2026/08/8a0d3b2aa894b40e43ec9fd3e4fa6cc1.png
+  description: SenseNova-Vision 7B MoT Gradio + REST
+  title: SenseNova Vision One
+  version: 1.0.2
+  categories:
+    - AI
+sharedEntrances:
+  - name: sensenovavisionone
+    host: sharedentrances-sensenovavisionone
+    port: 0
+    title: SenseNova Vision One API
+    icon: https://cdn.olares.com/images/2026/08/8a0d3b2aa894b40e43ec9fd3e4fa6cc1.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sensenovavisiononecli
+    port: 8080
+    host: sensenovavisiononecli
+    title: SenseNova Vision One
+    icon: https://cdn.olares.com/images/2026/08/8a0d3b2aa894b40e43ec9fd3e4fa6cc1.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.2
+  featuredImage: https://cdn.olares.com/images/2026/08/b67e1941eb3f64831a408c7acaefa020.png
+  fullDescription: |
+    SenseNova-Vision-7B-MoT — unified multimodal CV as generation
+    (depth, normals, segmentation, detection, OCR, multi-view geometry).
+
+    Hardware: Olares One — RTX 5090M 24GB + 96GB DDR5.
+
+    Runtime image: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel (sm_120).
+
+    Weights: sensenova/SenseNova-Vision-7B-MoT (~30GB ema.safetensors)
+    Source: https://github.com/OpenSenseNova/SenseNova-Vision
+    License: CC BY-NC 4.0 (non-commercial)
+
+    VRAM note: upstream Gradio demo recommends ~80GB. Default load is
+    bitsandbytes NF4 from the same bf16 safetensors (no separate NF4/GGUF repo),
+    plus accelerate device_map + CPU offload (SENSENOVA_MAX_MEM_PER_GPU=20GiB).
+    Set SENSENOVA_DTYPE=bf16 for full precision if you have headroom.
+
+    Boot (LingBot / Krea pattern):
+    - soft-ready HTTP on :7860 before uv/pip/HF download
+    - uv pip --target /workspace/sensenovavisionone/site-packages + uv-cache
+    - purge torch shadow from site-packages (image owns torch)
+    - flash_attn hard-import patched → SDPA (Blackwell / no FA wheel)
+    - bootstrap log → /workspace/sensenovavisionone/bootstrap.log
+
+    UI: / and /ui · REST POST /api/v1/predict · timings GET /api/v1/timings · health GET /health
+  developer: SenseTime / OpenSenseNova
+  website: https://huggingface.co/sensenova/SenseNova-Vision-7B-MoT
+  sourceCode: https://github.com/OpenSenseNova/SenseNova-Vision
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: CC-BY-NC-4.0
+      url: https://huggingface.co/sensenova/SenseNova-Vision-7B-MoT
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '13'
+      requiredMemory: 8Gi
+      limitedMemory: 80Gi
+      requiredDisk: 50Gi
+      limitedDisk: 120Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    - **1.0.2**: Fix accelerator limitedMemory 72Gi→80Gi (server 72Gi + client 500Mi was over budget).
+    - **1.0.1**: Default SENSENOVA_DTYPE=nf4 (bnb load-time quant from bf16 ema.safetensors) for 24GB VRAM.
+    - **1.0.0**: initial chart — soft-ready + uv site-packages + Gradio/REST + timing API;
+      SenseNova-Vision-7B-MoT with accelerate offload for 24GB; flash_attn→SDPA patch.
+
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: HF_REPO_ID
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'sensenova/SenseNova-Vision-7B-MoT'
+  - envName: UV_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+    value: ''
+  - envName: SENSENOVA_DTYPE
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'nf4'
+  - envName: SENSENOVA_MAX_MEM_PER_GPU
+    required: false
+    editable: true
+    applyOnChange: true
+    value: '20GiB'
+  - envName: SENSENOVA_DEVICE
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'cuda'
+  - envName: LOAD_LAZY
+    required: false
+    editable: true
+    applyOnChange: true
+    value: '0'
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

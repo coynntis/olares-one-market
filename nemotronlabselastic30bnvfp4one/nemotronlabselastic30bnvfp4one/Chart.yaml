@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.24
+description: nemotronlabselastic30bnvfp4one client proxy
+name: nemotronlabselastic30bnvfp4one
+type: application
+version: 1.0.24

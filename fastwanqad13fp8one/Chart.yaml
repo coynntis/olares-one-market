@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.12"
+description: FastWan QAD 1.3B FP8 4090 fallback T2V — when NVFP4 OOMs
+name: fastwanqad13fp8one
+type: application
+version: 1.0.12

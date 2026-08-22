@@ -1,0 +1,15 @@
+name: fast
+title: Fast preview (DA3 infer_gs)
+summary: Quick splat preview via Depth Anything 3. NC license on Giant — commercial warning.
+license: CC-BY-NC-4.0
+vram_gb: 16
+time_est_min: 10
+iterations: 7000
+checkpoint_interval: 2000
+stages:
+  sfm: skip
+  geometry: da3
+  representation: 3dgs
+  densification: default_adc
+  pose_opt: off
+  repair: none

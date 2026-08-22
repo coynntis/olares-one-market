@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SplatLab One</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>SplatLab One</h1>
+    <nav>
+      <a href="/index.html">Dashboard</a>
+      <a href="/import.html">Import</a>
+      <a href="/pipeline.html">Pipeline</a>
+      <a href="/jobs.html">Jobs</a>
+      <a href="/viewer.html">Viewer</a>
+      <a href="/guide.html">Guide</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>3D Gaussian Splatting on Olares One</h2>
+      <p class="hint">Import → SfM or feed-forward geometry → gsplat train → view splats. See the <a href="/guide.html">Guide</a> for how each library fits together.</p>
+      <p id="health-status" class="status">Loading…</p>
+    </section>
+    <section class="card">
+      <h2>Quick start</h2>
+      <ol>
+        <li><a href="/import.html">Import</a> images, video, or COLMAP zip</li>
+        <li><a href="/pipeline.html">Pipeline</a> — pick preset (quality / robust / fast)</li>
+        <li><a href="/jobs.html">Jobs</a> — watch SSE progress; open <strong>Pipeline artifacts</strong></li>
+        <li><a href="/viewer.html#map">Viewer → Map</a> / <a href="/viewer.html#splats">Splats</a> — geometry points vs Gaussians</li>
+        <li><a href="/guide.html">Guide</a> — full architecture, libraries, pipeline</li>
+      </ol>
+    </section>
+    <section class="card">
+      <h2>Build runtime image</h2>
+      <p class="hint">Zip <code>splatlabone/docker/</code> and build via <strong>dockerbuilderone MCP</strong> in Cursor — not SplatLab MCP. See <a href="/guide.html#docker_build">Guide</a>.</p>
+    </section>
+  </main>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

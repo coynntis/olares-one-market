@@ -1,0 +1,10 @@
+metadata:
+  title: Qwen36 35B A3B Vision TQ34S
+  description: "Qwen3.6-35B-A3B Vision TQ3_4S via llama.cpp-tq3 on Olares One"
+
+spec:
+  fullDescription: |
+    Qwen3.6-35B-A3B-TQ3_4S served with turbo-tan/llama.cpp-tq3 on Olares One.
+    Multimodal vision via BF16 mmproj and OpenAI-compatible image_url requests. 128K context.
+    Downloads GGUF, BF16 mmproj, and froggeric Qwen fixed chat template on first launch.
+    Builds turbo-tan llama.cpp-tq3 with CUDA and starts llama-server on port 8080.

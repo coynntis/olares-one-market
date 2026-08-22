@@ -1,0 +1,7 @@
+metadata:
+  description: CosyVoice2 Yue TTS — Hong Kong Cantonese zero-shot clone
+  title: CosyVoice2 Yue TTS One
+spec:
+  fullDescription: |
+    ASLP-lab/Cosyvoice2-Yue-ZoengJyutGaai — native Cantonese TTS with voice clone.
+    ~2-3 GB VRAM. Pair with sensevoiceone + vllmgemma4e4bone.

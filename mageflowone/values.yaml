@@ -1,0 +1,28 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  MAGE_DEFAULT_MODEL: 'Mage-Flow-Turbo'
+  MAGE_PRELOAD: '0'
+  MAGE_INSTALL_FLASH_ATTN: '0'
+  VF_HF_ATTN_IMPL: 'sdpa'
+  MAGE_ATTN_TYPE: 'sdpa'
+  MAGE_REPO: 'https://github.com/microsoft/Mage.git'
+  UV_INDEX_URL: ''
+  PIP_INDEX_URL: ''
+  UV_CONCURRENT_DOWNLOADS: '32'
+image:
+  repository: pytorch/pytorch
+  # Mage-Flow validated on torch 2.13; cu130 for Blackwell 5090M.
+  tag: 2.13.0-cuda13.0-cudnn9-devel
+workloads:
+  mageflowone:
+    replicaCount: 1
+  mageflowonecli:
+    replicaCount: 1

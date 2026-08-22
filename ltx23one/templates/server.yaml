@@ -1,0 +1,191 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: ltx23one
+  name: ltx23one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.ltx23one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: ltx23one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: ltx23one
+    spec:
+      initContainers:
+        - name: volume-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              chmod -R 777 /models /workspace /output || true
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+          securityContext:
+            runAsUser: 0
+      containers:
+        - name: ltx23-gradio
+          {{- $repo := .Values.image.repository | trim -}}
+          {{- if $repo }}
+          image: {{ printf "%s:%s" $repo (.Values.image.tag | default "latest") | quote }}
+          {{- else }}
+          image: "pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel"
+          {{- end }}
+          command:
+            - "bash"
+            - "-lc"
+          args:
+            - |
+              set -euo pipefail
+              APP_DIR="/workspace/ltx23one"
+              mkdir -p "$APP_DIR" /output /models/ltx23 /models/loras
+              cp /app-src/app.py "$APP_DIR/app.py"
+              cp /app-src/requirements.txt "$APP_DIR/requirements.txt"
+              cd "$APP_DIR"
+              if [ ! -d "$APP_DIR/.venv" ]; then
+                python3 -m venv "$APP_DIR/.venv"
+              fi
+              # shellcheck disable=SC1091
+              source "$APP_DIR/.venv/bin/activate"
+              python -m pip install --upgrade pip
+              python -m pip install -r requirements.txt
+              # Official LTX-2 packages (skip openimageio — not needed for DistilledPipeline MP4).
+              python -m pip install "git+https://github.com/Lightricks/LTX-2.git#subdirectory=packages/ltx-core"
+              python -m pip install --no-deps "git+https://github.com/Lightricks/LTX-2.git#subdirectory=packages/ltx-pipelines"
+              # Optional SageAttention — fail soft
+              if [ "${LTX_ATTENTION_BACKEND:-auto}" = "sage" ] || [ "${LTX_ATTENTION_BACKEND:-auto}" = "auto" ]; then
+                python -m pip install sageattention || echo "sageattention pip install skipped/failed"
+              fi
+              python app.py
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: LTX_CHECKPOINT_REPO
+              value: {{ .Values.olaresEnv.LTX_CHECKPOINT_REPO | default "Lightricks/LTX-2.3-fp8" | quote }}
+            - name: LTX_ATTENTION_BACKEND
+              value: {{ .Values.olaresEnv.LTX_ATTENTION_BACKEND | default "auto" | quote }}
+            - name: LTX_OFFLOAD_MODE
+              value: {{ .Values.olaresEnv.LTX_OFFLOAD_MODE | default "cpu" | quote }}
+            - name: LTX_QUANTIZATION
+              value: {{ .Values.olaresEnv.LTX_QUANTIZATION | default "fp8-cast" | quote }}
+            - name: LTX_LORA_IDS
+              value: {{ .Values.olaresEnv.LTX_LORA_IDS | default "" | quote }}
+            - name: LTX_MODELS_ROOT
+              value: "/models/ltx23"
+            - name: LTX_LORA_DIR
+              value: "/models/loras"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: TORCHDYNAMO_DISABLE
+              value: "1"
+            - name: GRADIO_TEMP_DIR
+              value: "/output/gradio"
+            - name: SERVER_PORT
+              value: "7860"
+            - name: LOG_LEVEL
+              value: "INFO"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 15
+            failureThreshold: 1200
+          livenessProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 180
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/output"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+        - name: app-source
+          configMap:
+            name: ltx23one-source
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: ltx23one
+  name: ltx23one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "gradio"
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: ltx23one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: ltx23one
+  name: sharedentrances-ltx23one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "ltx23one"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: ltx23one

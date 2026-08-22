@@ -1,0 +1,481 @@
+{{- $llmCtx := .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" }}
+{{- $llmMaxOut := .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" }}
+{{- $llmApiKey := .Values.olaresEnv.LLM_API_KEY | default "" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-gemma4e4b-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_NAME: "google/gemma-4-E4B-it"
+  MODEL_ALIAS: "gemma-4-e4b-mtp"
+  MAX_MODEL_LEN: "32000"
+  GPU_MEMORY_UTILIZATION: "0.85"
+  LIMIT_MM: '{"image": 1, "audio": 1}'
+  SPEC_CONFIG: '{"method":"mtp","model":"google/gemma-4-E4B-it-assistant","num_speculative_tokens":3}'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: vllmgemma4e4bone
+  name: vllmgemma4e4bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.vllmgemma4e4bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: vllmgemma4e4bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: vllmgemma4e4bone
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms/huggingface
+            - chmod -R 777 /shared-models/llms
+            - echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: vllm-server
+          image: "vllm/vllm-openai:nightly-1acd67a795ebccdf9b9db7697ae9082058301657"
+          command:
+            - "sh"
+            - "-c"
+            - |
+              mkdir -p /app
+              cat > /app/start-vllm.sh << 'SHEOF'
+              #!/bin/bash
+              set -euo pipefail
+              export HF_HOME="${HF_HOME:-/shared-models/llms/huggingface}"
+              export HF_HUB_VERBOSITY="${HF_HUB_VERBOSITY:-info}"
+              export HF_HUB_DISABLE_PROGRESS_BARS=0
+              CACHE="${HF_HOME}"
+              MAIN_REPO="${CACHE}/models--google--gemma-4-E4B-it"
+              MTP_REPO="${CACHE}/models--google--gemma-4-E4B-it-assistant"
+              echo "$(date -Iseconds) [vllmgemma4e4bone] HF_HOME=$HF_HOME"
+              echo "$(date -Iseconds) [vllmgemma4e4bone] vLLM --download-dir=$CACHE"
+              echo "$(date -Iseconds) [vllmgemma4e4bone] main model files → ${MAIN_REPO}/blobs/"
+              echo "$(date -Iseconds) [vllmgemma4e4bone] MTP drafter files → ${MTP_REPO}/blobs/ (after main)"
+              du -sh "$CACHE" "$MAIN_REPO" "$MTP_REPO" 2>/dev/null || true
+              find "$CACHE" -name '*.incomplete' 2>/dev/null | while read -r f; do
+                echo "$(date -Iseconds) [vllmgemma4e4bone] downloading: $f ($(du -h "$f" 2>/dev/null | cut -f1))"
+              done || true
+              echo "$(date -Iseconds) [vllmgemma4e4bone] installing audio deps + hf_transfer..."
+              pip install --quiet soundfile soxr audioread lazy_loader msgpack decorator pooch av resampy scipy hf_transfer
+              if [ -n "${HF_TOKEN:-}" ]; then
+                echo "$(date -Iseconds) [vllmgemma4e4bone] HF_TOKEN set (len=${#HF_TOKEN}) — gated models + faster hub"
+              else
+                echo "$(date -Iseconds) [vllmgemma4e4bone] WARN: HF_TOKEN empty — set HF_TOKEN in Settings if download fails or is slow"
+              fi
+              export HF_HUB_ENABLE_HF_TRANSFER="${HF_HUB_ENABLE_HF_TRANSFER:-1}"
+              echo "$(date -Iseconds) [vllmgemma4e4bone] starting vLLM backend on :8001..."
+              exec vllm serve "${MODEL_NAME}" \
+                --served-model-name "${MODEL_ALIAS}" \
+                --host 127.0.0.1 \
+                --port 8001 \
+                --max-model-len \
+{{- if $llmCtx }}
+                {{ $llmCtx | quote }} \
+{{- else }}
+                "${MAX_MODEL_LEN}" \
+{{- end }}
+                --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION}" \
+                --limit-mm-per-prompt "${LIMIT_MM}" \
+                --speculative-config "${SPEC_CONFIG}" \
+                --dtype auto \
+                --trust-remote-code \
+                --download-dir /shared-models/llms/huggingface \
+{{- if $llmApiKey }}
+                --api-key {{ $llmApiKey | quote }} \
+{{- end }}
+{{- if $llmMaxOut }}
+                --override-generation-config {{ printf "{\"max_tokens\":%s}" $llmMaxOut | quote }} \
+{{- end }}
+                --enable-prefix-caching
+              SHEOF
+              chmod +x /app/start-vllm.sh
+
+              cat > /app/launcher.py << 'PYEOF'
+              import asyncio
+              import glob
+              import os
+              import subprocess
+              import threading
+              import traceback
+              import urllib.error
+              import urllib.request
+              from contextlib import asynccontextmanager
+              from typing import Optional
+
+              from fastapi import FastAPI, HTTPException, Request, Response
+              from fastapi.responses import JSONResponse, RedirectResponse
+
+              _phase = "starting"
+              _bootstrap_error: Optional[str] = None
+              _vllm_proc: Optional[subprocess.Popen] = None
+              _backend_port = 8001
+              _last_cache_bytes = -1
+              _stale_cache_checks = 0
+
+
+              def log(msg: str) -> None:
+                  print(f"[vllmgemma4e4bone] {msg}", flush=True)
+
+
+              def human_bytes(n: int) -> str:
+                  if n < 0:
+                      return "unknown"
+                  for unit in ("B", "KB", "MB", "GB", "TB"):
+                      if n < 1024:
+                          return f"{n:.1f}{unit}" if unit != "B" else f"{n}B"
+                      n /= 1024
+                  return f"{n:.1f}PB"
+
+
+              def hf_cache_report() -> dict:
+                  cache = os.environ.get("HF_HOME", "/shared-models/llms/huggingface")
+                  incomplete = glob.glob(os.path.join(cache, "**", "*.incomplete"), recursive=True)
+                  total = -1
+                  try:
+                      proc = subprocess.run(
+                          ["du", "-sb", cache],
+                          capture_output=True,
+                          text=True,
+                          timeout=30,
+                      )
+                      if proc.returncode == 0 and proc.stdout.strip():
+                          total = int(proc.stdout.split()[0])
+                  except Exception as exc:
+                      log(f"cache du failed: {exc}")
+                  repos = []
+                  for pattern in (
+                      os.path.join(cache, "models--*"),
+                      os.path.join(cache, "hub", "models--*"),
+                  ):
+                      for path in sorted(glob.glob(pattern)):
+                          try:
+                              rp = subprocess.run(
+                                  ["du", "-sh", path],
+                                  capture_output=True,
+                                  text=True,
+                                  timeout=15,
+                              )
+                              if rp.returncode == 0 and rp.stdout.strip():
+                                  repos.append(rp.stdout.strip())
+                          except Exception:
+                              pass
+                  return {
+                      "cache_path": cache,
+                      "cache_bytes": total,
+                      "cache_human": human_bytes(total),
+                      "incomplete_count": len(incomplete),
+                      "incomplete_samples": [os.path.basename(p) for p in incomplete[:5]],
+                      "repo_sizes": repos,
+                      "paths": {
+                          "host_path": "/olares/share/ai/model/llms/huggingface",
+                          "main_model_blobs": os.path.join(
+                              cache, "models--google--gemma-4-E4B-it", "blobs"
+                          ),
+                          "mtp_drafter_blobs": os.path.join(
+                              cache, "models--google--gemma-4-E4B-it-assistant", "blobs"
+                          ),
+                      },
+                  }
+
+
+              def relay_vllm_output(proc: subprocess.Popen) -> None:
+                  if proc.stdout is None:
+                      return
+
+                  def pump() -> None:
+                      for raw in iter(proc.stdout.readline, b""):
+                          line = raw.decode(errors="replace").rstrip()
+                          if line:
+                              print(f"[vllm] {line}", flush=True)
+                      proc.stdout.close()
+
+                  threading.Thread(target=pump, daemon=True).start()
+
+
+              def backend_healthy_sync() -> bool:
+                  try:
+                      with urllib.request.urlopen(
+                          f"http://127.0.0.1:{_backend_port}/v1/models", timeout=10
+                      ) as resp:
+                          return resp.status == 200
+                  except Exception:
+                      return False
+
+
+              def wait_for_backend_sync() -> None:
+                  global _phase, _last_cache_bytes, _stale_cache_checks
+                  import time
+
+                  interval = 5
+                  max_wait = int(os.environ.get("VLLM_BOOTSTRAP_TIMEOUT_SEC", "21600"))
+                  max_iters = max(1, max_wait // interval)
+                  log(f"waiting up to {max_wait}s for vLLM /v1/models on :{_backend_port}")
+                  log(f"HF cache report: {hf_cache_report()}")
+                  for i in range(max_iters):
+                      if _vllm_proc is not None and _vllm_proc.poll() is not None:
+                          raise RuntimeError(f"vLLM exited {_vllm_proc.returncode}")
+                      if backend_healthy_sync():
+                          _phase = "ready"
+                          log(f"vLLM backend ready after ~{i * interval}s — proxying API traffic")
+                          log(f"final cache: {hf_cache_report()}")
+                          return
+                      if i > 0 and i % 60 == 0:
+                          elapsed = i * interval
+                          report = hf_cache_report()
+                          vllm_state = (
+                              f"alive pid={_vllm_proc.pid}"
+                              if _vllm_proc and _vllm_proc.poll() is None
+                              else "not running"
+                          )
+                          log(
+                              f"still loading ({elapsed}s / {max_wait}s) — "
+                              f"cache={report['cache_human']} incomplete={report['incomplete_count']} "
+                              f"vllm={vllm_state}"
+                          )
+                          for line in report.get("repo_sizes") or []:
+                              log(f"  repo {line}")
+                          if report["cache_bytes"] >= 0:
+                              if report["cache_bytes"] == _last_cache_bytes:
+                                  _stale_cache_checks += 1
+                                  if _stale_cache_checks >= 3:
+                                      log(
+                                          "WARN: HF cache unchanged 15m — download may be stalled. "
+                                          "Check pod logs for [vllm] lines; delete *.incomplete under "
+                                          f"{report['cache_path']} and restart if needed"
+                                      )
+                              else:
+                                  _stale_cache_checks = 0
+                              _last_cache_bytes = report["cache_bytes"]
+                      time.sleep(interval)
+                  raise RuntimeError(
+                      f"vLLM backend health timeout after {max_wait}s "
+                      f"(set VLLM_BOOTSTRAP_TIMEOUT_SEC to increase). "
+                      f"cache={hf_cache_report()}"
+                  )
+
+
+              def bootstrap_sync() -> None:
+                  global _phase, _bootstrap_error, _vllm_proc
+                  try:
+                      _phase = "installing_deps"
+                      log("background: pip + vLLM serve...")
+                      _vllm_proc = subprocess.Popen(
+                          ["/app/start-vllm.sh"],
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT,
+                          bufsize=1,
+                      )
+                      relay_vllm_output(_vllm_proc)
+                      _phase = "starting_vllm"
+                      wait_for_backend_sync()
+                  except Exception as exc:
+                      _bootstrap_error = str(exc)
+                      _phase = "error"
+                      log(f"bootstrap failed: {exc}")
+                      traceback.print_exc()
+
+
+              @asynccontextmanager
+              async def lifespan(app: FastAPI):
+                  log("fast-ready: launcher on :8000 — vLLM starts in background on :8001")
+                  asyncio.create_task(asyncio.to_thread(bootstrap_sync))
+                  yield
+
+
+              app = FastAPI(title="vLLM Gemma 4 E4B launcher", lifespan=lifespan)
+
+
+              @app.get("/health")
+              async def health():
+                  ready = _phase == "ready"
+                  backend_ok = ready and await asyncio.to_thread(backend_healthy_sync)
+                  cache = await asyncio.to_thread(hf_cache_report)
+                  vllm_running = _vllm_proc is not None and _vllm_proc.poll() is None
+                  body = {
+                      "status": _phase,
+                      "ready": ready and backend_ok,
+                      "model": os.environ.get("MODEL_NAME"),
+                      "bootstrap_error": _bootstrap_error,
+                      "vllm_running": vllm_running,
+                      "vllm_exit_code": None if vllm_running or _vllm_proc is None else _vllm_proc.returncode,
+                      "hf_token_set": bool(os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")),
+                      "hf_transfer": os.environ.get("HF_HUB_ENABLE_HF_TRANSFER", ""),
+                      "hf_cache": cache,
+                  }
+                  if ready and not backend_ok:
+                      return JSONResponse(status_code=503, content={**body, "backend": "down"})
+                  return JSONResponse(status_code=200, content=body)
+
+
+              async def proxy_request(request: Request, full_path: str = ""):
+                  if _phase != "ready":
+                      raise HTTPException(503, detail=f"not ready (phase={_phase})")
+                  if not await asyncio.to_thread(backend_healthy_sync):
+                      raise HTTPException(503, detail="vLLM backend down")
+                  try:
+                      import httpx
+                  except ImportError:
+                      raise HTTPException(503, detail="httpx not available for proxy")
+
+                  url = f"http://127.0.0.1:{_backend_port}/{full_path}"
+                  if request.url.query:
+                      url = f"{url}?{request.url.query}"
+                  headers = {
+                      k: v
+                      for k, v in request.headers.items()
+                      if k.lower() not in ("host", "content-length")
+                  }
+                  body = await request.body()
+                  async with httpx.AsyncClient(timeout=None) as client:
+                      upstream = await client.request(
+                          request.method,
+                          url,
+                          headers=headers,
+                          content=body if body else None,
+                      )
+                  return Response(
+                      content=upstream.content,
+                      status_code=upstream.status_code,
+                      headers=dict(upstream.headers),
+                  )
+
+
+              @app.get("/")
+              async def root():
+                  if _phase != "ready":
+                      raise HTTPException(503, detail=f"not ready (phase={_phase})")
+                  return RedirectResponse(url="/docs", status_code=307)
+
+
+              @app.api_route(
+                  "/{full_path:path}",
+                  methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+              )
+              async def proxy(full_path: str, request: Request):
+                  return await proxy_request(request, full_path)
+
+
+              if __name__ == "__main__":
+                  import uvicorn
+
+                  uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+              PYEOF
+
+              exec python3 /app/launcher.py
+          envFrom:
+            - configMapRef:
+                name: vllm-gemma4e4b-env
+          env:
+            - name: HF_HOME
+              value: "/shared-models/llms/huggingface"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: VLLM_BOOTSTRAP_TIMEOUT_SEC
+              value: {{ .Values.olaresEnv.VLLM_BOOTSTRAP_TIMEOUT_SEC | default "21600" | quote }}
+            - name: HF_HUB_VERBOSITY
+              value: "info"
+            - name: TRANSFORMERS_VERBOSITY
+              value: "info"
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: "1"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: vllmgemma4e4bone
+  name: vllmgemma4e4bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "vllm"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: vllmgemma4e4bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: vllmgemma4e4bone
+  name: sharedentrances-vllmgemma4e4bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "vllmgemma4e4bone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: vllmgemma4e4bone

@@ -1,0 +1,9 @@
+metadata:
+  description: "EXPERIMENTAL DeepSeek-V4-Flash-0731 IQ2_XXS — cpu-moe (DSpark off)"
+  title: DSV4 Flash cpu-moe
+spec:
+  fullDescription: |
+    Experimental DeepSeek-V4-Flash-0731 via ggml-org/llama.cpp on Olares One.
+    Unsloth UD-IQ2_XXS (~90.9 GB) with --cpu-moe (mmap). Defaults: temp 1.0, top_p 0.95,
+    ctx 131072. DSpark optional. Knobs: DSV4_QUANT, ENABLE_DSPARK, LLM_CONTEXT_WINDOW,
+    HF_TOKEN, HF_ENDPOINT. OpenAI API :8000; client proxy :8080.

@@ -1,0 +1,175 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sglang-lfm25-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  CONTEXT_LENGTH: {{ .Values.sglang.contextLength | quote }}
+  MEM_FRACTION_STATIC: {{ .Values.sglang.memFractionStatic | quote }}
+  MAX_RUNNING_REQUESTS: {{ .Values.sglang.maxRunningRequests | quote }}
+  MAX_TOTAL_TOKENS: {{ .Values.sglang.maxTotalTokens | quote }}
+  CHUNKED_PREFILL_SIZE: {{ .Values.sglang.chunkedPrefillSize | quote }}
+  MODEL_PATH: "LiquidAI/LFM2.5-8B-A1B"
+  MODEL_ALIAS: "lfm2.5-8b-a1b"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: sglanglfm258ba1bone
+  name: sglanglfm258ba1bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+spec:
+  replicas: {{ .Values.workloads.sglanglfm258ba1bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: sglanglfm258ba1bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: sglanglfm258ba1bone
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms/huggingface && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: sglang-server
+          image: "lmsysorg/sglang:dev-cu13"
+          command:
+            - "bash"
+            - "-c"
+          args:
+            - |
+              set -e
+              pip install -U "sglang[srt]>=0.5.12" "transformers>=5.0" hf_transfer
+              EXTRA_ARGS=()
+              {{- if .Values.sglang.disableRadixCache }}
+              EXTRA_ARGS+=(--disable-radix-cache)
+              {{- end }}
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              exec python3 -m sglang.launch_server \
+                --model-path "$(MODEL_PATH)" \
+                --served-model-name "$(MODEL_ALIAS)" \
+                --host 0.0.0.0 \
+                --port 30000 \
+                --context-length "${LLM_CONTEXT_WINDOW:-$(CONTEXT_LENGTH)}" \
+                --mem-fraction-static "$(MEM_FRACTION_STATIC)" \
+                --max-running-requests "$(MAX_RUNNING_REQUESTS)" \
+                --max-total-tokens "$(MAX_TOTAL_TOKENS)" \
+                --chunked-prefill-size "$(CHUNKED_PREFILL_SIZE)" \
+                --dtype bfloat16 \
+                --trust-remote-code \
+                "${EXTRA_ARGS[@]}" "${EXTRA_LLM_ARGS[@]}"
+          envFrom:
+            - configMapRef:
+                name: sglang-lfm25-env
+          env:
+            - name: HF_HOME
+              value: "/shared-models/llms/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          ports:
+            - containerPort: 30000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 30000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 30000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/dev/shm"
+              name: dshm
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sglanglfm258ba1bone
+  name: sglanglfm258ba1bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sglang"
+      port: 30000
+      targetPort: 30000
+  selector:
+    io.kompose.service: sglanglfm258ba1bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sglanglfm258ba1bone
+  name: sharedentrances-sglanglfm258ba1bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sglanglfm258ba1bone"
+      port: 80
+      targetPort: 30000
+  selector:
+    io.kompose.service: sglanglfm258ba1bone

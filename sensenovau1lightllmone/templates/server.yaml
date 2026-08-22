@@ -1,0 +1,247 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: sensenovau1lightllmone
+  name: sensenovau1lightllmone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+spec:
+  replicas: {{ .Values.workloads.sensenovau1lightllmone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: sensenovau1lightllmone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: sensenovau1lightllmone
+    spec:
+      initContainers:
+        - name: model-downloader
+          image: python:3.11-slim
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              python -m pip install --no-cache-dir --break-system-packages -U pip huggingface_hub tqdm
+              python -u - <<'PY'
+              import logging
+              import os
+              import sys
+              import time
+              from huggingface_hub import snapshot_download
+              from huggingface_hub.utils import logging as hf_logging
+
+              logging.basicConfig(
+                  level=logging.INFO,
+                  format="%(asctime)s | %(levelname)s | %(message)s",
+                  stream=sys.stdout,
+                  force=True,
+              )
+              log = logging.getLogger("model-downloader")
+              hf_logging.set_verbosity_info()
+
+              repo_id = os.environ["MODEL_REPO"]
+              local_dir = os.environ["MODEL_DIR"]
+              token = os.environ.get("HF_TOKEN") or None
+              endpoint = os.environ.get("HF_ENDPOINT") or None
+              kwargs = {}
+              if token:
+                  kwargs["token"] = token
+              if endpoint:
+                  os.environ["HF_ENDPOINT"] = endpoint
+
+              log.info("snapshot_download start repo=%s dest=%s", repo_id, local_dir)
+              t0 = time.monotonic()
+              snapshot_download(repo_id=repo_id, local_dir=local_dir, **kwargs)
+              log.info("snapshot_download done elapsed_s=%.1f", time.monotonic() - t0)
+              PY
+          envFrom:
+            - configMapRef:
+                name: sensenovau1lightllmone-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /models
+              name: models
+            - mountPath: /root/.cache/huggingface
+              name: hf-cache
+      containers:
+        - name: lightllm
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - bash
+            - -lc
+            - |
+              set -eux
+              export MODEL_DIR="${MODEL_DIR}"
+              export WORKSPACE=/workspace
+              mkdir -p "${HF_HOME}" "${WORKSPACE}"
+
+              if [ ! -d "${WORKSPACE}/LightLLM/.git" ]; then
+                git clone "${LIGHTLLM_REPO_URL}" "${WORKSPACE}/LightLLM"
+                cd "${WORKSPACE}/LightLLM"
+                git checkout "${LIGHTLLM_BRANCH}"
+              else
+                cd "${WORKSPACE}/LightLLM"
+                git fetch origin
+                git checkout "${LIGHTLLM_BRANCH}"
+                git pull --ff-only origin "${LIGHTLLM_BRANCH}" || true
+              fi
+
+              if [ ! -d "${WORKSPACE}/LightX2V/.git" ]; then
+                git clone --depth 1 "${LIGHTX2V_REPO_URL}" "${WORKSPACE}/LightX2V"
+              else
+                cd "${WORKSPACE}/LightX2V"
+                git pull --ff-only || true
+              fi
+
+              GEN_CFG="${WORKSPACE}/LightX2V/configs/neopp/${X2V_GEN_CONFIG}"
+              if [ ! -f "${GEN_CFG}" ]; then
+                echo "missing generation config: ${GEN_CFG}" >&2
+                exit 1
+              fi
+              echo "[boot] generation config ${GEN_CFG}:"
+              cat "${GEN_CFG}"
+
+              NAIVE_FLAG=""
+              if [ "${X2I_USE_NAIVE_IMPL}" = "1" ]; then
+                NAIVE_FLAG="--x2i_use_naive_impl"
+              fi
+
+              export PYTHONPATH="${WORKSPACE}/LightX2V/:${WORKSPACE}/LightLLM/:${PYTHONPATH:-}"
+              cd "${WORKSPACE}/LightLLM"
+
+              exec python -m lightllm.server.api_server \
+                --model_dir "${MODEL_DIR}" \
+                --enable_multimodal_x2i \
+                --x2i_server_deploy_mode "${X2I_DEPLOY_MODE}" \
+                --x2i_server_used_gpus "${X2I_USED_GPUS}" \
+                --x2v_gen_model_config "${GEN_CFG}" \
+                ${NAIVE_FLAG} \
+                --host 0.0.0.0 \
+                --port "${SERVER_PORT}" \
+                --max_req_total_len "${MAX_REQ_TOTAL_LEN}" \
+                --mem_fraction "${MEM_FRACTION}" \
+                --tp "${TP}"
+          envFrom:
+            - configMapRef:
+                name: sensenovau1lightllmone-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: expandable_segments:True
+            - name: NCCL_P2P_DISABLE
+              value: "1"
+          ports:
+            - containerPort: {{ .Values.server.port }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.server.port }}
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.server.port }}
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: /models
+              name: models
+            - mountPath: /workspace
+              name: workspace
+            - mountPath: /dev/shm
+              name: dshm
+            - mountPath: /app-src
+              name: bench-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/sensenovau1lightllmone-workspace"
+            type: DirectoryOrCreate
+        - name: hf-cache
+          hostPath:
+            path: "{{ .Values.userspace.appCache }}/huggingface"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+        - name: bench-source
+          configMap:
+            name: sensenovau1lightllmone-bench
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sensenovau1lightllmone
+  name: sensenovau1lightllmone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.server.port }}
+      targetPort: {{ .Values.server.port }}
+  selector:
+    io.kompose.service: sensenovau1lightllmone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sensenovau1lightllmone
+  name: sharedentrances-sensenovau1lightllmone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: {{ .Values.server.port }}
+  selector:
+    io.kompose.service: sensenovau1lightllmone

@@ -22,7 +22,7 @@ Then open [http://localhost:7860](http://localhost:7860).
 
 ## Docker run
 
-This uses the requested base image: `pytorch/pytorch:2.11.0-cuda13.0-cudnn9-devel`.
+This uses the requested base image: `pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel`.
 
 ```bash
 cd motif_video_gradio

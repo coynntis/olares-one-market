@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.20
+description: dflashqwen3627bone client proxy
+name: dflashqwen3627bone
+type: application
+version: 1.0.20

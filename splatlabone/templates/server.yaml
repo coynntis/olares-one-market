@@ -1,0 +1,248 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: splatlabone
+  name: splatlabone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+    olares.one/config-revision: "{{ .Chart.Version }}"
+spec:
+  replicas: {{ .Values.workloads.splatlabone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: splatlabone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: splatlabone
+    spec:
+      {{- $token := .Values.olaresEnv.GITHUB_TOKEN | trim -}}
+      {{- $repo := .Values.image.repository | default "" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) }}
+      imagePullSecrets:
+        - name: splatlabone-ghcr
+      {{- end }}
+      initContainers:
+        - name: volume-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              chmod -R 777 /data /models || true
+              mkdir -p /data/uploads /data/workspaces /data/outputs /data/splatlab/cache/models /data/splatlab/cache/modelscope
+          volumeMounts:
+            - mountPath: "/data"
+              name: data
+            - mountPath: "/models"
+              name: models
+          securityContext:
+            runAsUser: 0
+        {{- if .Values.prefetchModels }}
+        - name: prefetch-models
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+          command:
+            - python
+            - /app/scripts/download_models.py
+          envFrom:
+            - configMapRef:
+                name: splatlabone-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: SPLATLAB_MODEL_CACHE
+              value: "/data/splatlab/cache/models"
+            - name: MODELSCOPE_CACHE
+              value: "/data/splatlab/cache/modelscope"
+            - name: SPLATLAB_PREFETCH_MODELS
+              value: {{ .Values.prefetchModelKeys | quote }}
+          volumeMounts:
+            - mountPath: "/data"
+              name: data
+            - mountPath: "/models"
+              name: models
+        {{- end }}
+      containers:
+        - name: splatlabone
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+          command:
+            - bash
+            - "-lc"
+            - |
+              set -euo pipefail
+              # Image /app is root-owned; Olares runs non-root → overlay into writable copy
+              APP_LIVE="${SPLATLAB_APP_LIVE:-/tmp/splatlab-app}"
+              rm -rf "$APP_LIVE"
+              mkdir -p "$APP_LIVE"
+              cp -a /app/. "$APP_LIVE/"
+              if [ -d /app-src ] && [ -f /app-src/main.py ]; then
+                echo "Overlaying app from ConfigMap into ${APP_LIVE}..."
+                for f in /app-src/*; do
+                  [ -e "$f" ] || continue
+                  key="$(basename "$f")"
+                  if [[ "$key" == static--* ]]; then
+                    rel="${key#static--}"
+                    dest="$APP_LIVE/static/${rel//--//}"
+                    mkdir -p "$(dirname "$dest")"
+                    cp "$f" "$dest"
+                  elif [[ "$key" == presets--* ]]; then
+                    rel="${key#presets--}"
+                    mkdir -p "$APP_LIVE/presets"
+                    cp "$f" "$APP_LIVE/presets/${rel//--//}"
+                  elif [[ "$key" == api--* ]]; then
+                    rel="${key#api--}"
+                    dest="$APP_LIVE/api/${rel//--//}"
+                    mkdir -p "$(dirname "$dest")"
+                    cp "$f" "$dest"
+                  elif [[ "$key" == jobs--* ]]; then
+                    rel="${key#jobs--}"
+                    dest="$APP_LIVE/jobs/${rel//--//}"
+                    mkdir -p "$(dirname "$dest")"
+                    cp "$f" "$dest"
+                  elif [[ "$key" == pipeline--* ]]; then
+                    rel="${key#pipeline--}"
+                    dest="$APP_LIVE/pipeline/${rel//--//}"
+                    mkdir -p "$(dirname "$dest")"
+                    cp "$f" "$dest"
+                  elif [[ "$key" == viewer--* ]]; then
+                    rel="${key#viewer--}"
+                    dest="$APP_LIVE/viewer/${rel//--//}"
+                    mkdir -p "$(dirname "$dest")"
+                    cp "$f" "$dest"
+                  elif [[ "$key" == scripts--* ]]; then
+                    rel="${key#scripts--}"
+                    dest="$APP_LIVE/scripts/${rel//--//}"
+                    mkdir -p "$(dirname "$dest")"
+                    cp "$f" "$dest"
+                  else
+                    cp "$f" "$APP_LIVE/$key"
+                  fi
+                done
+              fi
+              cd "$APP_LIVE"
+              chmod +x "$APP_LIVE/entrypoint.sh" 2>/dev/null || true
+              exec bash "$APP_LIVE/entrypoint.sh"
+          envFrom:
+            - configMapRef:
+                name: splatlabone-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: GITHUB_TOKEN
+              value: "{{ .Values.olaresEnv.GITHUB_TOKEN }}"
+            - name: GHCR_USER
+              value: "{{ .Values.olaresEnv.GHCR_USER }}"
+            - name: MCP_CORS_ORIGIN
+              value: "{{ .Values.olaresEnv.MCP_CORS_ORIGIN }}"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: SPLATLAB_VISER_BASE_PORT
+              value: "8780"
+            - name: SPLATLAB_MODEL_CACHE
+              value: "/data/splatlab/cache/models"
+            - name: MODELSCOPE_CACHE
+              value: "/data/splatlab/cache/modelscope"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "8"
+              memory: 32Gi
+            requests:
+              cpu: "500m"
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/data"
+              name: data
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: data
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/splatlabone-data"
+            type: DirectoryOrCreate
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 4Gi
+        - name: app-source
+          configMap:
+            name: splatlabone-source
+            optional: true
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: splatlabone
+  name: splatlabone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: splatlabone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: splatlabone
+  name: sharedentrances-splatlabone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: splatlabone
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: splatlabone

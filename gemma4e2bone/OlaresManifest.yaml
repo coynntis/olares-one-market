@@ -1,62 +1,103 @@
 ---
-olaresManifest.version: '0.10.0'
+olaresManifest.version: 0.12.0
 olaresManifest.type: app
-apiVersion: 'v2'
+apiVersion: v3
+workloadReplicas:
+  gemma4e2bone: 1
+  gemma4e2bonecli: 1
 metadata:
   name: gemma4e2bone
-  icon: https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png
-  description: "Gemma 4 E2B (ultra-fast 2.3B) via llama.cpp — voice pipeline brain for Olares One"
-  appid: gemma4e2bone
+  icon: https://cdn.olares.com/images/2026/08/2f109b0f26d221bc7b63a84d59e0dfce.png
+  description: Gemma 4 E2B (ultra-fast 2.3B) via llama.cpp — voice pipeline brain for Olares One
   title: Gemma 4 E2B Voice Brain One
-  version: '1.0.1'
+  version: 1.0.28
   categories:
     - AI
-entrances:
+sharedEntrances:
   - name: gemma4e2bone
+    host: sharedentrances-gemma4e2bone
+    port: 0
+    title: Gemma 4 E2B API
+    icon: https://cdn.olares.com/images/2026/08/2f109b0f26d221bc7b63a84d59e0dfce.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: gemma4e2bonecli
     port: 8080
-    host: gemma4e2bone
+    host: gemma4e2bonecli
     title: Gemma 4 E2B One
-    icon: https://orales-one-market.aamsellem.workers.dev/icons/gemma426ba4bone.png
+    icon: https://cdn.olares.com/images/2026/08/2f109b0f26d221bc7b63a84d59e0dfce.png
     openMethod: window
     authLevel: internal
 spec:
-  versionName: '1.0.0'
+  versionName: 1.0.28
+  featuredImage: https://cdn.olares.com/images/2026/08/dc49eba30c005ea6eca44e23dacca187.png
   fullDescription: |
     Google Gemma 4 E2B (5.1B params, 2.3B effective) served via llama.cpp — ultra-fast voice pipeline brain for Olares One.
     RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
     Q8_0 quantization (4.7GB model, near-lossless quality). 8K context.
     Designed to run alongside Kyutai STT + TTS for a complete French voice pipeline (~12GB total).
-    q4_0 KV cache with Hadamard rotation. llama.cpp b8720.
+    q4_0 KV cache with Hadamard rotation. llama.cpp b8740.
     Apache 2.0 license.
     Downloads model on first launch (~4.7GB) and caches it.
     Exposes an OpenAI-compatible API on port 8080.
-
-  developer: aamsellem
-  website: https://github.com/aamsellem/olares-one-market
-  sourceCode: https://github.com/aamsellem/olares-one-market
-  submitter: aamsellem
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
   locale:
     - en-US
   license:
     - text: Apache 2.0
       url: https://www.apache.org/licenses/LICENSE-2.0
-
-  limitedCpu: 16
-  requiredCpu: 4
-  requiredDisk: 15Gi
-  limitedDisk: 20Gi
-  limitedMemory: 40Gi
-  requiredMemory: 4Gi
-  requiredGpu: 1Gi
-  limitedGpu: 24Gi
-
   supportArch:
     - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 15Gi
+      limitedDisk: 20Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+    v1.0.26: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.22: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.21: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
 permission:
   appData: true
+  appCommon: true
+envs:
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
 options:
+  shared: true
   apiTimeout: 0
   dependencies:
     - name: olares
-      version: '>=1.12.3-0'
+      version: '>=1.12.6-0'
       type: system
+  LLMGatewaySupported: true

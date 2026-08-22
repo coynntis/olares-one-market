@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.33"
+description: FastWan QAD 1.3B SA2 lightning T2V for Olares One (Blackwell NVFP4)
+name: fastwanqad13bsa2one
+type: application
+version: 1.0.33

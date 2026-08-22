@@ -1,0 +1,694 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-qwen3827bmtp-chat-template
+  namespace: "{{ .Release.Namespace }}"
+data:
+  chat_template.jinja: |
+{{ .Files.Get "chat_template.jinja" | nindent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-qwen3827bmtp-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  DEFAULT_VARIANT: "ud_q3_k_xl"
+  MODEL_ALIAS_BASE: "qwen3.8-27b-mtp-vision"
+  UNSLOTH_REPO: "unsloth/Qwen3.8-27B-GGUF"
+  UNSLOTH_MMPROJ_REMOTE: "mmproj-BF16.gguf"
+  UNSLOTH_MMPROJ_FILE: "mmproj-BF16.gguf"
+  UNSLOTH_MMPROJ_BYTES: "931146432"
+  UNSLOTH_MMPROJ_MIN_BYTES: "800000000"
+  # Unsloth Dynamic 3.0 — default on 24GB (embedded MTP).
+  UNSLOTH_Q3_FILE: "Qwen3.8-27B-UD-Q3_K_XL.gguf"
+  UNSLOTH_Q3_BYTES: "13146393504"
+  UNSLOTH_Q3_MIN_BYTES: "13100000000"
+  UNSLOTH_Q4_FILE: "Qwen3.8-27B-UD-Q4_K_M.gguf"
+  UNSLOTH_Q4_BYTES: "16464440224"
+  UNSLOTH_Q4_MIN_BYTES: "16400000000"
+  UNSLOTH_Q4XL_FILE: "Qwen3.8-27B-UD-Q4_K_XL.gguf"
+  UNSLOTH_Q4XL_BYTES: "17559178144"
+  UNSLOTH_Q4XL_MIN_BYTES: "17500000000"
+  # Separate Unsloth MTP head (Dynamic 3 ships MTP/ for draft when not embedded / for donors).
+  UNSLOTH_MTP_REPO: "unsloth/Qwen3.8-27B-GGUF"
+  UNSLOTH_MTP_REMOTE: "MTP/mtp-Qwen3.8-27B-Q4_0.gguf"
+  UNSLOTH_MTP_FILE: "mtp-Qwen3.8-27B-Q4_0.gguf"
+  UNSLOTH_MTP_BYTES: "1369590656"
+  UNSLOTH_MTP_MIN_BYTES: "1300000000"
+  # Compact abliterated (Ridge-style 3.69bpw) with MTP — AEON-7 uncensored base.
+  ABLIT_REPO: "soyaakinohara/qwen3.8-27b-abliterated-3.69bpw-12GB-MTP.gguf"
+  ABLIT_FILE: "qwen3.8-27b-abliterated-3.69bpw-12GB-MTP.gguf"
+  ABLIT_BYTES: "12599187808"
+  ABLIT_MIN_BYTES: "12500000000"
+  # Optional Empero Ridge (kept for users who prefer it).
+  RIDGE_REPO: "empero-ai/Qwen3.8-27B-Ridge-GGUF"
+  RIDGE_FILE: "Qwen3.8-27B-Ridge-3.7bpw.gguf"
+  RIDGE_BYTES: "12599187008"
+  RIDGE_MIN_BYTES: "12500000000"
+  RIDGE_MMPROJ_REMOTE: "mmproj-Qwen3.8-27B-BF16.gguf"
+  RIDGE_MMPROJ_FILE: "mmproj-Qwen3.8-27B-BF16.gguf"
+  RIDGE_MMPROJ_BYTES: "931145952"
+  RIDGE_MMPROJ_MIN_BYTES: "800000000"
+  THREADS: "16"
+  # Unsloth MTP guide: start at 2; dense 27B often likes 2–4. Editable via LLM_SPEC_DRAFT_N_MAX.
+  SPEC_DRAFT_N_MAX: "4"
+  CONTEXT_SIZE: "196608"
+  # Official Qwen3.8 template defaults reasoning_effort=xhigh — chart defaults medium to avoid think-loops.
+  DEFAULT_REASONING_EFFORT: "medium"
+  CHAT_TEMPLATE_URL: "https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja"
+  CHAT_TEMPLATE_FILE: "chat_template.jinja"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen3827bmtpone
+  name: llamacppqwen3827bmtpone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppqwen3827bmtpone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppqwen3827bmtpone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppqwen3827bmtpone
+    spec:
+      initContainers:
+        - name: fix-shared-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command: ["sh", "-c", "mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo perms-fixed"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-mtp-server
+          # buun: --mmproj-gpu-swap + turbo4 KV — required for vision + long ctx on 24GB
+          image: "docker.io/aamsellem/buun-llama-cpp:87c351d2"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              log() { echo "$(date -Iseconds) [qwen3827bmtp] $*" >&2; }
+              MODELS_DIR=${MODELS_DIR:-/models}
+              SHARED_DIR=${SHARED_DIR:-/shared-models/llms}
+              mkdir -p "$MODELS_DIR" "$SHARED_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              bytes_of() { wc -c < "$1" 2>/dev/null | tr -d ' \n' || echo 0; }
+              file_ok() {
+                local f min_bytes exact_bytes size
+                f="$1"; min_bytes="$2"; exact_bytes="${3:-}"
+                [ -f "$f" ] || return 1
+                size=$(bytes_of "$f")
+                if [ -n "$exact_bytes" ] && [ "$exact_bytes" != "0" ]; then
+                  [ "$size" -eq "$exact_bytes" ] && return 0
+                  return 1
+                fi
+                if [ -n "$min_bytes" ] && [ "$size" -lt "$min_bytes" ]; then
+                  return 1
+                fi
+                return 0
+              }
+              promote_part() {
+                local part dest label
+                part="$1"; dest="$2"; label="$3"
+                if [ ! -f "$part" ]; then
+                  log "ERROR: promote missing part=$part"
+                  exit 1
+                fi
+                if [ "$part" = "$dest" ] || { [ -e "$dest" ] && [ "$part" -ef "$dest" ]; }; then
+                  log "$label already at final path: $dest size=$(bytes_of "$dest")"
+                  return 0
+                fi
+                mv -f "$part" "$dest"
+                log "$label promoted: $(ls -lh "$dest" | awk '{print $5}') size=$(bytes_of "$dest")"
+              }
+              resolve_part() {
+                local dest cand
+                dest="$1"
+                PART_FILE="${dest}.part"
+                for cand in "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" "${dest}.tmp.tmp.tmp"; do
+                  if [ -f "$cand" ]; then
+                    if [ "$cand" != "$PART_FILE" ]; then
+                      log "migrating incomplete $(basename "$cand") → $(basename "$PART_FILE") size=$(bytes_of "$cand")"
+                      mv -f "$cand" "$PART_FILE"
+                    fi
+                    return 0
+                  fi
+                done
+                return 0
+              }
+              download() {
+                local url dest label min_bytes exact_bytes part have curl_rc prog_pid last size delta rate
+                url="$1"; dest="$2"; label="$3"; min_bytes="$4"; exact_bytes="${5:-}"
+                if type link_from_comfy_llms >/dev/null 2>&1; then
+                  if link_from_comfy_llms "$dest"; then
+                    if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                      log "$label OK via ComfyUI Common — skip download"
+                      return 0
+                    fi
+                    rm -f "$dest"
+                  fi
+                fi
+                if file_ok "$dest" "$min_bytes" "$exact_bytes"; then
+                  log "$label OK: $dest ($(ls -lh "$dest" | awk '{print $5}'))"
+                  rm -f "${dest}.part" "${dest}.tmp" "${dest}.tmp.tmp" "${dest}.tmp.tmp.tmp"
+                  return 0
+                fi
+                if [ -f "$dest" ]; then
+                  log "REJECT truncated $label size=$(bytes_of "$dest") — removing final"
+                  rm -f "$dest"
+                fi
+                resolve_part "$dest"
+                part="$PART_FILE"
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  log "$label part complete size=$(bytes_of "$part") — promoting (skip download)"
+                  promote_part "$part" "$dest" "$label"
+                  return 0
+                fi
+                HF_HDR=()
+                if [ -n "${HF_TOKEN:-}" ]; then HF_HDR=(-H "Authorization: Bearer $HF_TOKEN"); fi
+                if [ -f "$part" ]; then
+                  have=$(bytes_of "$part")
+                  log "Resuming $label from $have bytes (exact=${exact_bytes:-none})"
+                  if [ -n "$exact_bytes" ] && [ "$have" -eq "$exact_bytes" ]; then
+                    promote_part "$part" "$dest" "$label"
+                    return 0
+                  fi
+                else
+                  log "Downloading $label from $url ..."
+                fi
+                (
+                  last=0
+                  while true; do
+                    sleep 15
+                    [ -f "$part" ] || continue
+                    size=$(bytes_of "$part")
+                    delta=$((size - last))
+                    rate=$((delta / 15))
+                    log "progress $label: size=$size (+${delta}B / ${rate}B/s)"
+                    last=$size
+                  done
+                ) &
+                prog_pid=$!
+                curl_rc=0
+                curl -fL -C - --retry 20 --retry-delay 15 --retry-all-errors --connect-timeout 30 \
+                  "${HF_HDR[@]}" "$url" -o "$part" || curl_rc=$?
+                kill "$prog_pid" 2>/dev/null || true
+                wait "$prog_pid" 2>/dev/null || true
+                if file_ok "$part" "$min_bytes" "$exact_bytes"; then
+                  if [ "$curl_rc" -ne 0 ]; then
+                    log "$label curl exit=$curl_rc but size OK — promoting"
+                  fi
+                  promote_part "$part" "$dest" "$label"
+                  return 0
+                fi
+                have=$(bytes_of "$part")
+                if [ -n "$exact_bytes" ] && [ "$have" -eq "$exact_bytes" ]; then
+                  log "$label size still exact after curl_rc=$curl_rc — promoting"
+                  promote_part "$part" "$dest" "$label"
+                  return 0
+                fi
+                if [ "$have" -lt 1000000 ] && [ -n "$exact_bytes" ]; then
+                  log "ERROR: $label looks like HF error page size=$have — remove corrupt part and retry next boot"
+                  rm -f "$part"
+                fi
+                log "ERROR: $label incomplete curl_rc=$curl_rc size=$have min=$min_bytes exact=${exact_bytes:-none}"
+                exit 1
+              }
+              Q_RAW="${QWEN38_VARIANT:-${DEFAULT_VARIANT:-ud_q3_k_xl}}"
+              Q="$(echo "$Q_RAW" | tr '[:upper:]' '[:lower:]' | tr -d ' -')"
+              case "$Q" in
+                ""|q3|q3kxl|udq3kxl|unsloth|unslothq3|unslothudq3kxl|ud_q3_k_xl)
+                  VARIANT="ud_q3_k_xl"
+                  TARGET_MODEL="${UNSLOTH_REPO}"
+                  TARGET_FILE="${UNSLOTH_Q3_FILE}"
+                  MODEL_BYTES="${UNSLOTH_Q3_BYTES}"
+                  MODEL_MIN_BYTES="${UNSLOTH_Q3_MIN_BYTES}"
+                  MMPROJ_REMOTE="${UNSLOTH_MMPROJ_REMOTE}"
+                  MMPROJ_FILE="${UNSLOTH_MMPROJ_FILE}"
+                  MMPROJ_BYTES="${UNSLOTH_MMPROJ_BYTES}"
+                  MMPROJ_MIN_BYTES="${UNSLOTH_MMPROJ_MIN_BYTES}"
+                  MODEL_ALIAS="${MODEL_ALIAS_BASE}"
+                  # Unsloth native 262144; keep 196608 default for vision+MTP-draft headroom on 24GB.
+                  DEFAULT_CTX="196608"
+                  DEFAULT_DRAFT_N="4"
+                  CACHE_K="q8_0"
+                  CACHE_V="turbo4"
+                  ;;
+                q4|q4km|q4_k_m|udq4km|unslothq4|unslothudq4km|ud_q4_k_m)
+                  VARIANT="ud_q4_k_m"
+                  TARGET_MODEL="${UNSLOTH_REPO}"
+                  TARGET_FILE="${UNSLOTH_Q4_FILE}"
+                  MODEL_BYTES="${UNSLOTH_Q4_BYTES}"
+                  MODEL_MIN_BYTES="${UNSLOTH_Q4_MIN_BYTES}"
+                  MMPROJ_REMOTE="${UNSLOTH_MMPROJ_REMOTE}"
+                  MMPROJ_FILE="${UNSLOTH_MMPROJ_FILE}"
+                  MMPROJ_BYTES="${UNSLOTH_MMPROJ_BYTES}"
+                  MMPROJ_MIN_BYTES="${UNSLOTH_MMPROJ_MIN_BYTES}"
+                  MODEL_ALIAS="${MODEL_ALIAS_BASE}-q4km"
+                  DEFAULT_CTX="131072"
+                  DEFAULT_DRAFT_N="3"
+                  CACHE_K="q8_0"
+                  CACHE_V="turbo4"
+                  ;;
+                q4xl|q4kxl|udq4kxl|unslothudq4kxl|ud_q4_k_xl)
+                  VARIANT="ud_q4_k_xl"
+                  TARGET_MODEL="${UNSLOTH_REPO}"
+                  TARGET_FILE="${UNSLOTH_Q4XL_FILE}"
+                  MODEL_BYTES="${UNSLOTH_Q4XL_BYTES}"
+                  MODEL_MIN_BYTES="${UNSLOTH_Q4XL_MIN_BYTES}"
+                  MMPROJ_REMOTE="${UNSLOTH_MMPROJ_REMOTE}"
+                  MMPROJ_FILE="${UNSLOTH_MMPROJ_FILE}"
+                  MMPROJ_BYTES="${UNSLOTH_MMPROJ_BYTES}"
+                  MMPROJ_MIN_BYTES="${UNSLOTH_MMPROJ_MIN_BYTES}"
+                  MODEL_ALIAS="${MODEL_ALIAS_BASE}-q4kxl"
+                  DEFAULT_CTX="131072"
+                  DEFAULT_DRAFT_N="3"
+                  CACHE_K="q8_0"
+                  CACHE_V="turbo4"
+                  ;;
+                ablit|abliterated|aeon|soya|369bpw|ablit369|abliterated_3_69bpw|abliterated3.69bpw|ablit3.69bpw)
+                  VARIANT="abliterated_3_69bpw"
+                  TARGET_MODEL="${ABLIT_REPO}"
+                  TARGET_FILE="${ABLIT_FILE}"
+                  MODEL_BYTES="${ABLIT_BYTES}"
+                  MODEL_MIN_BYTES="${ABLIT_MIN_BYTES}"
+                  # No mmproj in abliterated repo — reuse Unsloth projector (same Qwen3.8 base).
+                  MMPROJ_REMOTE="${UNSLOTH_MMPROJ_REMOTE}"
+                  MMPROJ_FILE="${UNSLOTH_MMPROJ_FILE}"
+                  MMPROJ_BYTES="${UNSLOTH_MMPROJ_BYTES}"
+                  MMPROJ_MIN_BYTES="${UNSLOTH_MMPROJ_MIN_BYTES}"
+                  TARGET_MODEL_MMPROJ="${UNSLOTH_REPO}"
+                  MODEL_ALIAS="${MODEL_ALIAS_BASE}-ablit"
+                  # Upstream abliterated used -ctk/ctv q4_0; on One use q8_0/turbo4 (buun) for quality + VRAM.
+                  # Skip --tensor-split 2,1 (multi-GPU); Olares One is single 5090M.
+                  DEFAULT_CTX="196608"
+                  DEFAULT_DRAFT_N="3"
+                  CACHE_K="q8_0"
+                  CACHE_V="turbo4"
+                  ;;
+                ridge|ridge37|ridge3.7bpw|ridge_3_7bpw|emperoridge)
+                  VARIANT="ridge_3_7bpw"
+                  TARGET_MODEL="${RIDGE_REPO}"
+                  TARGET_FILE="${RIDGE_FILE}"
+                  MODEL_BYTES="${RIDGE_BYTES}"
+                  MODEL_MIN_BYTES="${RIDGE_MIN_BYTES}"
+                  MMPROJ_REMOTE="${RIDGE_MMPROJ_REMOTE}"
+                  MMPROJ_FILE="${RIDGE_MMPROJ_FILE}"
+                  MMPROJ_BYTES="${RIDGE_MMPROJ_BYTES}"
+                  MMPROJ_MIN_BYTES="${RIDGE_MMPROJ_MIN_BYTES}"
+                  MODEL_ALIAS="${MODEL_ALIAS_BASE}-ridge"
+                  DEFAULT_CTX="196608"
+                  DEFAULT_DRAFT_N="3"
+                  CACHE_K="q8_0"
+                  CACHE_V="turbo4"
+                  ;;
+                *)
+                  log "WARN unknown QWEN38_VARIANT='$QWEN38_VARIANT' — fallback ud_q3_k_xl"
+                  VARIANT="ud_q3_k_xl"
+                  TARGET_MODEL="${UNSLOTH_REPO}"
+                  TARGET_FILE="${UNSLOTH_Q3_FILE}"
+                  MODEL_BYTES="${UNSLOTH_Q3_BYTES}"
+                  MODEL_MIN_BYTES="${UNSLOTH_Q3_MIN_BYTES}"
+                  MMPROJ_REMOTE="${UNSLOTH_MMPROJ_REMOTE}"
+                  MMPROJ_FILE="${UNSLOTH_MMPROJ_FILE}"
+                  MMPROJ_BYTES="${UNSLOTH_MMPROJ_BYTES}"
+                  MMPROJ_MIN_BYTES="${UNSLOTH_MMPROJ_MIN_BYTES}"
+                  MODEL_ALIAS="${MODEL_ALIAS_BASE}"
+                  DEFAULT_CTX="196608"
+                  DEFAULT_DRAFT_N="4"
+                  CACHE_K="q8_0"
+                  CACHE_V="turbo4"
+                  ;;
+              esac
+              log "variant=$VARIANT target=$TARGET_FILE mmproj=$MMPROJ_FILE bytes=$MODEL_BYTES"
+              if [ -f "$MODELS_DIR/$TARGET_FILE" ] && [ ! -f "$SHARED_DIR/$TARGET_FILE" ]; then
+                log "Migrating $TARGET_FILE per-app → shared"
+                mv "$MODELS_DIR/$TARGET_FILE" "$SHARED_DIR/$TARGET_FILE"
+              fi
+              if [ -f "$MODELS_DIR/$MMPROJ_FILE" ] && [ ! -f "$SHARED_DIR/$MMPROJ_FILE" ]; then
+                log "Migrating $MMPROJ_FILE per-app → shared"
+                mv "$MODELS_DIR/$MMPROJ_FILE" "$SHARED_DIR/$MMPROJ_FILE"
+              fi
+              download \
+                "https://huggingface.co/${TARGET_MODEL}/resolve/main/${TARGET_FILE}" \
+                "$SHARED_DIR/$TARGET_FILE" "model" \
+                "${MODEL_MIN_BYTES}" "${MODEL_BYTES}"
+              download \
+                "https://huggingface.co/${TARGET_MODEL_MMPROJ:-$TARGET_MODEL}/resolve/main/${MMPROJ_REMOTE}" \
+                "$SHARED_DIR/$MMPROJ_FILE" "mmproj" \
+                "${MMPROJ_MIN_BYTES}" "${MMPROJ_BYTES}"
+              MTP_FILE="${UNSLOTH_MTP_FILE:-mtp-Qwen3.8-27B-Q4_0.gguf}"
+              MTP_REMOTE="${UNSLOTH_MTP_REMOTE:-MTP/mtp-Qwen3.8-27B-Q4_0.gguf}"
+              # Default embedded: Unsloth UD-Q3/Q4 already bake MTP. External Unsloth
+              # MTP/mtp-*-Q4_0.gguf is auto-detected as DFlash and allocates a second full
+              # KV at n_ctx → OOM on 24GB/HAMI (~12GiB draft KV @ 196K).
+              MTP_MODE="$(echo "${LLM_MTP_SOURCE:-embedded}" | tr '[:upper:]' '[:lower:]')"
+              SPEC_ARGS=()
+              case "$MTP_MODE" in
+                off|0|false|no|none|disable)
+                  log "MTP disabled (LLM_MTP_SOURCE=$MTP_MODE)"
+                  ;;
+                draft|unsloth|external|dflash)
+                  if [ -f "$MODELS_DIR/$MTP_FILE" ] && [ ! -f "$SHARED_DIR/$MTP_FILE" ]; then
+                    log "Migrating $MTP_FILE per-app → shared"
+                    mv "$MODELS_DIR/$MTP_FILE" "$SHARED_DIR/$MTP_FILE"
+                  fi
+                  download \
+                    "https://huggingface.co/${UNSLOTH_MTP_REPO:-unsloth/Qwen3.8-27B-GGUF}/resolve/main/${MTP_REMOTE}" \
+                    "$SHARED_DIR/$MTP_FILE" "mtp-draft" \
+                    "${UNSLOTH_MTP_MIN_BYTES:-1300000000}" "${UNSLOTH_MTP_BYTES:-1369590656}"
+                  # File auto-detects as DFlash in llama.cpp — use draft-dflash.
+                  # Cap default ctx hard: full 196K draft KV OOMs under HAMI 30GB.
+                  if [ -z "${LLM_CONTEXT_WINDOW:-}" ]; then
+                    DEFAULT_CTX="65536"
+                  fi
+                  SPEC_ARGS=(
+                    --model-draft "$SHARED_DIR/$MTP_FILE"
+                    --spec-type draft-dflash
+                    --spec-draft-n-max "${LLM_SPEC_DRAFT_N_MAX:-${DEFAULT_DRAFT_N:-${SPEC_DRAFT_N_MAX:-4}}}"
+                    --spec-draft-ngl 99
+                  )
+                  log "WARN external Unsloth MTP/DFlash draft — default ctx capped to ${DEFAULT_CTX} unless LLM_CONTEXT_WINDOW set"
+                  ;;
+                embedded|bake|internal|gguf|*)
+                  SPEC_ARGS=(--spec-type draft-mtp --spec-draft-n-max "${LLM_SPEC_DRAFT_N_MAX:-${DEFAULT_DRAFT_N:-${SPEC_DRAFT_N_MAX:-4}}}")
+                  log "MTP using embedded tensors in main GGUF (no --model-draft)"
+                  ;;
+              esac
+              EXTRA_LLM_ARGS=()
+              if [ -n "${LLM_MAX_OUTPUT_TOKENS:-}" ]; then EXTRA_LLM_ARGS+=(--n-predict "$LLM_MAX_OUTPUT_TOKENS"); fi
+              if [ -n "${LLM_API_KEY:-}" ]; then EXTRA_LLM_ARGS+=(--api-key "$LLM_API_KEY"); fi
+              REASONING_ARGS=()
+              REASONING_MODE="$(echo "${LLM_REASONING:-on}" | tr '[:upper:]' '[:lower:]')"
+              case "$REASONING_MODE" in
+                off|0|false|no) REASONING_ARGS=(--reasoning off) ;;
+                auto) REASONING_ARGS=(--reasoning auto) ;;
+                *) REASONING_ARGS=(--reasoning on) ;;
+              esac
+              # Always pass chat-template-kwargs: official Qwen3.8 jinja defaults effort=xhigh (can loop).
+              # Chart default: medium. Override via LLM_REASONING_EFFORT=xhigh|medium|low.
+              json_bool() { case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in 1|true|yes|on) echo true ;; *) echo false ;; esac; }
+              CTK_ARGS=()
+              case "$REASONING_MODE" in
+                off|0|false|no)
+                  kw="{\"enable_thinking\":false"
+                  [ -n "${LLM_PRESERVE_THINKING:-}" ] && kw="${kw},\"preserve_thinking\":$(json_bool "$LLM_PRESERVE_THINKING")"
+                  kw="${kw}}"
+                  CTK_ARGS=(--chat-template-kwargs "$kw")
+                  ;;
+                *)
+                  think=true
+                  [ -n "${LLM_ENABLE_THINKING:-}" ] && think="$(json_bool "$LLM_ENABLE_THINKING")"
+                  effort="$(echo "${LLM_REASONING_EFFORT:-${DEFAULT_REASONING_EFFORT:-medium}}" | tr '[:upper:]' '[:lower:]')"
+                  case "$effort" in xhigh|medium|low) ;; *) effort="medium" ;; esac
+                  kw="{\"enable_thinking\":${think},\"reasoning_effort\":\"${effort}\""
+                  [ -n "${LLM_PRESERVE_THINKING:-}" ] && kw="${kw},\"preserve_thinking\":$(json_bool "$LLM_PRESERVE_THINKING")"
+                  kw="${kw}}"
+                  CTK_ARGS=(--chat-template-kwargs "$kw")
+                  log "thinking kwargs=$kw"
+                  ;;
+              esac
+              CHAT_TEMPLATE="${MODELS_DIR}/${CHAT_TEMPLATE_FILE:-chat_template.jinja}"
+              TEMPLATE_SRC="$(echo "${LLM_CHAT_TEMPLATE_SOURCE:-bundled}" | tr '[:upper:]' '[:lower:]')"
+              case "$TEMPLATE_SRC" in
+                froggeric|remote|hf)
+                  log "Fetching chat template (froggeric Qwen-Fixed)"
+                  HF_HDR=()
+                  if [ -n "${HF_TOKEN:-}" ]; then HF_HDR=(-H "Authorization: Bearer $HF_TOKEN"); fi
+                  curl -fL --retry 10 --retry-delay 5 "${HF_HDR[@]}" \
+                    "${CHAT_TEMPLATE_URL:-https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja}" \
+                    -o "$CHAT_TEMPLATE"
+                  ;;
+                url|custom)
+                  if [ -z "${LLM_CHAT_TEMPLATE_URL:-}" ]; then log "LLM_CHAT_TEMPLATE_URL required when source=url"; exit 1; fi
+                  log "Fetching chat template from $LLM_CHAT_TEMPLATE_URL"
+                  curl -fL --retry 10 --retry-delay 5 -o "$CHAT_TEMPLATE" "$LLM_CHAT_TEMPLATE_URL"
+                  ;;
+                bundled|local|chart|official|qwen38|*)
+                  if [ -f "/etc/llamacpp/chat-template/chat_template.jinja" ]; then
+                    cp "/etc/llamacpp/chat-template/chat_template.jinja" "$CHAT_TEMPLATE"
+                    log "Using bundled official Qwen3.8 chat_template.jinja"
+                  else
+                    log "Bundled template missing; fetching official Qwen/Qwen3.8-27B chat_template.jinja"
+                    HF_HDR=()
+                    if [ -n "${HF_TOKEN:-}" ]; then HF_HDR=(-H "Authorization: Bearer $HF_TOKEN"); fi
+                    curl -fL --retry 10 --retry-delay 5 "${HF_HDR[@]}" \
+                      "https://huggingface.co/Qwen/Qwen3.8-27B/resolve/main/chat_template.jinja" \
+                      -o "$CHAT_TEMPLATE"
+                  fi
+                  ;;
+              esac
+              DRAFT_N="${LLM_SPEC_DRAFT_N_MAX:-${DEFAULT_DRAFT_N:-${SPEC_DRAFT_N_MAX:-4}}}"
+              CTX="${LLM_CONTEXT_WINDOW:-${DEFAULT_CTX:-${CONTEXT_SIZE:-196608}}}"
+              CTK="${LLM_CACHE_TYPE_K:-${CACHE_K:-q8_0}}"
+              CTV="${LLM_CACHE_TYPE_V:-${CACHE_V:-turbo4}}"
+              # Refresh n_max on SPEC_ARGS if draft/embedded already set above
+              case "$MTP_MODE" in
+                off|0|false|no|none|disable) ;;
+                draft|unsloth|external|dflash)
+                  SPEC_ARGS=(
+                    --model-draft "$SHARED_DIR/$MTP_FILE"
+                    --spec-type draft-dflash
+                    --spec-draft-n-max "$DRAFT_N"
+                    --spec-draft-ngl 99
+                  )
+                  ;;
+                embedded|bake|internal|gguf|*)
+                  SPEC_ARGS=(--spec-type draft-mtp --spec-draft-n-max "$DRAFT_N")
+                  ;;
+              esac
+              # Unsloth Qwen3.8 sampling defaults (server-side). Client can still override per request.
+              # Thinking: temp=1.0 top_p=0.95 top_k=20 min_p=0 presence=0 repeat=1
+              # Instruct:  temp=0.7 top_p=0.80 top_k=20 min_p=0 presence=1.5 repeat=1
+              SAMPLE_ARGS=()
+              case "$REASONING_MODE" in
+                off|0|false|no)
+                  SAMPLE_ARGS=(
+                    --temp "${LLM_TEMPERATURE:-0.7}"
+                    --top-p "${LLM_TOP_P:-0.80}"
+                    --top-k "${LLM_TOP_K:-20}"
+                    --min-p "${LLM_MIN_P:-0.0}"
+                    --presence-penalty "${LLM_PRESENCE_PENALTY:-1.5}"
+                    --repeat-penalty "${LLM_REPETITION_PENALTY:-1.0}"
+                  )
+                  ;;
+                *)
+                  SAMPLE_ARGS=(
+                    --temp "${LLM_TEMPERATURE:-1.0}"
+                    --top-p "${LLM_TOP_P:-0.95}"
+                    --top-k "${LLM_TOP_K:-20}"
+                    --min-p "${LLM_MIN_P:-0.0}"
+                    --presence-penalty "${LLM_PRESENCE_PENALTY:-0.0}"
+                    --repeat-penalty "${LLM_REPETITION_PENALTY:-1.0}"
+                  )
+                  ;;
+              esac
+              log "start llama-server variant=$VARIANT mtp_mode=$MTP_MODE n_max=$DRAFT_N ctx=$CTX ctk=$CTK ctv=$CTV"
+              LOGDIR="/shared-models/llms/logs/llamacppqwen3827bmtpone"
+              mkdir -p "$LOGDIR"
+              RUNLOG="$LOGDIR/server.$(date -Iseconds).log"
+              LASTEXIT="$LOGDIR/last-exit.txt"
+              ln -sfn "$RUNLOG" "$LOGDIR/last-run.log"
+
+              echo "=== start $(date -Iseconds) pid=$$ variant=$VARIANT target=$TARGET_FILE mmproj=$MMPROJ_FILE mtp=$MTP_MODE bytes=$MODEL_BYTES ctx=$CTX n_max=$DRAFT_N ctk=$CTK ctv=$CTV ===" >> "$RUNLOG"
+
+              # Wrap to persist stdout/stderr on crash/restart. tee returns rc of tee, so use PIPESTATUS[0].
+              set +e
+              set -o pipefail
+              /app/llama-server \
+                --model "$SHARED_DIR/$TARGET_FILE" \
+                --mmproj "$SHARED_DIR/$MMPROJ_FILE" \
+                --mmproj-gpu-swap \
+                --alias "$MODEL_ALIAS" \
+                --host 0.0.0.0 --port 8000 \
+                --ctx-size "$CTX" \
+                --n-gpu-layers 99 \
+                --threads "${THREADS:-16}" \
+                --cache-type-k "$CTK" --cache-type-v "$CTV" \
+                --batch-size 2048 --ubatch-size 2048 \
+                --parallel 1 \
+                --flash-attn on \
+                --op-offload --jinja --chat-template-file "$CHAT_TEMPLATE" \
+                "${SPEC_ARGS[@]}" \
+                "${SAMPLE_ARGS[@]}" \
+                "${CTK_ARGS[@]}" \
+                "${REASONING_ARGS[@]}" \
+                "${EXTRA_LLM_ARGS[@]}" 2>&1 | tee -a "$RUNLOG"
+              rc=${PIPESTATUS[0]:-0}
+              echo "=== exit $(date -Iseconds) rc=$rc ===" >> "$RUNLOG"
+              echo "ts=$(date -Iseconds) rc=$rc log=$RUNLOG" > "$LASTEXIT"
+              exit "$rc"
+          envFrom:
+            - configMapRef:
+                name: llamacpp-qwen3827bmtp-env
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: MODELS_DIR
+              value: "/models"
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "30000m"
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            - name: LLM_REASONING
+              value: {{ .Values.olaresEnv.LLM_REASONING | default "" | quote }}
+            - name: LLM_CHAT_TEMPLATE_SOURCE
+              value: {{ .Values.olaresEnv.LLM_CHAT_TEMPLATE_SOURCE | default "" | quote }}
+            - name: LLM_CHAT_TEMPLATE_URL
+              value: {{ .Values.olaresEnv.LLM_CHAT_TEMPLATE_URL | default "" | quote }}
+            - name: LLM_ENABLE_THINKING
+              value: {{ .Values.olaresEnv.LLM_ENABLE_THINKING | default "" | quote }}
+            - name: LLM_PRESERVE_THINKING
+              value: {{ .Values.olaresEnv.LLM_PRESERVE_THINKING | default "" | quote }}
+            - name: LLM_REASONING_EFFORT
+              value: {{ .Values.olaresEnv.LLM_REASONING_EFFORT | default "" | quote }}
+            - name: LLM_SPEC_DRAFT_N_MAX
+              value: {{ .Values.olaresEnv.LLM_SPEC_DRAFT_N_MAX | default "" | quote }}
+            - name: LLM_MTP_SOURCE
+              value: {{ .Values.olaresEnv.LLM_MTP_SOURCE | default "" | quote }}
+            - name: LLM_CACHE_TYPE_K
+              value: {{ .Values.olaresEnv.LLM_CACHE_TYPE_K | default "" | quote }}
+            - name: LLM_CACHE_TYPE_V
+              value: {{ .Values.olaresEnv.LLM_CACHE_TYPE_V | default "" | quote }}
+            - name: LLM_TEMPERATURE
+              value: {{ .Values.olaresEnv.LLM_TEMPERATURE | default "" | quote }}
+            - name: LLM_TOP_P
+              value: {{ .Values.olaresEnv.LLM_TOP_P | default "" | quote }}
+            - name: LLM_TOP_K
+              value: {{ .Values.olaresEnv.LLM_TOP_K | default "" | quote }}
+            - name: LLM_MIN_P
+              value: {{ .Values.olaresEnv.LLM_MIN_P | default "" | quote }}
+            - name: LLM_PRESENCE_PENALTY
+              value: {{ .Values.olaresEnv.LLM_PRESENCE_PENALTY | default "" | quote }}
+            - name: LLM_REPETITION_PENALTY
+              value: {{ .Values.olaresEnv.LLM_REPETITION_PENALTY | default "" | quote }}
+            - name: QWEN38_VARIANT
+              value: {{ .Values.olaresEnv.QWEN38_VARIANT | default "" | quote }}
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 600
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 720
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: /etc/llamacpp/chat-template
+              name: chat-template
+              readOnly: true
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: chat-template
+          configMap:
+            name: llamacpp-qwen3827bmtp-chat-template
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen3827bmtpone
+  name: llamacppqwen3827bmtpone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp-mtp"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppqwen3827bmtpone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppqwen3827bmtpone
+  name: sharedentrances-llamacppqwen3827bmtpone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppqwen3827bmtpone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: llamacppqwen3827bmtpone

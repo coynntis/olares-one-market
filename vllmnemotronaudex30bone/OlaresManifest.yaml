@@ -1,0 +1,142 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllmnemotronaudex30bone: 1
+  vllmnemotronaudex30bonecli: 1
+metadata:
+  name: vllmnemotronaudex30bone
+  icon: https://cdn.olares.com/images/2026/08/3c9e31fc4879bba5549c2228d44b8848.png
+  description: Nemotron-Labs Audex 30B-A3B — unified audio+speech multimodal MoE via vLLM on Olares One
+  title: Nemotron Audex 30B One
+  version: 1.0.5
+  categories:
+    - Audio
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: nemotron
+    size_label: 30B-A3B
+    badge: audio moe
+    hero:
+      value: audio+text
+      label: unified MoE
+    specs:
+      - label: context
+        value: 8K
+      - label: vram
+        value: 24 GB
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: true
+      mtp:
+        enabled: false
+    stack: vLLM v0.20 · Audex · MoE A3B
+sharedEntrances:
+  - name: vllmnemotronaudex30bone
+    host: sharedentrances-vllmnemotronaudex30bone
+    port: 0
+    title: Nemotron Audex 30B API
+    icon: https://cdn.olares.com/images/2026/08/3c9e31fc4879bba5549c2228d44b8848.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmnemotronaudex30bonecli
+    port: 8080
+    host: vllmnemotronaudex30bonecli
+    title: Nemotron Audex 30B
+    icon: https://cdn.olares.com/images/2026/08/3c9e31fc4879bba5549c2228d44b8848.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.5
+  featuredImage: https://cdn.olares.com/images/2026/08/31e5203b73d9590224e2c5278d66e677.png
+  upgradeDescription: |2
+        v1.0.2: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.1: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.0: initial release. **NVIDIA Nemotron-Labs-Audex-30B-A3B** — unified audio-text MoE (30B total, ~3B active) built on Nemotron-Cascade-2-30B-A3B. Served via vLLM **v0.20.0-cu129** (NVIDIA README-tested; pinned cu129 for CUDA 13.2). Fast-ready launcher installs `vllm[audio]` at boot for audio codec support. Default context 8192 on 24 GB GPU (model supports 1M but KV won't fit). Text reasoning + audio understanding via OpenAI-compatible API; TTS/TTA/speech-to-speech require NVIDIA's separate inference scripts (not bundled). See fullDescription for vLLM caveats.
+  fullDescription: |
+    NVIDIA Nemotron-Labs-Audex-30B-A3B — unified audio-text LLM (nemotron_labs_audex architecture).
+    Extends Nemotron-Cascade-2-30B-A3B with discrete audio tokens + audio encoder for speech/audio I/O.
+    RTX 5090M (24 GB GDDR7, sm_120) + 96 GB DDR5 + Core Ultra 9 275HX.
+
+    What this chart serves:
+    - Text-only reasoning (thinking + instruct modes via ChatML template)
+    - Audio understanding / speech recognition / speech translation (audio input via OpenAI-compatible audio_url when vLLM audio path works)
+    - OpenAI-compatible chat API on port 8000
+
+    vLLM caveats (read before installing):
+    1. **NVIDIA tested vLLM 0.20.0 only** — this chart pins `vllm/vllm-openai:v0.20.0-cu129`. Newer vLLM (0.22+) may add Audex support but is untested by NVIDIA for this model.
+    2. **Audio extras required** — base image lacks audio codecs; launcher runs `pip install "vllm[audio]"` on first boot.
+    3. **TTS / text-to-audio / speech-to-speech** — NOT served by standard `vllm serve`. NVIDIA ships separate scripts (`run_tts_vllm.sh`, `run_audio_gen_vllm_rvq_logit_mask.py`, unified S2S) that require checkpoint conversion and XCodec dependencies. Use NVIDIA's inference_scripts_vllm/ from the HF repo for those tasks.
+    4. **Audio QA server** — NVIDIA's recommended path is `serve_audioqa_vllm.sh` (custom OpenAI audio_url server), not plain `vllm serve`. This chart uses `vllm serve` with sensible MoE defaults from nemotronlabselastic30bnvfp4one; audio input may need client format matching NVIDIA's audioqa client.
+    5. **Context length** — model supports 1M tokens but 24 GB VRAM limits practical max_model_len to ~8192 with MoE weights (~20+ GB). Increase LLM_CONTEXT_WINDOW cautiously; OOM likely above 16K.
+    6. **Text-only without audio vocab** — for pure text, NVIDIA recommends converting to textonly checkpoint OR masking audio token IDs via allowed_token_ids. This chart serves the full Audex checkpoint.
+    7. **License** — NVIDIA Oneway Noncommercial License (not Apache). Noncommercial use only.
+
+    Stack:
+    - Image: vllm/vllm-openai:v0.20.0-cu129 (pinned)
+    - Model: nvidia/Nemotron-Labs-Audex-30B-A3B
+    - --trust-remote-code, --dtype auto, --max-num-seqs 1
+    - CUDA graphs: PIECEWISE mode (cudagraph_mode 1, capture_sizes [1,2,4]) — same trick as Nemotron Elastic NVFP4
+    - gpu_memory_utilization 0.92, HAMi cap 24400m
+    - Fast-ready launcher: /health 200 during ~20+ GB download + model load
+
+    First launch downloads model weights to shared HF cache. Set OLARES_USER_HUGGINGFACE_TOKEN if needed.
+  developer: aamsellem
+  website: https://huggingface.co/nvidia/Nemotron-Labs-Audex-30B-A3B
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: NVIDIA Oneway Noncommercial License
+      url: https://huggingface.co/nvidia/Nemotron-Labs-Audex-30B-A3B/blob/main/license/NVIDIA-OneWay-Noncommercial-License.docx
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 50Gi
+      limitedDisk: 70Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

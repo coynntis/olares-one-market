@@ -3,9 +3,47 @@ const path = require('path');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
 
+const { injectSensenovaConfigmap } = require('./inject-sensenovau1-configmap.js');
+const { injectSensenovau1LightllmConfigmap } = require('./inject-sensenovau1lightllm-configmap.js');
+const { injectSensenovasi15Configmap } = require('./inject-sensenovasi15-configmap.js');
+const { injectLocateanythingConfigmap } = require('./inject-locateanything-configmap.js');
+const { injectDockerbuilderConfigmap } = require('./inject-dockerbuilder-configmap.js');
+const { injectIdeogram4Configmap } = require('./inject-ideogram4-configmap.js');
+const { injectFastwanConfigmap } = require('./inject-fastwan-configmap.js');
+const { injectFastwanqad13boneConfigmap } = require('./inject-fastwanqad13bone-configmap.js');
+const { injectFastwanqad13fp8Configmap } = require('./inject-fastwanqad13fp8-configmap.js');
+const { injectMotifvideoConfigmap } = require('./inject-motifvideo-configmap.js');
+const { injectSplatlabConfigmap } = require('./inject-splatlab-configmap.js');
+const { injectLtx23oneConfigmap } = require('./inject-ltx23one-configmap.js');
+const { injectConsistcomposeConfigmap } = require('./inject-consistcompose-configmap.js');
+const { injectKrea2turboConfigmap } = require('./inject-krea2turbo-configmap.js');
+const { injectMageflowConfigmap } = require('./inject-mageflow-configmap.js');
+const { injectMinimaxh3Configmap } = require('./inject-minimaxh3-configmap.js');
+const { injectLingbotConfigmaps } = require('./inject-lingbot-configmaps.js');
+const { injectSensenovavisionConfigmap } = require('./inject-sensenovavision-configmap.js');
+injectSensenovaConfigmap();
+injectSensenovau1LightllmConfigmap();
+injectSensenovasi15Configmap();
+injectLocateanythingConfigmap();
+injectDockerbuilderConfigmap();
+injectIdeogram4Configmap();
+injectFastwanConfigmap();
+injectFastwanqad13boneConfigmap();
+injectFastwanqad13fp8Configmap();
+injectMotifvideoConfigmap();
+injectSplatlabConfigmap();
+injectLtx23oneConfigmap();
+injectConsistcomposeConfigmap();
+injectKrea2turboConfigmap();
+injectMageflowConfigmap();
+injectMinimaxh3Configmap();
+injectLingbotConfigmaps();
+injectSensenovavisionConfigmap();
+
 // Scan app charts from this repo's root
 const APPS_REPO = path.resolve(__dirname, '..');
 const OUTPUT = path.resolve(__dirname, '../src/catalog.json');
+const MARKET_BASE = 'https://orales-one-market.coynntis.workers.dev';
 
 // --- Helpers ---
 
@@ -28,6 +66,20 @@ function parseBytes(value) {
     if (str.endsWith(suffix)) return String(parseInt(str) * mult);
   }
   return str;
+}
+
+function mapEntrance(e) {
+  return {
+    name: e.name || '',
+    host: e.host || '',
+    port: e.port || 0,
+    title: e.title || '',
+    icon: e.icon || '',
+    authLevel: e.authLevel || 'private',
+    invisible: e.invisible || false,
+    openMethod: e.openMethod || '',
+    disablePreload: e.disablePreload || false,
+  };
 }
 
 // Strip Helm template directives from YAML.
@@ -151,23 +203,18 @@ function scanApps() {
       rating: 0,
       target: spec.target || '',
       permission: manifest.permission || {},
-      entrances: (manifest.entrances || []).map(e => ({
-        name: e.name || '',
-        host: e.host || '',
-        port: e.port || 0,
-        title: e.title || '',
-        icon: e.icon || '',
-        authLevel: e.authLevel || 'private',
-        invisible: e.invisible || false,
-        openMethod: e.openMethod || '',
-        disablePreload: e.disablePreload || false,
-      })),
+      entrances: (manifest.entrances || []).map(mapEntrance),
+      sharedEntrances: (manifest.sharedEntrances || []).map(mapEntrance),
+      provider: manifest.provider || [],
       middleware: manifest.middleware || null,
       options: manifest.options || {},
       submitter: spec.submitter || 'orales-market',
       doc: spec.doc || '',
       website: spec.website || '',
-      featuredImage: spec.featuredImage || '',
+      featuredImage: spec.featuredImage
+        || (fs.existsSync(path.join(APPS_REPO, 'featured', `${appName}.png`))
+          ? `${MARKET_BASE}/featured/${appName}.png`
+          : ''),
       sourceCode: spec.sourceCode || '',
       license: spec.license || [],
       legal: spec.legal || null,
@@ -247,7 +294,7 @@ function buildIcons() {
 
   if (fs.existsSync(iconsDir)) {
     for (const file of fs.readdirSync(iconsDir)) {
-      if (!file.endsWith('.png')) continue;
+      if (!file.endsWith('.png') || file.endsWith('-256.png')) continue;
       const name = file.replace(/\.png$/, '');
       icons[name] = fs.readFileSync(path.join(iconsDir, file)).toString('base64');
       console.log(`Icon: ${name} (${Math.round(fs.statSync(path.join(iconsDir, file)).size / 1024)}KB)`);
@@ -267,6 +314,35 @@ function buildIcons() {
   return icons;
 }
 
+// --- Build featured.json from featured/ directory ---
+
+function buildFeatured() {
+  const featuredDir = path.resolve(__dirname, '../featured');
+  const featuredOutput = path.resolve(__dirname, '../src/featured.json');
+  const featured = {};
+
+  if (fs.existsSync(featuredDir)) {
+    for (const file of fs.readdirSync(featuredDir)) {
+      if (!file.endsWith('.png')) continue;
+      const name = file.replace(/\.png$/, '');
+      featured[name] = fs.readFileSync(path.join(featuredDir, file)).toString('base64');
+      console.log(`Featured: ${name} (${Math.round(fs.statSync(path.join(featuredDir, file)).size / 1024)}KB)`);
+    }
+  }
+
+  const newContent = JSON.stringify(featured, null, 2);
+  let existing = '';
+  try { existing = fs.readFileSync(featuredOutput, 'utf8'); } catch {}
+  if (newContent !== existing) {
+    fs.writeFileSync(featuredOutput, newContent);
+    console.log(`Featured written to ${featuredOutput}`);
+  } else {
+    console.log('Featured unchanged, skipping write.');
+  }
+  console.log();
+  return featured;
+}
+
 // --- Main ---
 
 console.log('Building catalog from', APPS_REPO);
@@ -274,6 +350,7 @@ console.log();
 
 buildCharts();
 buildIcons();
+buildFeatured();
 const apps = scanApps();
 
 const summaries = {};

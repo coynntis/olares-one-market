@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docker Builder One</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Docker Builder One</h1>
+    <p>Upload a Dockerfile folder, build on Olares One, push to ghcr.io.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Upload project</h2>
+      <p class="hint">Zip your folder (must include a Dockerfile). Projects persist under app data.</p>
+      <form id="upload-form">
+        <label>
+          Project name
+          <input type="text" id="project-name" required placeholder="my-cuda-app" />
+        </label>
+        <label>
+          Zip archive
+          <input type="file" id="project-zip" accept=".zip,application/zip" required />
+        </label>
+        <button type="submit">Upload</button>
+      </form>
+      <pre id="upload-status" class="status"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Projects</h2>
+      <button type="button" id="refresh-projects">Refresh</button>
+      <ul id="project-list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Build &amp; push</h2>
+      <form id="build-form">
+        <label>
+          Project
+          <select id="build-project" required></select>
+        </label>
+        <label>
+          ghcr.io image (tag included)
+          <input type="text" id="build-image" required placeholder="ghcr.io/your-user/my-app:1.0.0" />
+        </label>
+        <label>
+          Dockerfile path
+          <input type="text" id="build-dockerfile" value="Dockerfile" />
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="kaniko-verbose" />
+          Verbose Kaniko logs (debug — huge; off by default)
+        </label>
+        <button type="submit">Build and push</button>
+      </form>
+      <pre id="build-status" class="status"></pre>
+      <button type="button" id="cancel-build" hidden>Cancel build</button>
+    </section>
+
+    <section class="card">
+      <h2>Queue</h2>
+      <p class="hint">One build runs at a time. Additional builds wait in FIFO order.</p>
+      <div id="queue-panel" class="queue-panel"></div>
+    </section>
+
+    <section class="card">
+      <h2>Build history</h2>
+      <p class="hint">Logs persist under app data. Reloading the page reconnects to a running build.</p>
+      <button type="button" id="refresh-builds">Refresh builds</button>
+      <ul id="build-history" class="build-history"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Build log</h2>
+      <p id="log-load-hint" class="hint"></p>
+      <pre id="build-log" class="log"></pre>
+    </section>
+  </main>
+
+  <script src="/app.js?v=20250705a"></script>
+</body>
+</html>

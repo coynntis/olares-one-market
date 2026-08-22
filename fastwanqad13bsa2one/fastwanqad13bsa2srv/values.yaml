@@ -1,0 +1,16 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+olaresEnv:
+  HF_TOKEN: ""
+  HF_ENDPOINT: ""
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+image:
+  repository: ghcr.io/hao-ai-lab/fastvideo/fastvideo-dev
+  tag: py3.12-sha-f889e6b
+  pullPolicy: IfNotPresent

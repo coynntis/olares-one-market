@@ -1,0 +1,133 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: openwebsearchone
+  name: openwebsearchone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  replicas: {{ .Values.workloads.openwebsearchone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: openwebsearchone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: openwebsearchone
+    spec:
+      {{- $token := .Values.olaresEnv.GITHUB_TOKEN | trim -}}
+      {{- $repo := .Values.image.repository | default "" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) }}
+      imagePullSecrets:
+        - name: openwebsearchone-ghcr
+      {{- end }}
+      initContainers:
+        - name: fix-appdata-perms
+          image: docker.io/beclab/aboveos-busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - chmod -R 777 /data
+          volumeMounts:
+            - mountPath: /data
+              name: data
+      containers:
+        - name: open-websearch
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          command:
+            - node
+            - build/index.js
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: OPEN_WEBSEARCH_QUIET_STARTUP
+              value: "true"
+            - name: MODE
+              value: "{{ .Values.openWebSearch.mode }}"
+            - name: PORT
+              value: "{{ .Values.openWebSearch.port }}"
+            - name: ENABLE_CORS
+              value: "{{ .Values.openWebSearch.enableCors }}"
+            - name: CORS_ORIGIN
+              value: "{{ .Values.openWebSearch.corsOrigin }}"
+            - name: DEFAULT_SEARCH_ENGINE
+              value: "{{ .Values.openWebSearch.defaultSearchEngine }}"
+            - name: SEARCH_MODE
+              value: "{{ .Values.openWebSearch.searchMode }}"
+            - name: USE_PROXY
+              value: "{{ .Values.olaresEnv.USE_PROXY | default .Values.openWebSearch.useProxy }}"
+            - name: PROXY_URL
+              value: "{{ .Values.olaresEnv.PROXY_URL | default .Values.openWebSearch.proxyUrl }}"
+            - name: ALLOWED_SEARCH_ENGINES
+              value: "{{ .Values.openWebSearch.allowedSearchEngines }}"
+            - name: PLAYWRIGHT_WS_ENDPOINT
+              value: "{{ .Values.openWebSearch.playwrightWsEndpoint }}"
+            - name: PLAYWRIGHT_CDP_ENDPOINT
+              value: "{{ .Values.openWebSearch.playwrightCdpEndpoint }}"
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: 100m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /data
+              name: data
+      volumes:
+        - name: data
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/open-websearch"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: openwebsearchone
+  name: openwebsearchone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http-mcp
+      port: 3000
+      targetPort: 3000
+  selector:
+    io.kompose.service: openwebsearchone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: openwebsearchone
+  name: sharedentrances-openwebsearchone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "openwebsearchone"
+      port: 80
+      targetPort: 3000
+  selector:
+    io.kompose.service: openwebsearchone

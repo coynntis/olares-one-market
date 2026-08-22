@@ -1,0 +1,8 @@
+metadata:
+  description: "KAT-Coder-V2.5-Dev — fastest coding profile: MTP, long ctx"
+  title: KAT Coder V25 MTP One
+spec:
+  fullDescription: |
+    Kwaipilot KAT-Coder-V2.5-Dev (post-train of Qwen3.6-35B-A3B). APEX-MTP Compact
+    GGUF on buun-llama-cpp. draft-mtp n=6, default 256K context, batch/ubatch 1024,
+    KV mode switch (q8_0/turbo4 or k8v4). Text-only coding profile.

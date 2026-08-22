@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.5
+description: llamacppqwable35bone client proxy
+name: llamacppqwable35bone
+type: application
+version: 1.0.5

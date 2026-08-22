@@ -1,0 +1,8 @@
+metadata:
+  description: "Qwen3.6 27B Fable Fusion 711 — MTP Q4_K_M, turbo3 KV, vision, tools"
+  title: Qwen36 Fable 27B One
+spec:
+  fullDescription: |
+    DavidAU Qwen3.6-27B-Fable-Fusion-711 (Heretic uncensored, NEO IMATRIX MTP-Q4_K_M).
+    Vision via mmproj-BF16 + mmproj-gpu-swap; tools via froggeric jinja chat template.
+    buun-llama.cpp draft-mtp + turbo3/turbo3 KV. Default 128K context. HF token recommended.

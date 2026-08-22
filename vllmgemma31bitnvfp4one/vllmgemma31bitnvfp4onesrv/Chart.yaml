@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.0.19
+description: vllmgemma31bitnvfp4one shared server
+name: vllmgemma31bitnvfp4onesrv
+type: application
+version: 1.0.19

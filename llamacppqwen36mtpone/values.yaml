@@ -1,0 +1,23 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  LLM_REASONING: ''
+  LLM_CHAT_TEMPLATE_SOURCE: ''
+  LLM_CHAT_TEMPLATE_URL: ''
+  LLM_ENABLE_THINKING: ''
+  LLM_PRESERVE_THINKING: ''
+workloads:
+  llamacppqwen36mtpone:
+    replicaCount: 1
+  llamacppqwen36mtponecli:
+    replicaCount: 1

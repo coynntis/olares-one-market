@@ -1,0 +1,104 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sglangminicpm51bone: 1
+  sglangminicpm51bonecli: 1
+metadata:
+  name: sglangminicpm51bone
+  icon: https://cdn.olares.com/images/2026/08/5adff420c57a8013224ea15c7ab22f6f.png
+  description: MiniCPM5-1B via SGLang — tool use, coding, hybrid reasoning on Olares One
+  title: MiniCPM5 1B One
+  version: 1.0.24
+  categories:
+    - AI
+sharedEntrances:
+  - name: sglangminicpm51bone
+    host: sharedentrances-sglangminicpm51bone
+    port: 0
+    title: MiniCPM5 1B API
+    icon: https://cdn.olares.com/images/2026/08/5adff420c57a8013224ea15c7ab22f6f.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sglangminicpm51bonecli
+    port: 8080
+    host: sglangminicpm51bonecli
+    title: MiniCPM5 1B One
+    icon: https://cdn.olares.com/images/2026/08/5adff420c57a8013224ea15c7ab22f6f.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.24
+  featuredImage: https://cdn.olares.com/images/2026/08/e51e73fd4366579a255dd11f30c06405.png
+  fullDescription: |
+    OpenBMB MiniCPM5-1B served via SGLang on Olares One (RTX 5090M, 96GB DDR5).
+    1B-class SOTA for on-device assistants, coding agents, and tool-use workflows.
+    Standard LlamaForCausalLM — no custom kernels. Think mode and No-Think mode via chat template.
+    Uses official container image lmsysorg/sglang:dev-cu13. Bootstraps at startup with:
+      pip install -U "sglang[srt]>=0.5.12" "transformers>=5.6" hf_transfer
+    Startup: python -m sglang.launch_server --model-path openbmb/MiniCPM5-1B --tool-call-parser minicpm5
+    Native minicpm5 tool-call parser converts XML-style tool calls to OpenAI-compatible tool_calls.
+    Model weights (~2GB BF16) download from Hugging Face into /models at startup.
+    OpenAI-compatible API on port 30000. VRAM-tuned: context 8K, mem-fraction-static 0.35,
+    max-total-tokens 12288, 1 concurrent request, chunked-prefill 2048, radix cache off (~3–5GB VRAM typical). Apache 2.0 license.
+    Sampling: No-Think mode temp=0.7 top_p=0.95; Think mode temp=0.9 top_p=0.95 (enable_thinking in chat template).
+  developer: OpenBMB
+  website: https://huggingface.co/openbmb/MiniCPM5-1B
+  sourceCode: https://github.com/OpenBMB/MiniCPM
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 17Gi
+      requiredDisk: 4Gi
+      limitedDisk: 12Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 8Gi
+  upgradeDescription: |2
+        v1.0.21: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.20: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

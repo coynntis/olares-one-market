@@ -1,0 +1,25 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  LTX_CHECKPOINT_REPO: 'Lightricks/LTX-2.3-fp8'
+  LTX_ATTENTION_BACKEND: 'auto'
+  LTX_OFFLOAD_MODE: 'cpu'
+  LTX_QUANTIZATION: 'fp8-cast'
+  LTX_LORA_IDS: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+image:
+  repository: ''
+  tag: ''
+workloads:
+  ltx23one:
+    replicaCount: 1
+  ltx23onecli:
+    replicaCount: 1

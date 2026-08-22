@@ -1,0 +1,11 @@
+metadata:
+  title: Qwen36 27B DFlash One
+  description: "Qwen3.6-27B Q4_K_M with DFlash and DDTree on Olares One"
+
+spec:
+  fullDescription: |
+    Qwen3.6-27B Q4_K_M served by Lucebox DFlash speculative decoding and DDTree verify,
+    built for NVIDIA Blackwell sm_120 (RTX 5090 / 5090M). OpenAI-compatible HTTP API on port 8080.
+    First start clones Luce-Org/lucebox-hub (submodules), compiles dflash against CUDA arch 120,
+    downloads weights via curl in the init container, and caches workspace under appData.
+    Olares injects system Hugging Face token (manifest envs) into HF_TOKEN for gated downloads.

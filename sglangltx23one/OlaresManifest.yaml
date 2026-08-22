@@ -1,0 +1,103 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sglangltx23one: 1
+  sglangltx23onecli: 1
+metadata:
+  name: sglangltx23one
+  icon: https://cdn.olares.com/images/2026/08/7e54f602cc103cbc5e16a0a502e3f975.png
+  description: LTX-2.3 via SGLang Diffusion — layerwise DiT offload for 24GB T2V
+  title: SGLang LTX-2-3 One
+  version: 1.0.0
+  categories:
+    - AI
+sharedEntrances:
+  - name: sglangltx23one
+    host: sharedentrances-sglangltx23one
+    port: 0
+    title: SGLang LTX-2-3 API
+    icon: https://cdn.olares.com/images/2026/08/7e54f602cc103cbc5e16a0a502e3f975.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sglangltx23onecli
+    port: 8080
+    host: sglangltx23onecli
+    title: SGLang LTX-2-3 One
+    icon: https://cdn.olares.com/images/2026/08/7e54f602cc103cbc5e16a0a502e3f975.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.0
+  featuredImage: https://cdn.olares.com/images/2026/08/62f5564403c9c5128a5b244262ae8fba.png
+  fullDescription: |
+    SGLang Diffusion serving Lightricks/LTX-2.3 text-to-video / image-to-video on Olares One.
+    Sibling of Gradio chart ltx23one (official DistilledPipeline FP8). This chart uses the
+    SGLang Diffusers-compatible LTX-2.3 path with aggressive memory offload for RTX 5090M 24GB.
+
+    Image: lmsysorg/sglang:dev-cu13. Boot clones sgl-project/sglang and pip installs python[diffusion].
+
+    24GB VRAM profile (default):
+      sglang serve --model-path Lightricks/LTX-2.3
+        --dit-layerwise-offload
+        --layerwise-offload-components transformer text_encoder
+        --vae-tiling --vae-cpu-offload --text-encoder-cpu-offload
+        --pin-cpu-memory --trust-remote-code
+        --host 0.0.0.0 --port 30000
+
+    Cache-DiT is NOT enabled (incompatible with dit-layerwise-offload).
+    Override model via Settings env SGLANG_MODEL_PATH (e.g. Lightricks/LTX-2).
+
+    First download is large (22B-class checkpoint + text encoder) — long startupProbe window.
+    Prefer short clips / lower res on 24GB. For distilled FP8 Gradio path use ltx23one instead.
+  developer: sgl-project / Lightricks
+  website: https://huggingface.co/Lightricks/LTX-2.3
+  sourceCode: https://github.com/sgl-project/sglang
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: LTX-2 Community License
+      url: https://github.com/Lightricks/LTX-2/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 57Gi
+      requiredDisk: 120Gi
+      limitedDisk: 200Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.0: initial SGLang Diffusion chart for LTX-2.3 with DiT layerwise + VAE/TE CPU offload.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: SGLANG_MODEL_PATH
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'Lightricks/LTX-2.3'
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

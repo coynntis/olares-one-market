@@ -1,0 +1,131 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppthinkingcap27bone: 1
+  llamacppthinkingcap27bonecli: 1
+metadata:
+  name: llamacppthinkingcap27bone
+  icon: https://cdn.olares.com/images/2026/08/bb5eaf3d524738074df18c8b35f650c8.png
+  description: ThinkingCap Qwen3.6 27B vision — hybrid MoE via llama.cpp b8740 on Olares One
+  title: ThinkingCap Qwen36 27B One
+  version: 1.0.11
+  categories:
+    - Vision
+    - LLM Chat
+  bento:
+    family: qwen
+    size_label: 27B
+    badge: vision
+    hero:
+      value: 64K
+      label: context vision
+    specs:
+      - label: model
+        value: 16.8 GB
+      - label: vram
+        value: 22 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      moe:
+        enabled: true
+    stack: llama.cpp b8740 · Q4_K_M · swa-full · turbo4 KV
+sharedEntrances:
+  - name: llamacppthinkingcap27bone
+    host: sharedentrances-llamacppthinkingcap27bone
+    port: 0
+    title: ThinkingCap Qwen36 27B API
+    icon: https://cdn.olares.com/images/2026/08/bb5eaf3d524738074df18c8b35f650c8.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppthinkingcap27bonecli
+    port: 8080
+    host: llamacppthinkingcap27bonecli
+    title: ThinkingCap Qwen36 27B One
+    icon: https://cdn.olares.com/images/2026/08/bb5eaf3d524738074df18c8b35f650c8.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.11
+  featuredImage: https://cdn.olares.com/images/2026/08/a790fa8db905e147299e82af86f67253.png
+  upgradeDescription: |2
+    v1.0.9: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.3: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.2: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.1: turbo4 KV + 64K default context (was 16K q8_0) — TurboQuant frees VRAM on Qwen3.6 hybrid.
+  fullDescription: |
+    ThinkingCap Qwen3.6 27B vision-language model served via llama.cpp — optimized for Olares One.
+    Multimodal: accepts images via OpenAI-compatible vision API (image_url format).
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+
+    Model: bottlecapai/ThinkingCap-Qwen3.6-27B-GGUF (ThinkingCap-Qwen3.6-27B-Q4_K_M.gguf, 16.8 GB)
+    + mmproj-ThinkingCap-Qwen3.6-27B-f16.gguf.
+    Image: docker.io/aamsellem/buun-llama-cpp:87c351d2 (CUDA 13.2 compatible).
+    Qwen3.6 hybrid flags: --swa-full --cache-type-k turbo4 --cache-type-v turbo4 --op-offload --batch-size 512 --jinja.
+    GGML_CUDA_GRAPH_OPT=1 for concurrent CUDA streams. Default context: 64K (65536 tokens). Alias: thinkingcap-qwen36-27b.
+    Downloads model + mmproj on first launch (~18 GB total). OpenAI-compatible API on port 8080.
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/ggerganov/llama.cpp/blob/master/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 30Gi
+      limitedDisk: 45Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

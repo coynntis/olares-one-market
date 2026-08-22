@@ -1,0 +1,24 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+image:
+  repository: pytorch/pytorch
+  # CUDA 13 + Python 3.12. Use 2.11 so optional FA2 sm_120 wheel matches (JahJedi).
+  tag: 2.11.0-cuda13.0-cudnn9-devel
+attention:
+  # sdpa default (safe). flash = FA2 wheel only — never source-compile in-pod.
+  backend: sdpa
+  installFlashAttn: false
+  pipSpec: "https://huggingface.co/JahJedi/sageattention-flashattn-blackwell-cu130-torch211-cp312/resolve/main/flash_attn-2.8.3.post1-cp312-cp312-linux_x86_64.whl"
+workloads:
+  sensenovasi15one:
+    replicaCount: 1
+  sensenovasi15onecli:
+    replicaCount: 1

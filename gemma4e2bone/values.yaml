@@ -1,1 +1,15 @@
-{}
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+workloads:
+  gemma4e2bone:
+    replicaCount: 1
+  gemma4e2bonecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

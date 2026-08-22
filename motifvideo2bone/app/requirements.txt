@@ -1,11 +1,18 @@
 accelerate
-diffusers>=0.35.2
 einops
+fastapi
 ftfy
+gguf
+git+https://github.com/huggingface/diffusers
 gradio>=5.0.0
+huggingface_hub
 imageio
 imageio-ffmpeg
 Pillow
+python-multipart
 regex
 sentencepiece
 transformers>=5.5.4
+uvicorn
+# Optional: SageAttention 2.x (PyPI often 1.x). Soft-import in app.
+# TORCH_CUDA_ARCH_LIST=10.0 pip install git+https://github.com/thu-ml/SageAttention.git --no-build-isolation

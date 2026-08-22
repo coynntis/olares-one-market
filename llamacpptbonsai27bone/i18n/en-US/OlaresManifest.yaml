@@ -1,0 +1,11 @@
+metadata:
+  description: "Ternary-Bonsai-27B Q2_0 VLM — PrismML + Web UI (fix GET / 404)"
+  title: Ternary Bonsai 27B One
+spec:
+  fullDescription: |
+    Ternary-Bonsai-27B via PrismML-Eng/llama.cpp @ 7529fda (branch prism) on Olares One.
+    Q2_0 language (~7.17 GB) + mmproj Q8_0 (~0.63 GB). Default ctx 131K, q4 KV.
+    Embedded llama.cpp Web UI (prefetched from ggml-org/llama-ui HF bucket).
+    Sampling: temp 0.7 top_p 0.95 top_k 20 min_p 0.
+    Optional DSpark with ENABLE_DSPARK=1 (~1.3–2x CUDA decode; disables prompt-cache reuse).
+    OpenAI-compatible API on port 8000; client entrance proxies on 8080.

@@ -1,0 +1,149 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: minimaxh3nvfp4one
+  name: minimaxh3nvfp4one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.minimaxh3nvfp4one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: minimaxh3nvfp4one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: minimaxh3nvfp4one
+    spec:
+      initContainers:
+        - name: perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command: ["sh", "-c", "chmod 777 /models /workspace || true"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: minimax-h3-gradio
+          image: "pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel"
+          command:
+            - "bash"
+            - "-lc"
+          args:
+            - |
+              set -euo pipefail
+              APP_DIR="/workspace/minimaxh3nvfp4one"
+              mkdir -p "$APP_DIR"
+              cp /app-src/app.py "$APP_DIR/app.py"
+              cp /app-src/requirements.txt "$APP_DIR/requirements.txt"
+              cd "$APP_DIR"
+
+              python3 -m pip install --break-system-packages --upgrade pip
+              python3 -m pip install --break-system-packages -r requirements.txt
+              python3 -m pip install --break-system-packages "git+https://github.com/huggingface/diffusers.git@minimax-h3"
+              exec python3 app.py
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: MINIMAX_MODEL_REPO
+              value: {{ .Values.olaresEnv.MINIMAX_MODEL_REPO | default "MiniMaxAI/MiniMax-H3" | quote }}
+            - name: MINIMAX_WORKFLOW
+              value: {{ .Values.olaresEnv.MINIMAX_WORKFLOW | default "t2va" | quote }}
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: SERVER_PORT
+              value: "7860"
+            - name: LOG_LEVEL
+              value: "INFO"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 20
+            failureThreshold: 1800
+          livenessProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 240
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+        - name: app-source
+          configMap:
+            name: minimaxh3nvfp4one-source
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: minimaxh3nvfp4one
+  name: minimaxh3nvfp4one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "gradio"
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: minimaxh3nvfp4one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: minimaxh3nvfp4one
+  name: sharedentrances-minimaxh3nvfp4one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "minimaxh3nvfp4one"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: minimaxh3nvfp4one

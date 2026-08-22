@@ -1,0 +1,142 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  cosyvoice2yueone: 1
+  cosyvoice2yueonecli: 1
+metadata:
+  name: cosyvoice2yueone
+  icon: https://cdn.olares.com/images/2026/08/ac5eecc84902c49aafc3e04ce594be58.png
+  description: CosyVoice2 Yue TTS — Hong Kong Cantonese zero-shot clone, OpenAI API
+  title: CosyVoice2 Yue TTS One
+  version: 1.0.36
+  categories:
+    - TTS
+  bento:
+    family: other
+    size_label: CosyVoice2 Yue
+    badge: yue tts
+    hero:
+      value: yue
+      label: Cantonese TTS
+    specs:
+      - label: model
+        value: 0.5B FT
+      - label: vram
+        value: 2-3 GB
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: true
+      mtp:
+        enabled: false
+    stack: CosyVoice2 · WenetSpeech-Yue
+sharedEntrances:
+  - name: cosyvoice2yueone
+    host: sharedentrances-cosyvoice2yueone
+    port: 0
+    title: CosyVoice2 Yue API
+    icon: https://cdn.olares.com/images/2026/08/ac5eecc84902c49aafc3e04ce594be58.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: cosyvoice2yueonecli
+    port: 8080
+    host: cosyvoice2yueonecli
+    title: CosyVoice2 Yue TTS One
+    icon: https://cdn.olares.com/images/2026/08/ac5eecc84902c49aafc3e04ce594be58.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.36
+  upgradeDescription: |2
+        v1.0.33: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.32: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.31: fix inference_zero_shot loop — yields dict not (i, out) tuple. Restart pod.
+    v1.0.30: fix synthesize — pass ref audio path to inference_zero_shot (not preloaded Tensor). Restart pod.
+    v1.0.29: load_wav supports mp3/m4a via ffmpeg (/opt/speech-bin); wav/flac/ogg via soundfile. Restart pod.
+    v1.0.28: fix torchaudio 2.12 — patch load_wav to use soundfile (no torchcodec). Restart pod.
+    v1.0.27: fix ASLP-lab llm.pt load — strip epoch/step training keys before strict load_state_dict. Restart pod.
+    v1.0.26: fix onnxruntime CUDA 11 mismatch — CPU onnxruntime + runtime patch (libcublasLt.so.11 on cuda13 image). Restart pod; no venv delete needed.
+    v1.0.25: openai-whisper --no-build-isolation (fixes pkg_resources sdist build); ready-v17.
+    v1.0.24: install openai-whisper --no-deps (log_mel_spectrogram for zero-shot); ready-v16 — DELETE models/venv if v1.0.23 left .ready-v15 without whisper.
+    v1.0.23: Matcha-TTS --no-deps (skip piper_phonemize — no cp312 linux wheel; CosyVoice unused); preinstall einops/scipy.
+    v1.0.22: fix Matcha-TTS — unset PIP_CONSTRAINT in-shell (env pipx bypassed bash function); ready-v15.
+    v1.0.21: fix Matcha-TTS install — drop setuptools PIP_CONSTRAINT; preinstall numpy 1.26.4; editable install without build isolation; ready-v15 — DELETE models/venv. Recommended env: Python 3.10 + torch 2.3.1 (see cosyvoice2yueone/docker/Dockerfile).
+    v1.0.20: skip openai-whisper (triton<3 vs torch 3.7); TTS-only; ready-v14.
+    v1.0.19: fix venv on py3.12 image: python3-venv apt + retry with python3.12-venv.
+    v1.0.18: skip tensorboard/grpcio source build; preinstall grpcio wheel; venv .image-python stamp; ready-v13.
+    v1.0.17: drop hf_hub<0.26 pin (conflicts transformers 4.51); gradio 5.x after bootstrap; ready-v12 — DELETE models/venv.
+    v1.0.16: fix py3.12 stale venv (conda PATH); pin hf_hub<0.26 for gradio4; lazy gradio UI; ready-v11 — DELETE models/venv.
+    v1.0.15: venv gate: python -m pip runnable (fixes stale shebang after image change); use python -m pip not bin/pip; ready-v10.
+    v1.0.14: fix ncclCommResume: cuda13 image + system-site-packages; strip pip torch/nvidia wheels; ready-v9 — DELETE models/venv before upgrade.
+    v1.0.13: fix pip --no-use-pep517 removed; pin gradio 4.x; ready-v8.
+    v1.0.12: fix pyworld build: build-essential python3-dev + cython preinstall; bump ready-v7.
+    v1.0.11: venv gate on bin/pip not bin/python; ensurepip fallback.
+    v1.0.10: fix broken venv: recreate if bin/pip missing; add python3-venv.
+    v1.0.9: init: visible logs + chmod speech dirs only.
+    v1.0.8: chart bump — Gradio test UI at /.
+    v1.0.7: Gradio test UI at / (app entrance). Shows load status; zero-shot TTS test when ready. Delete models/venv before upgrade.
+    v1.0.6: fast-ready bootstrap — /health returns 200 immediately; pip + model load run in background. Fixes Olares install timeout (30m). API returns 503 until ready. Check GET /health for phase/ready.
+    v1.0.4: keep openai-whisper in CosyVoice deps — pre-install with --no-build-isolation (fixes pkg_resources build error). If prior install failed, delete app Settings → Application data folder models/venv before upgrade.
+    v1.0.3: skip openai-whisper in CosyVoice deps (not needed for Yue TTS; sdist build fails on setuptools/pkg_resources). If v1.0.2 install failed mid-venv, delete app Settings → Application data folder models/venv before upgrade.
+    v1.0.2: fix CosyVoice install — recursive clone (Matcha-TTS submodule), no invalid pip install -e, pytorch base image + persisted venv, model preload before /health 200, HF cache under /olares/share/ai/model/speech/huggingface.
+    If v1.0.1 left a broken install, delete app Settings → Application data folders models/venv and src/CosyVoice before upgrade.
+  featuredImage: https://cdn.olares.com/images/2026/08/a10c14348586bd1dc7b65503d28d5b71.png
+  fullDescription: |
+    CosyVoice2 Hong Kong Cantonese TTS — ASLP-lab/Cosyvoice2-Yue-ZoengJyutGaai fine-tune.
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    ~2-3 GB VRAM — runs alongside vllmgemma4e4bone (~11 GB) + CPU SenseVoice STT.
+    Zero-shot voice clone: 3-10s Cantonese reference WAV + ref_text required.
+    OpenAI-compatible /v1/audio/speech and /v1/audio/clone.
+
+    In-cluster: http://cosyvoice2yueone:8000
+
+    curl -X POST http://cosyvoice2yueone:8000/v1/audio/clone \
+      -F "text=你好，我係廣東話語音。" \
+      -F "ref_text=參考語音文字" \
+      -F "ref_audio=@ref.wav" \
+      -F "language_id=yue" -o out.wav
+
+    Cantonese pipeline: sensevoiceone (STT) → vllmgemma4e4bone (LLM) → this app (TTS).
+
+    Shared HF cache: /olares/share/ai/model/speech/huggingface (shared with all STT/TTS apps).
+    LLM GGUF cache: /olares/share/ai/model/llms/ (separate category).
+  developer: coynntis
+  website: https://huggingface.co/ASLP-lab/Cosyvoice2-Yue-ZoengJyutGaai
+  sourceCode: https://github.com/FunAudioLLM/CosyVoice
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/FunAudioLLM/CosyVoice/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 17Gi
+      requiredDisk: 15Gi
+      limitedDisk: 30Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 8Gi
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

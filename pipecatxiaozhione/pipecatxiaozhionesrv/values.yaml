@@ -1,0 +1,12 @@
+admin: ""
+bfl:
+  username: ""
+userspace:
+  appData: ""
+  appCache: ""
+  userData: ""
+
+image:
+  repository: ghcr.io/coynntis/pipecat-xiaozhi-bridge
+  tag: "0.3.15"
+  pullPolicy: IfNotPresent

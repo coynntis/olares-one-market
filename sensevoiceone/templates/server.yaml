@@ -1,0 +1,472 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: sensevoiceone
+  name: sensevoiceone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.sensevoiceone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: sensevoiceone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: sensevoiceone
+    spec:
+      initContainers:
+        - name: setup-speech-runtime
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              log() { echo "$(date -Iseconds) [sensevoiceone:init] $*"; }
+              log "starting setup-speech-runtime"
+              log "creating shared speech cache dirs..."
+              mkdir -p /shared-models/speech/huggingface /shared-models/speech/modelscope /shared-models/llms
+              log "fixing permissions on speech cache dirs only (skip full /shared-models tree)..."
+              chmod -R 777 /shared-models/speech /shared-models/llms
+              mkdir -p /opt/speech-bin
+              if [ -x /opt/speech-bin/ffmpeg ]; then
+                log "ffmpeg already present — skip download"
+              else
+                log "downloading static ffmpeg (~40MB, first boot only, may take 1-3 min)..."
+                wget -O /tmp/ff.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+                log "extracting ffmpeg..."
+                cd /tmp && tar xf ff.tar.xz
+                cp /tmp/ffmpeg-*-static/ffmpeg /tmp/ffmpeg-*-static/ffprobe /opt/speech-bin/
+                chmod 755 /opt/speech-bin/*
+                log "ffmpeg ready: $(/opt/speech-bin/ffmpeg -version 2>/dev/null | head -1 || echo ok)"
+              fi
+              log "shared speech cache:"
+              ls -la /shared-models/speech/ 2>/dev/null || true
+              log "setup-speech-runtime complete"
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/opt/speech-bin"
+              name: speech-bin
+      containers:
+        - name: sensevoice
+          image: "pytorch/pytorch:2.12.0-cuda13.0-cudnn9-runtime"
+          command:
+            - bash
+            - '-c'
+            - |
+              set -e
+              export DEBIAN_FRONTEND=noninteractive
+              export PATH="/opt/speech-bin:$PATH"
+              VENV="/models/venv"
+              log() { echo "$(date -Iseconds) [sensevoiceone] $*"; }
+
+              log "device=$SENSEVOICE_DEVICE shared cache HF_HOME=$HF_HOME MODELSCOPE_CACHE=$MODELSCOPE_CACHE"
+              ls -la /shared-models/speech/ 2>/dev/null || true
+
+              apt-get update
+              apt-get install -y --no-install-recommends libsndfile1 git python3-venv
+
+              mkdir -p /app
+              if [ ! -x "$VENV/bin/pip" ]; then
+                if [ -d "$VENV" ]; then
+                  log "broken/partial venv at $VENV — recreating"
+                  rm -rf "$VENV"
+                fi
+                log "creating venv at $VENV (system-site-packages — image torch)"
+                python -m venv --system-site-packages "$VENV"
+                if [ ! -x "$VENV/bin/pip" ]; then
+                  log "pip missing after venv — running ensurepip"
+                  "$VENV/bin/python" -m ensurepip --upgrade
+                fi
+              else
+                log "reusing venv at $VENV"
+              fi
+              if [ ! -x "$VENV/bin/pip" ]; then
+                log "FATAL: $VENV/bin/pip missing after venv create"
+                ls -la "$VENV" "$VENV/bin" 2>/dev/null || true
+                exit 1
+              fi
+              "$VENV/bin/pip" install -q --upgrade pip
+              "$VENV/bin/pip" install -q fastapi uvicorn python-multipart gradio
+
+              cat > /app/bootstrap-deps.sh << 'BOOTEOF'
+              #!/bin/bash
+              set -euo pipefail
+              VENV="/models/venv"
+              log() { echo "$(date -Iseconds) [sensevoiceone] $*"; }
+              if [ -f "$VENV/.ready-v6" ]; then
+                log "deps already installed — skip"
+                exit 0
+              fi
+              log "first boot: FunASR deps (background, torch from image)..."
+              "$VENV/bin/pip" install --upgrade pip setuptools wheel
+              "$VENV/bin/pip" install funasr modelscope soundfile numpy gradio
+              touch "$VENV/.ready-v6"
+              log "venv install complete"
+              BOOTEOF
+              chmod +x /app/bootstrap-deps.sh
+
+              log "writing API server (fast-ready)..."
+              cat > /app/server.py << 'PYEOF'
+              import asyncio
+              import os
+              import subprocess
+              import tempfile
+              import traceback
+              from contextlib import asynccontextmanager
+              from typing import Optional
+
+              from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+              from fastapi.responses import JSONResponse
+              from pydantic import BaseModel
+
+              _model = None
+              _model_error: Optional[str] = None
+              _phase = "starting"
+              _bootstrap_error: Optional[str] = None
+              DEVICE = os.environ.get("SENSEVOICE_DEVICE", "cpu")
+              MODEL_ID = os.environ.get("SENSEVOICE_MODEL", "FunAudioLLM/SenseVoiceSmall")
+
+
+              def log(msg: str) -> None:
+                  print(f"[sensevoiceone] {msg}", flush=True)
+
+
+              def cache_summary() -> str:
+                  hf = os.environ.get("HF_HOME", "?")
+                  ms = os.environ.get("MODELSCOPE_CACHE", "?")
+                  return f"HF_HOME={hf} MODELSCOPE_CACHE={ms}"
+
+
+              def install_deps_sync() -> None:
+                  global _phase, _bootstrap_error
+                  if os.path.isfile("/models/venv/.ready-v6"):
+                      return
+                  _phase = "installing_deps"
+                  log("background: installing FunASR deps...")
+                  proc = subprocess.run(["/app/bootstrap-deps.sh"], capture_output=False)
+                  if proc.returncode != 0:
+                      _bootstrap_error = f"bootstrap-deps.sh exited {proc.returncode}"
+                      _phase = "error"
+                      raise RuntimeError(_bootstrap_error)
+
+
+              def load_model_sync():
+                  global _model, _model_error, _phase
+                  if _model is not None or _model_error is not None:
+                      return
+                  try:
+                      from funasr import AutoModel
+                      _phase = "loading_model"
+                      log(f"downloading/loading {MODEL_ID} on {DEVICE} — {cache_summary()}")
+                      _model = AutoModel(
+                          model=MODEL_ID,
+                          vad_model="fsmn-vad",
+                          vad_kwargs={"max_single_segment_time": 30000},
+                          device=DEVICE,
+                          hub="hf",
+                          disable_update=True,
+                      )
+                      _phase = "ready"
+                      log(f"model ready — {cache_summary()}")
+                      subprocess.run(["du", "-sh", os.environ.get("HF_HOME", "/shared-models/speech/huggingface")], check=False)
+                  except Exception as exc:
+                      _model_error = str(exc)
+                      _phase = "error"
+                      log(f"model load failed: {exc}")
+                      traceback.print_exc()
+
+
+              def bootstrap_sync() -> None:
+                  global _phase, _bootstrap_error
+                  try:
+                      install_deps_sync()
+                      if _phase == "error":
+                          return
+                      load_model_sync()
+                  except Exception as exc:
+                      _bootstrap_error = str(exc)
+                      _phase = "error"
+                      log(f"bootstrap failed: {exc}")
+                      traceback.print_exc()
+
+
+              @asynccontextmanager
+              async def lifespan(app: FastAPI):
+                  log("fast-ready: API listening — bootstrap runs in background")
+                  asyncio.create_task(asyncio.to_thread(bootstrap_sync))
+                  yield
+
+
+              app = FastAPI(title="SenseVoice STT", lifespan=lifespan)
+
+
+              def get_model():
+                  if _bootstrap_error:
+                      raise HTTPException(503, f"bootstrap failed: {_bootstrap_error}")
+                  if _model_error:
+                      raise HTTPException(503, f"model load failed: {_model_error}")
+                  if _model is None:
+                      raise HTTPException(503, f"not ready (phase={_phase})")
+                  return _model
+
+
+              def extract_text(res) -> str:
+                  def _from_obj(obj) -> str:
+                      if isinstance(obj, dict):
+                          for key in ("text", "value", "sentence", "transcript"):
+                              val = obj.get(key)
+                              if isinstance(val, str) and val.strip():
+                                  return val.strip()
+                          return ""
+                      if isinstance(obj, list):
+                          parts = [_from_obj(x) for x in obj]
+                          return " ".join(p for p in parts if p).strip()
+                      if isinstance(obj, str):
+                          return obj.strip()
+                      return ""
+
+                  return _from_obj(res)
+
+
+              class TranscriptionResponse(BaseModel):
+                  text: str
+
+
+              @app.get("/health")
+              async def health():
+                  ready = _model is not None and _phase == "ready"
+                  return JSONResponse(
+                      status_code=200,
+                      content={
+                          "status": _phase,
+                          "ready": ready,
+                          "device": DEVICE,
+                          "model": MODEL_ID,
+                          "cache": cache_summary() if ready else None,
+                          "bootstrap_error": _bootstrap_error,
+                          "model_error": _model_error,
+                      },
+                  )
+
+
+              @app.get("/v1/models")
+              async def models():
+                  get_model()
+                  return {"data": [{"id": "sensevoice", "object": "model"}]}
+
+
+              @app.post("/v1/audio/transcriptions", response_model=TranscriptionResponse)
+              async def transcribe(
+                  file: UploadFile = File(...),
+                  model: str = Form("sensevoice"),
+                  language: Optional[str] = Form("auto"),
+                  response_format: str = Form("json"),
+              ):
+                  suffix = os.path.splitext(file.filename or "audio.wav")[1] or ".wav"
+                  fd, path = tempfile.mkstemp(suffix=suffix)
+                  try:
+                      data = await file.read()
+                      if not data:
+                          raise HTTPException(400, "empty audio file")
+                      os.write(fd, data)
+                      os.close(fd)
+                      fd = -1
+                      lang = (language or "auto").strip().lower()
+                      if lang in ("zh-cn", "mandarin", "cmn"):
+                          lang = "zh"
+                      if lang in ("cantonese", "hk", "yue-hant"):
+                          lang = "yue"
+
+                      def _run():
+                          m = get_model()
+                          return m.generate(
+                              input=path,
+                              cache={},
+                              language=lang,
+                              use_itn=True,
+                              batch_size_s=60,
+                              merge_vad=True,
+                              merge_length_s=15,
+                          )
+
+                      res = await asyncio.to_thread(_run)
+                      return TranscriptionResponse(text=extract_text(res))
+                  finally:
+                      if fd >= 0:
+                          os.close(fd)
+                      if os.path.exists(path):
+                          os.remove(path)
+
+
+              def _status_line() -> str:
+                  if _bootstrap_error:
+                      return f"bootstrap failed: {_bootstrap_error}"
+                  if _model_error:
+                      return f"model failed: {_model_error}"
+                  if _phase != "ready":
+                      return f"loading… phase={_phase}"
+                  return f"ready on {DEVICE}"
+
+
+              def _require_ready() -> None:
+                  if _bootstrap_error:
+                      raise RuntimeError(_bootstrap_error)
+                  if _model_error:
+                      raise RuntimeError(_model_error)
+                  if _model is None:
+                      raise RuntimeError(f"not ready (phase={_phase})")
+
+
+              def mount_test_ui() -> None:
+                  import gradio as gr
+
+                  def ui_transcribe(audio_path, language):
+                      try:
+                          _require_ready()
+                          if not audio_path:
+                              return "upload audio first", _status_line()
+                          lang = (language or "yue").strip().lower()
+                          if lang in ("zh-cn", "mandarin", "cmn"):
+                              lang = "zh"
+                          if lang in ("cantonese", "hk", "yue-hant"):
+                              lang = "yue"
+                          res = _model.generate(
+                              input=audio_path,
+                              cache={},
+                              language=lang,
+                              use_itn=True,
+                              batch_size_s=60,
+                              merge_vad=True,
+                              merge_length_s=15,
+                          )
+                          return extract_text(res), _status_line()
+                      except Exception as exc:
+                          return str(exc), _status_line()
+
+                  with gr.Blocks(title="SenseVoice STT Test") as demo:
+                      gr.Markdown("# SenseVoice STT — test UI")
+                      status = gr.Textbox(label="Status", value=_status_line())
+                      refresh = gr.Button("Refresh status")
+                      audio = gr.Audio(type="filepath", label="Audio file")
+                      language = gr.Dropdown(
+                          choices=["auto", "yue", "zh", "en", "ja", "ko"],
+                          value="yue",
+                          label="Language",
+                      )
+                      text = gr.Textbox(label="Transcription", lines=4)
+                      go = gr.Button("Transcribe", variant="primary")
+                      refresh.click(lambda: _status_line(), outputs=status)
+                      go.click(ui_transcribe, inputs=[audio, language], outputs=[text, status])
+
+                  gr.mount_gradio_app(app, demo, path="/")
+
+
+              mount_test_ui()
+              PYEOF
+
+              log "starting uvicorn (fast-ready — deps/model load in background)..."
+              exec "$VENV/bin/uvicorn" server:app --host 0.0.0.0 --port 8000 --app-dir /app --log-level info
+          env:
+            - name: HF_HOME
+              value: "/shared-models/speech/huggingface"
+            - name: TRANSFORMERS_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: MODELSCOPE_CACHE
+              value: "/shared-models/speech/modelscope"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: SENSEVOICE_DEVICE
+              value: {{ .Values.olaresEnv.SENSEVOICE_DEVICE | default "cpu" | quote }}
+            - name: SENSEVOICE_MODEL
+              value: "FunAudioLLM/SenseVoiceSmall"
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            timeoutSeconds: 15
+            periodSeconds: 60
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 8Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/opt/speech-bin"
+              name: speech-bin
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: speech-bin
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/speech-bin"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sensevoiceone
+  name: sensevoiceone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sensevoice"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: sensevoiceone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sensevoiceone
+  name: sharedentrances-sensevoiceone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sensevoiceone"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: sensevoiceone

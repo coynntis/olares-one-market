@@ -1,0 +1,8 @@
+metadata:
+  description: "Ornith 1.0 9B Q4_K_M via llama.cpp — compact dense model for Olares One"
+  title: Ornith 9B One
+spec:
+  fullDescription: |
+    Ornith 1.0 9B compact dense model — Q4_K_M (~5.6 GB) on RTX 5090M.
+    Default 128K context, turbo3/turbo3 KV cache, llama.cpp b8740.
+    OpenAI-compatible API on port 8080.

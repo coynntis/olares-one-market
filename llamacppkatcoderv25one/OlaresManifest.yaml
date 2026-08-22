@@ -1,0 +1,188 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppkatcoderv25one: 1
+  llamacppkatcoderv25onecli: 1
+metadata:
+  name: llamacppkatcoderv25one
+  icon: https://cdn.olares.com/images/2026/08/59000692929ab24988a8d28482203c3b.png
+  description: "KAT-Coder-V2.5-Dev — fastest coding profile: MTP, long ctx"
+  title: KAT Coder V25 MTP One
+  version: 1.0.5
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: qwen
+    size_label: 35B-A3B
+    badge: KAT coder
+    hero:
+      value: MoE
+      label: MTP + long context coding
+    specs:
+      - label: context
+        value: 256K
+      - label: vram
+        value: ~20 GB
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+      mtp:
+        enabled: true
+    stack: buun-llama.cpp · APEX-MTP Compact · draft-mtp · q8_0/turbo4 or k8v4
+sharedEntrances:
+  - name: llamacppkatcoderv25one
+    host: sharedentrances-llamacppkatcoderv25one
+    port: 0
+    title: KAT Coder V25 MTP API
+    icon: https://cdn.olares.com/images/2026/08/59000692929ab24988a8d28482203c3b.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppkatcoderv25onecli
+    port: 8080
+    host: llamacppkatcoderv25onecli
+    title: KAT Coder V25 MTP One
+    icon: https://cdn.olares.com/images/2026/08/59000692929ab24988a8d28482203c3b.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.5
+  featuredImage: https://cdn.olares.com/images/2026/08/bf1c5631f5811cda2475389c71433f00.png
+  upgradeDescription: |
+    v1.0.5: LLM_REASONING env (default off for coding agents) + chat template / thinking toggles.
+    v1.0.4: lock KAT as coding-only profile (text-only). Keep speed defaults: ctx 262144, batch/ubatch 1024, draft-mtp n=6, KV switch env (q8_0/turbo4 or k8v4), plus persistent crash/restart logs under /shared-models/llms/logs/llamacppkatcoderv25one.
+    v1.0.3: fastest profile for Olares One — default ctx 262144, batch/ubatch 1024, draft-mtp n=6, KV switch env (q8_0/turbo4 or k8v4), optional mmproj vision path, persistent crash/restart logs under /shared-models/llms/logs/llamacppkatcoderv25one.
+    v1.0.2: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.0: Kwaipilot KAT-Coder-V2.5-Dev (post-train of Qwen3.6-35B-A3B) for agentic coding.
+      GGUF: gbuzhf APEX-MTP Compact (exact 17330906752) — grafted MTP head for draft-mtp.
+      buun-llama-cpp:87c351d2 · draft-mtp n=6 · q8_0/turbo4 KV (k8v4 optional).
+      Default ctx 262144. MTP accept may trail stock A3B (head from base trunk).
+  fullDescription: |
+    KAT-Coder-V2.5-Dev on Olares One — Kwaipilot post-train of Qwen3.6-35B-A3B MoE
+    (~35B / ~3B active). Built for agentic coding (SWE-bench / tool loops); model card
+    reports higher SWE-bench Verified than base Qwen3.6-35B-A3B.
+
+    vs Qwen3.6-35B-A3B base (llamacppqwen36a3bone): same MoE speed class on One when using
+    Compact APEX-MTP (~17.3 GB, similar to UD-Q3_K_XL). Prefer KAT for coding agents;
+    keep champion A3B chart for general + vision + proven ~240 t/s MTP accept.
+
+    Caveat: APEX-MTP Compact grafts a base MTP head onto the finetune — draft accept can
+    be lower than stock Unsloth MTP. If accept is poor, set LLM_SPEC_DRAFT_N_MAX=1 or
+    disable speculation and still keep Compact quant speed.
+
+    Weights: gbuzhf/KAT-Coder-V2.5-Dev-APEX-MTP-GGUF
+      → Kwaipilot_KAT-Coder-V2.5-Dev-APEX-MTP-I-Compact.gguf (17.3 GB)
+    Text-only open path (no reliable mmproj for this finetune in stock llama.cpp).
+
+    Runtime: docker.io/aamsellem/buun-llama-cpp:87c351d2
+      --spec-type draft-mtp --spec-draft-n-max 6 · KV q8_0/turbo4 (or k8v4) · ctx 262144
+      --batch-size 1024 --ubatch-size 1024 · --reasoning off · froggeric jinja tools
+
+    This chart is coding-only / text-only by design.
+
+    First boot ~17.3 GB. OpenAI-compatible API :8000 via client :8080.
+    License: Apache-2.0.
+  developer: Kwaipilot
+  website: https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 28Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_SPEC_DRAFT_N_MAX
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_BATCH_SIZE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_UBATCH_SIZE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_K
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CACHE_TYPE_V
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PARALLEL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_REASONING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CHAT_TEMPLATE_SOURCE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_CHAT_TEMPLATE_URL
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_ENABLE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_PRESERVE_THINKING
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

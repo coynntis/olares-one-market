@@ -1,0 +1,34 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+image:
+  repository: ghcr.io/browserless/chromium
+  tag: v2.50.1
+  pullPolicy: IfNotPresent
+browserless:
+  concurrent: '5'
+  queued: '10'
+  timeout: '300000'
+  keepAlive: 'true'
+  health: 'true'
+  enableDebugger: 'true'
+  maxMemoryPercent: '90'
+  maxCpuPercent: '90'
+  token: browserlessone
+  proxyUrl: ''
+olaresEnv:
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  BROWSERLESS_TOKEN: ''
+  BROWSERLESS_PROXY_URL: ''
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+workloads:
+  browserlessone:
+    replicaCount: 1
+  browserlessonecli:
+    replicaCount: 1

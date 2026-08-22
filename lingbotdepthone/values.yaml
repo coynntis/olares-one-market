@@ -1,0 +1,22 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  HF_REPO_ID: 'robbyant/lingbot-depth-pretrain-vitl-14-v0.5'
+  UV_INDEX_URL: ''
+  PIP_INDEX_URL: ''
+  UV_CONCURRENT_DOWNLOADS: '32'
+image:
+  repository: pytorch/pytorch
+  tag: 2.12.0-cuda13.0-cudnn9-devel
+workloads:
+  lingbotdepthone:
+    replicaCount: 1
+  lingbotdepthonecli:
+    replicaCount: 1

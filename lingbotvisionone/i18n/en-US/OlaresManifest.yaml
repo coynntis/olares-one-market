@@ -1,0 +1,119 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  lingbotvisionone: 1
+  lingbotvisiononecli: 1
+metadata:
+  name: lingbotvisionone
+  icon: https://cdn.olares.com/images/2026/07/bfc3a11c644ebfd89d0c0bf3db790f80.png
+  description: Vision backbone PCA Gradio + REST (ViT-L)
+  title: LingBot Vision One
+  version: 1.0.8
+  categories:
+    - AI
+sharedEntrances:
+  - name: lingbotvisionone
+    host: sharedentrances-lingbotvisionone
+    port: 0
+    title: LingBot Vision One API
+    icon: https://cdn.olares.com/images/2026/07/bfc3a11c644ebfd89d0c0bf3db790f80.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: lingbotvisiononecli
+    port: 8080
+    host: lingbotvisiononecli
+    title: LingBot Vision One
+    icon: https://cdn.olares.com/images/2026/07/bfc3a11c644ebfd89d0c0bf3db790f80.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.8
+  featuredImage: https://cdn.olares.com/images/2026/07/af6e687289a9eb0a0b56f4e220cbb322.png
+  fullDescription: |
+    LingBot-Vision dense spatial features (masked boundary modeling).
+
+    Hardware: Olares One — RTX 5090M 24GB + 96GB DDR5.
+
+    Runtime image: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel (required for sm_120).
+
+    Weights: robbyant/lingbot-vision-vit-large
+    Source: https://github.com/Robbyant/lingbot-vision
+    Project: https://technology.robbyant.com/lingbot-vision
+
+    Boot lessons (Krea soft-ready):
+    - soft-ready HTTP on :7860 before uv/pip/HF download (pass ~30m install gate)
+    - uv pip --target /workspace/lingbotvisionone/site-packages (persist uv + cache)
+    - purge torch shadow from site-packages (image owns torch)
+    - bootstrap attempts + download progress → /workspace/lingbotvisionone/bootstrap.log
+    - GET /health shows phase / attempts_tail while installing
+
+    UI: / and /ui · REST under /api/v1 · health: GET /health
+  developer: Robbyant
+  website: https://technology.robbyant.com/lingbot-vision
+  sourceCode: https://github.com/Robbyant/lingbot-vision
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/Robbyant/lingbot-vision
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 4Gi
+      limitedMemory: 25Gi
+      requiredDisk: 15Gi
+      limitedDisk: 40Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    - **1.0.8**: Fix Gradio file URLs — import mount_gradio; redirect /gradio_api/* to /ui/gradio_api/* (query preserved).
+    v1.0.7: base image pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel (sm_120 / RTX 5090M); was 2.6+cu12.4 with no Blackwell kernels.
+    v1.0.4: vision loader API fix (repo_id_or_path dir).
+    v1.0.3: audit upstream inference deps; deps marker v3.
+    v1.0.2: omegaconf + reinstall after --no-deps.
+    v1.0.1: Helm-safe soft_ready / ConfigMap brace escape.
+    v1.0.0: initial chart — soft-ready + uv site-packages + Gradio/REST.
+
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: HF_REPO_ID
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'robbyant/lingbot-vision-vit-large'
+  - envName: UV_INDEX_URL
+    required: false
+    editable: true
+    applyOnChange: true
+    value: ''
+  - envName: LINGBOT_VISION_VARIANT
+    required: false
+    editable: true
+    applyOnChange: true
+    value: 'large'
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

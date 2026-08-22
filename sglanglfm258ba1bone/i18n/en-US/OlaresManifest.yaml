@@ -1,0 +1,14 @@
+metadata:
+  description: "LFM2.5-8B-A1B MoE via SGLang — agentic tool use and reasoning on Olares One"
+  title: LFM2-5 8B One
+spec:
+  fullDescription: |
+    Liquid AI LFM2.5-8B-A1B served via SGLang on Olares One (RTX 5090M, 96GB DDR5).
+    Hybrid MoE: 8.3B total / 1.1B active params. Single-user VRAM tuning — not high-concurrency serving.
+    Reasoning-tuned for agentic workflows, tool use, structured outputs, and multilingual assistants.
+    Startup: python -m sglang.launch_server --model-path LiquidAI/LFM2.5-8B-A1B --trust-remote-code
+    Model weights (~16GB BF16) download from Hugging Face into /models at startup.
+    OpenAI-compatible API on port 30000. VRAM-tuned defaults: context 8K, mem-fraction-static 0.70,
+    max-total-tokens 16384, 1 concurrent request, chunked-prefill 2048, radix cache off (fits ~24GB with headroom).
+    Recommended sampling: temperature=0.2, top_k=80, repetition_penalty=1.05.
+    Tool use: Pythonic function calls via chat template (see Liquid AI tool-use docs).

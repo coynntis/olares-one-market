@@ -1,0 +1,203 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensenovasi15-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_REPO: "sensenova/SenseNova-SI-1.5-InternVL3-8B"
+  MODEL_DIR: "/models/SenseNova-SI-1.5-InternVL3-8B"
+  SERVER_PORT: "7860"
+  HF_HOME: "/models/huggingface"
+  LOG_LEVEL: "INFO"
+  DTYPE: "bfloat16"
+  # sdpa default (Blackwell-friendly). auto|flash soft-fails to sdpa.
+  ATTENTION_BACKEND: {{ .Values.attention.backend | quote }}
+  INSTALL_FLASH_ATTN: {{ ternary "1" "0" .Values.attention.installFlashAttn | quote }}
+  FLASH_ATTN_PIP_SPEC: {{ .Values.attention.pipSpec | quote }}
+  FLASH_ATTN_SOFT_FAIL: "1"
+  # 0 = download+load at boot (startupProbe waits). 1 = first VQA request.
+  LOAD_LAZY: "0"
+  GRADIO_TEMP_DIR: "/output/gradio"
+  MAX_NUM_PER_IMAGE: "6"
+  TOTAL_MAX_NUM: "64"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: sensenovasi15one
+  name: sensenovasi15one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+    applications.app.bytetrade.io/required_gpu: "1"
+spec:
+  replicas: {{ .Values.workloads.sensenovasi15one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: sensenovasi15one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network.chrome-default: "true"
+        io.kompose.service: sensenovasi15one
+    spec:
+      initContainers:
+        - name: volume-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              chmod -R 777 /models /workspace /output || true
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+          securityContext:
+            runAsUser: 0
+      containers:
+        - name: sensenovasi15-serve
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command:
+            - "bash"
+            - "-lc"
+            - |
+              set -eux
+              export PIP_DISABLE_PIP_VERSION_CHECK=1
+              mkdir -p "${HF_HOME}" /workspace/app /output/gradio
+              cp /app-src/app.py /workspace/app/app.py
+              cp /app-src/requirements.txt /workspace/app/requirements.txt
+              cd /workspace/app
+
+              python -m pip install --upgrade pip --break-system-packages
+              python -m pip install --break-system-packages -r requirements.txt
+
+              # Optional FA2: prebuilt sm_120 wheel only. Never source-compile (OOM/restart loop).
+              if [ "${INSTALL_FLASH_ATTN:-0}" = "1" ]; then
+                python -m pip install --break-system-packages packaging wheel einops || true
+                SPEC="${FLASH_ATTN_PIP_SPEC:-}"
+                if [ -n "$SPEC" ]; then
+                  set +e
+                  python -m pip install --break-system-packages --no-cache-dir "$SPEC"
+                  fa_rc=$?
+                  set -e
+                  if [ "$fa_rc" -ne 0 ] || ! python -c "import flash_attn" 2>/dev/null; then
+                    echo "[warn] flash-attn wheel failed; forcing ATTENTION_BACKEND=sdpa"
+                    export ATTENTION_BACKEND=sdpa
+                  fi
+                else
+                  echo "[warn] INSTALL_FLASH_ATTN=1 but FLASH_ATTN_PIP_SPEC empty; skipping (use SDPA)"
+                  export ATTENTION_BACKEND=sdpa
+                fi
+              fi
+
+              exec python -m uvicorn app:app --host 0.0.0.0 --port "${SERVER_PORT}" --app-dir /workspace/app
+          envFrom:
+            - configMapRef:
+                name: sensenovasi15-env
+          env:
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 7860
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+            - mountPath: "/output"
+              name: output
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/sensenovasi15one-workspace"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+        - name: app-source
+          configMap:
+            name: sensenovasi15one-source
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/sensenovasi15one-output"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sensenovasi15one
+  name: sensenovasi15one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: http
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: sensenovasi15one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: sensenovasi15one
+  name: sharedentrances-sensenovasi15one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "sensenovasi15one"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: sensenovasi15one

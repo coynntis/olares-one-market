@@ -1,0 +1,6 @@
+app/
+docker/
+files/
+scripts/
+*.md
+owners

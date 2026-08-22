@@ -1,0 +1,21 @@
+# Base UI/API — ltx-core / ltx-pipelines installed at boot from GitHub
+# (openimageio is skipped; DistilledPipeline does not need it for MP4 I/O).
+gradio>=5.0.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2
+huggingface_hub>=0.26.0
+Pillow
+imageio
+imageio-ffmpeg
+av
+tqdm
+einops
+numpy
+scipy
+safetensors
+accelerate
+transformers>=4.52.0
+cloudpickle>=3.1
+# Optional: SageAttention (Blackwell). Fail soft if install/build fails.
+# sageattention

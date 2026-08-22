@@ -1,0 +1,35 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+image:
+  repository: ghcr.io/aas-ee/open-web-search
+  tag: latest
+  pullPolicy: IfNotPresent
+openWebSearch:
+  mode: http
+  port: '3000'
+  enableCors: 'true'
+  corsOrigin: '*'
+  defaultSearchEngine: duckduckgo
+  searchMode: request
+  useProxy: 'false'
+  proxyUrl: ''
+  allowedSearchEngines: ''
+  playwrightWsEndpoint: ''
+  playwrightCdpEndpoint: ''
+olaresEnv:
+  USE_PROXY: ''
+  PROXY_URL: ''
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+workloads:
+  openwebsearchone:
+    replicaCount: 1
+  openwebsearchonecli:
+    replicaCount: 1

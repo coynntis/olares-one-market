@@ -1,0 +1,11 @@
+gradio>=5.0.0,<7
+fastapi>=0.115.0,<1
+uvicorn[standard]>=0.30.0,<1
+pydantic>=2.0,<2.13
+python-multipart
+accelerate>=1.0.0
+transformers>=4.55.0
+huggingface_hub[cli]>=0.34.0
+imageio
+imageio-ffmpeg
+Pillow

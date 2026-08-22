@@ -1,0 +1,102 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  sensenovau1lightllmone: 1
+  sensenovau1lightllmonecli: 1
+metadata:
+  name: sensenovau1lightllmone
+  icon: https://cdn.olares.com/images/2026/08/78bf4c87a367cb6b774677e2956ba953.png
+  description: SenseNova-U1 text-to-image via LightLLM + LightX2V FA3 — Olares One benchmark
+  title: SenseNova U1 LightLLM One
+  version: 1.0.20
+  categories:
+    - AI
+sharedEntrances:
+  - name: sensenovau1lightllmone
+    host: sharedentrances-sensenovau1lightllmone
+    port: 0
+    title: SenseNova U1 LightLLM API
+    icon: https://cdn.olares.com/images/2026/08/78bf4c87a367cb6b774677e2956ba953.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: sensenovau1lightllmonecli
+    port: 8080
+    host: sensenovau1lightllmonecli
+    title: SenseNova U1 LightLLM
+    icon: https://cdn.olares.com/images/2026/08/78bf4c87a367cb6b774677e2956ba953.png
+    openMethod: default
+    authLevel: internal
+spec:
+  versionName: 1.0.20
+  featuredImage: https://cdn.olares.com/images/2026/08/68b90d53a20f60869f13087d4967db22.png
+  fullDescription: |
+    Text-to-image benchmark chart for SenseNova-U1 on the upstream production stack: LightLLM (understanding / control) + LightX2V (image generation) with hybrid-mask FlashAttention-3 (`neopp_dense.json` → `attn_type: flash_attn3`).
+
+    Compare against sensenovau1serveone (single-process PyTorch + flash-attn 2.8.3 + optional GGUF). This chart does **not** replace that app — install one or both to A/B T2I latency.
+
+    Image: lightx2v/lightllm_lightx2v:20260407 (SenseNova-validated). Boot clones ModelTC/LightLLM @ neo_plus_clean and ModelTC/LightX2V, then launches `python -m lightllm.server.api_server` with `--enable_multimodal_x2i`.
+
+    Single-GPU profile (5090M 24GB): `--tp 1`, `--x2i_server_deploy_mode colocate`, `--x2i_server_used_gpus 1`, `--mem_fraction 0.68`, config `configs/neopp/neopp_dense.json`. Full BF16 safetensors from MODEL_REPO (~35GiB); GGUF not supported on this path.
+
+    API: OpenAI-compatible `POST /v1/chat/completions` (modalities image/text). Health: `GET /health`. See OpenSenseNova examples/serving/client.py for request shapes.
+
+    Upstream reference (2×5090, TP2+CFG2 separate): ~0.415 s/step, ~23 s end-to-end for 2048×2048 T2I. Single-GPU colocate will be slower; goal is to see whether FA3 + LightX2V still beats the PyTorch reference server on Olares One.
+
+    In-pod benchmark (after model ready):
+    `python /app-src/benchmark_t2i.py --warmup`
+    Compare to sensenovau1serveone: `POST /api/v1/t2i` with aspect_ratio 1:1 (2048²) and enable INFERENCE_TIMING=1 on that chart.
+
+    Switch model: set values.yaml `model.repo` to
+    sensenova/SenseNova-U1-8B-MoT-Infographic-V2 or
+    sensenova/SenseNova-U1-8B-MoT-Interleaved
+    (full safetensors; no GGUF on this LightLLM path — expect CPU/offload pressure on 24GB).
+  developer: OpenSenseNova
+  website: https://github.com/OpenSenseNova/SenseNova-U1
+  sourceCode: https://github.com/OpenSenseNova/SenseNova-U1
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache-2.0
+      url: https://github.com/OpenSenseNova/SenseNova-U1/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '15'
+      requiredMemory: 5Gi
+      limitedMemory: 57Gi
+      requiredDisk: 80Gi
+      limitedDisk: 140Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |
+    v1.0.20: trim CPU/memory requests for denser multi-app packing (media).
+    v1.0.19: add root ConfigMap sensenovau1lightllmone-bench (was missing after v3 flatten).
+    v1.0.17: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.16: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

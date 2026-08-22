@@ -1,0 +1,7 @@
+metadata:
+  description: "Qwen3.6 27B NVFP4 vision — vLLM fp8 KV + llama.cpp web UI on Olares One"
+  title: Qwen3.6 27B NVFP4 One
+spec:
+  fullDescription: |
+    vLLM + fp8 KV + llama.cpp web UI entrance.
+    Model: unsloth/Qwen3.6-27B-NVFP4

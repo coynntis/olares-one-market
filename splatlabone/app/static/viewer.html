@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Viewer — SplatLab One</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    #viser-frame { width: 100%; height: 70vh; border: 1px solid #333; border-radius: 8px; background: #111; }
+    .export-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
+    #pcanvas { width: 100%; height: 420px; border: 1px solid #333; border-radius: 8px; background: #0a0a0a; }
+    .artifact-list { list-style: none; padding: 0; margin: 0.75rem 0; }
+    .artifact-list li { padding: 0.5rem 0; border-bottom: 1px solid #2a2a2a; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .artifact-list .stage-tag { font-size: 0.75rem; opacity: 0.7; text-transform: uppercase; }
+    .artifact-list .label { flex: 1 1 200px; }
+    .infer-gs-banner { background: #1a2a1a; border: 1px solid #3a5a3a; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    .empty-state { color: var(--muted); padding: 1rem 0; font-size: 0.9rem; }
+    .tab-badge { font-size: 0.75rem; opacity: 0.7; margin-left: 0.35rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SplatLab One</h1>
+    <nav>
+      <a href="/index.html">Dashboard</a>
+      <a href="/import.html">Import</a>
+      <a href="/pipeline.html">Pipeline</a>
+      <a href="/jobs.html">Jobs</a>
+      <a href="/viewer.html" class="active">Viewer</a>
+      <a href="/guide.html">Guide</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Scene</h2>
+      <p class="hint"><strong>Map</strong> = geometry / SfM point clouds (not Gaussians). <strong>Splats</strong> = Gaussians via Viser / SuperSplat / exports.</p>
+      <label>Job ID <input type="text" id="job-id" style="width:100%" placeholder="job_..." /></label>
+      <div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button type="button" id="refresh-artifacts">Refresh artifacts</button>
+      </div>
+      <p id="scene-status" class="hint" style="margin-top:0.75rem"></p>
+    </section>
+
+    <div class="tabs" role="tablist" aria-label="Viewer modes">
+      <button type="button" role="tab" class="tab" id="tab-map" data-tab="map" aria-selected="true" aria-controls="panel-map">
+        Map <span class="tab-badge" id="map-count"></span>
+      </button>
+      <button type="button" role="tab" class="tab" id="tab-splats" data-tab="splats" aria-selected="false" aria-controls="panel-splats">
+        Splats <span class="tab-badge" id="splat-count"></span>
+      </button>
+    </div>
+
+    <!-- MAP TAB: geometry / SfM — not Gaussians -->
+    <div id="panel-map" class="tab-panel" role="tabpanel" aria-labelledby="tab-map">
+      <section class="card" id="map-panel">
+        <h2>Map — geometry &amp; SfM</h2>
+        <p class="hint">Point clouds from COLMAP / VGGT / DA3 depth / LingBot. Use after SfM or <code>geometry_preview</code> (no train required).</p>
+        <ul id="map-artifact-list" class="artifact-list"></ul>
+        <p id="map-empty" class="empty-state" hidden>No map artifacts yet. Run SfM or a geometry preset (quality / robust / fast / stream).</p>
+        <h3>Point cloud preview</h3>
+        <canvas id="pcanvas"></canvas>
+        <p id="pc-hint" class="hint">Select a map PLY above, or auto-load when available.</p>
+      </section>
+    </div>
+
+    <!-- SPLATS TAB: Gaussians -->
+    <div id="panel-splats" class="tab-panel" role="tabpanel" aria-labelledby="tab-splats" hidden>
+      <section class="card">
+        <h2>Splats — Gaussians</h2>
+        <p class="hint">Trained gsplat (Viser) or DA3 feed-forward <code>infer_gs</code> (SuperSplat). Not the same as the Map tab.</p>
+        <div id="infer-gs-banner" class="infer-gs-banner" hidden>
+          <strong>DA3 infer_gs</strong> — feed-forward Gaussians (before gsplat refine).
+          <div class="export-links" style="margin-top:0.5rem">
+            <a id="infer-gs-dl" href="#">Download infer_gs.ply</a>
+            <a id="infer-gs-supersplat" href="https://playcanvas.com/supersplat/editor" target="_blank" rel="noopener">Open in SuperSplat ↗</a>
+          </div>
+        </div>
+        <ul id="splat-artifact-list" class="artifact-list"></ul>
+        <p id="splat-empty" class="empty-state" hidden>No splat artifacts yet. Finish gsplat train, or use DA3 <strong>fast</strong> preset for <code>infer_gs</code>.</p>
+      </section>
+      <section class="card">
+        <h2>gsplat Viser</h2>
+        <p class="hint">GPU render from trained <code>.pt</code> checkpoint. Requires train (or progressive_splat).</p>
+        <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+          <button type="button" id="open-viewer">Open gsplat viewer</button>
+          <button type="button" id="stop-viewer" class="secondary">Stop viewer</button>
+          <button type="button" id="reload-viewer" class="secondary">Reload checkpoint</button>
+        </div>
+        <p id="viewer-status" class="hint"></p>
+        <iframe id="viser-frame" title="gsplat Viser" hidden></iframe>
+      </section>
+      <section class="card">
+        <h2>Train exports</h2>
+        <div class="export-links">
+          <a id="dl-splat" href="#">scene.splat</a>
+          <a id="dl-ply" href="#">point_cloud.ply</a>
+          <a id="dl-compressed" href="#">scene.ply_compressed</a>
+          <a id="dl-ckpt" href="#">checkpoint.pt</a>
+          <a href="https://playcanvas.com/supersplat/editor" target="_blank" rel="noopener">Edit in SuperSplat ↗</a>
+        </div>
+        <p class="hint">Download <code>scene.ply_compressed</code> for SuperSplat editing.</p>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Live events</h2>
+      <p class="hint"><code>stage_artifacts</code>, <code>geometry_preview</code>, <code>checkpoint_ready</code></p>
+      <pre id="live-log" class="status"></pre>
+    </section>
+  </main>
+  <script type="module">
+    import { api } from "/js/app.js";
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js";
+    import { PLYLoader } from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/PLYLoader.js";
+    import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js";
+
+    const MAP_KEYS = new Set([
+      "sfm_sparse_ply",
+      "geometry_sparse_ply",
+      "geometry_glb",
+      "geometry_meta",
+    ]);
+    const SPLAT_KEYS = new Set([
+      "infer_gs_ply",
+      "splat",
+      "ply",
+      "ply_compressed",
+      "ckpt",
+    ]);
+
+    function isMapArtifact(a) {
+      if (MAP_KEYS.has(a.key)) return true;
+      if (a.viewer === "pointcloud") return true;
+      if (a.key?.endsWith("_sparse_ply")) return true;
+      if (a.key === "geometry_glb") return true;
+      return false;
+    }
+
+    function isSplatArtifact(a) {
+      if (SPLAT_KEYS.has(a.key)) return true;
+      if (a.viewer === "supersplat" || a.viewer === "gsplat_viser") return true;
+      if (a.stage === "train") return true;
+      return false;
+    }
+
+    const params = new URLSearchParams(location.search);
+    const jobInput = document.getElementById("job-id");
+    const statusEl = document.getElementById("viewer-status");
+    const sceneStatus = document.getElementById("scene-status");
+    const frame = document.getElementById("viser-frame");
+    const logEl = document.getElementById("live-log");
+    const mapList = document.getElementById("map-artifact-list");
+    const splatList = document.getElementById("splat-artifact-list");
+    const mapEmpty = document.getElementById("map-empty");
+    const splatEmpty = document.getElementById("splat-empty");
+    const inferGsBanner = document.getElementById("infer-gs-banner");
+    const pcHint = document.getElementById("pc-hint");
+    const canvas = document.getElementById("pcanvas");
+    const mapCount = document.getElementById("map-count");
+    const splatCount = document.getElementById("splat-count");
+
+    if (params.get("job")) jobInput.value = params.get("job");
+
+    let pcScene, pcCamera, pcRenderer, pcControls;
+    let lastArtifacts = [];
+    let autoLoadedMap = false;
+
+    function currentTab() {
+      const h = (location.hash || "#map").replace(/^#/, "").toLowerCase();
+      if (h === "splats" || h === "splat" || h === "viser") return "splats";
+      if (h === "map" || h === "pipeline-stages" || h === "artifacts") return "map";
+      return "map";
+    }
+
+    function setTab(name, { pushHash = true } = {}) {
+      const tab = name === "splats" ? "splats" : "map";
+      document.querySelectorAll(".tab").forEach((btn) => {
+        const on = btn.dataset.tab === tab;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      document.getElementById("panel-map").hidden = tab !== "map";
+      document.getElementById("panel-splats").hidden = tab !== "splats";
+      if (pushHash) {
+        const next = `#${tab}`;
+        if (location.hash !== next) history.replaceState(null, "", `${location.pathname}${location.search}${next}`);
+      }
+      if (tab === "map" && pcRenderer) {
+        pcCamera.aspect = canvas.clientWidth / canvas.clientHeight;
+        pcCamera.updateProjectionMatrix();
+        pcRenderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+      }
+    }
+
+    function initPointCloudViewer() {
+      if (pcRenderer) return;
+      pcScene = new THREE.Scene();
+      pcScene.background = new THREE.Color(0x0a0a0a);
+      pcCamera = new THREE.PerspectiveCamera(60, canvas.clientWidth / Math.max(canvas.clientHeight, 1), 0.01, 1000);
+      pcCamera.position.set(0, 0, 3);
+      pcRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      pcRenderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+      pcControls = new OrbitControls(pcCamera, canvas);
+      pcControls.enableDamping = true;
+      pcScene.add(new THREE.AmbientLight(0xffffff, 1));
+      function tick() {
+        requestAnimationFrame(tick);
+        pcControls.update();
+        pcRenderer.render(pcScene, pcCamera);
+      }
+      tick();
+      window.addEventListener("resize", () => {
+        if (!pcRenderer || document.getElementById("panel-map").hidden) return;
+        pcCamera.aspect = canvas.clientWidth / canvas.clientHeight;
+        pcCamera.updateProjectionMatrix();
+        pcRenderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+      });
+    }
+
+    function showPointCloud(url) {
+      setTab("map");
+      initPointCloudViewer();
+      for (const c of [...pcScene.children]) {
+        if (c.isPoints) pcScene.remove(c);
+      }
+      pcHint.textContent = "Loading…";
+      const loader = new PLYLoader();
+      loader.load(url, (geometry) => {
+        geometry.center();
+        const mat = new THREE.PointsMaterial({ size: 0.02, vertexColors: geometry.hasAttribute("color") });
+        const pts = new THREE.Points(geometry, mat);
+        pcScene.add(pts);
+        const box = new THREE.Box3().setFromObject(pts);
+        const size = box.getSize(new THREE.Vector3()).length() || 1;
+        pcCamera.position.set(size * 0.6, size * 0.4, size * 0.8);
+        pcControls.target.copy(box.getCenter(new THREE.Vector3()));
+        pcControls.update();
+        pcHint.textContent = `Showing ${geometry.getAttribute("position").count.toLocaleString()} points`;
+      }, undefined, (err) => {
+        pcHint.textContent = "PLY load failed: " + err.message;
+      });
+    }
+
+    function jobId() {
+      return jobInput.value.trim();
+    }
+
+    function setExportLinks(id) {
+      document.getElementById("dl-splat").href = `/api/v1/scenes/${id}/splat`;
+      document.getElementById("dl-ply").href = `/api/v1/scenes/${id}/ply`;
+      document.getElementById("dl-compressed").href = `/api/v1/scenes/${id}/ply_compressed`;
+      document.getElementById("dl-ckpt").href = `/api/v1/scenes/${id}/ckpt`;
+    }
+
+    function fillList(el, items, { onPreview, onViser } = {}) {
+      el.innerHTML = "";
+      for (const a of items) {
+        const li = document.createElement("li");
+        const actions = [];
+        if (a.viewer === "pointcloud" || a.key?.endsWith("_sparse_ply")) {
+          actions.push(`<button type="button" class="secondary preview-pc" data-url="${a.url}">Preview points</button>`);
+        }
+        if (a.viewer === "supersplat" || a.key === "infer_gs_ply" || a.key === "ply_compressed") {
+          actions.push(`<a href="${a.url}" download>Download</a>`);
+          actions.push(`<a href="https://playcanvas.com/supersplat/editor" target="_blank" rel="noopener">SuperSplat ↗</a>`);
+        } else if (a.viewer === "gsplat_viser" || a.key === "ckpt") {
+          actions.push(`<button type="button" class="secondary open-viser">Open Viser</button>`);
+          actions.push(`<a href="${a.url}" download>Download</a>`);
+        } else {
+          actions.push(`<a href="${a.url}" download>Download</a>`);
+        }
+        li.innerHTML = `<span class="stage-tag">${a.stage}</span><span class="label">${a.label}</span>${actions.join(" ")}`;
+        li.querySelector(".preview-pc")?.addEventListener("click", (ev) => onPreview?.(ev.target.dataset.url));
+        li.querySelector(".open-viser")?.addEventListener("click", () => onViser?.());
+        el.appendChild(li);
+      }
+    }
+
+    function renderArtifacts(items) {
+      lastArtifacts = items;
+      const maps = items.filter(isMapArtifact);
+      const splats = items.filter(isSplatArtifact);
+      // Artifacts that match neither still show under map if geometry_meta-like
+      const leftovers = items.filter((a) => !isMapArtifact(a) && !isSplatArtifact(a));
+      const mapItems = [...maps, ...leftovers.filter((a) => a.stage === "sfm" || a.stage === "geometry")];
+      const splatItems = [...splats];
+
+      mapCount.textContent = mapItems.length ? `(${mapItems.length})` : "";
+      splatCount.textContent = splatItems.length ? `(${splatItems.length})` : "";
+
+      fillList(mapList, mapItems, { onPreview: showPointCloud });
+      fillList(splatList, splatItems, {
+        onPreview: showPointCloud,
+        onViser: () => { setTab("splats"); startViewer(); },
+      });
+
+      mapEmpty.hidden = mapItems.length > 0;
+      splatEmpty.hidden = splatItems.length > 0;
+
+      const infer = items.find((a) => a.key === "infer_gs_ply");
+      if (infer) {
+        inferGsBanner.hidden = false;
+        document.getElementById("infer-gs-dl").href = infer.url;
+      } else {
+        inferGsBanner.hidden = true;
+      }
+
+      const nMap = mapItems.length;
+      const nSplat = splatItems.length;
+      sceneStatus.textContent = `Map artifacts: ${nMap} · Splat artifacts: ${nSplat}`;
+
+      if (!autoLoadedMap) {
+        const ply = mapItems.find((a) => a.viewer === "pointcloud" || a.key?.endsWith("_sparse_ply"));
+        if (ply) {
+          autoLoadedMap = true;
+          showPointCloud(ply.url);
+        }
+      }
+    }
+
+    async function refreshArtifacts() {
+      const id = jobId();
+      if (!id) {
+        sceneStatus.textContent = "Enter a job ID";
+        return;
+      }
+      setExportLinks(id);
+      try {
+        const data = await api(`/api/v1/scenes/${id}/artifacts`);
+        renderArtifacts(data.artifacts || []);
+        logEl.textContent += `artifacts: ${(data.artifacts || []).length} items\n`;
+      } catch (e) {
+        sceneStatus.textContent = "Error: " + e.message;
+        logEl.textContent += "artifacts error: " + e.message + "\n";
+      }
+    }
+
+    async function startViewer() {
+      const id = jobId();
+      if (!id) { statusEl.textContent = "Enter job ID"; return; }
+      setTab("splats");
+      setExportLinks(id);
+      statusEl.textContent = "Starting Viser session…";
+      try {
+        const res = await api(`/api/v1/scenes/${id}/viewer/start`, { method: "POST" });
+        const prefix = res.proxy_prefix || `/api/v1/scenes/${id}/viewer/proxy/`;
+        frame.src = prefix;
+        frame.hidden = false;
+        statusEl.textContent = `Viewer active on port ${res.port} (ckpt: ${res.ckpt?.split("/").pop() || "?"})`;
+        logEl.textContent += `viewer started port ${res.port}\n`;
+      } catch (e) {
+        statusEl.textContent = "Error: " + e.message;
+      }
+    }
+
+    async function stopViewer() {
+      const id = jobId();
+      if (!id) return;
+      await api(`/api/v1/scenes/${id}/viewer/stop`, { method: "POST" }).catch(() => {});
+      frame.hidden = true;
+      frame.src = "about:blank";
+      statusEl.textContent = "Viewer stopped";
+    }
+
+    document.querySelectorAll(".tab").forEach((btn) => {
+      btn.addEventListener("click", () => setTab(btn.dataset.tab));
+    });
+    window.addEventListener("hashchange", () => setTab(currentTab(), { pushHash: false }));
+
+    document.getElementById("open-viewer").onclick = startViewer;
+    document.getElementById("reload-viewer").onclick = startViewer;
+    document.getElementById("stop-viewer").onclick = stopViewer;
+    document.getElementById("refresh-artifacts").onclick = refreshArtifacts;
+
+    function hookEvents(id) {
+      const es = new EventSource(`/api/v1/jobs/${id}/events`);
+      es.onmessage = (ev) => {
+        try {
+          const d = JSON.parse(ev.data);
+          if (d.type === "stage_artifacts") {
+            logEl.textContent += `[${d.stage}] artifacts: ${Object.keys(d.artifacts || {}).join(", ")}\n`;
+            refreshArtifacts();
+            if (d.stage === "sfm" || d.stage === "geometry") setTab("map");
+          }
+          if (d.type === "geometry_preview") {
+            logEl.textContent += `geometry_preview path=${d.path} infer_gs=${d.infer_gs || "—"}\n`;
+            refreshArtifacts();
+            setTab(d.infer_gs ? "splats" : "map");
+          }
+          if (d.type === "checkpoint_ready") {
+            logEl.textContent += `checkpoint ${d.iteration}: reloading viewer\n`;
+            jobInput.value = id;
+            setTab("splats");
+            startViewer();
+          }
+          if (d.type === "viewer_ready") {
+            logEl.textContent += `live train viewer port ${d.port}\n`;
+            setTab("splats");
+            statusEl.textContent = `Live training Viser on port ${d.port}`;
+          }
+        } catch (_) {}
+      };
+    }
+
+    setTab(currentTab(), { pushHash: false });
+
+    const id = params.get("job");
+    if (id) {
+      setExportLinks(id);
+      refreshArtifacts();
+      hookEvents(id);
+    }
+    jobInput.addEventListener("change", () => {
+      autoLoadedMap = false;
+      const jid = jobId();
+      if (jid) {
+        setExportLinks(jid);
+        refreshArtifacts();
+      }
+    });
+  </script>
+</body>
+</html>

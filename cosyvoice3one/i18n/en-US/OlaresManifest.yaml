@@ -1,0 +1,8 @@
+metadata:
+  description: Fun-CosyVoice3-0.5B TTS with Cantonese and 18 Chinese dialects for Olares One
+  title: CosyVoice3 TTS One
+spec:
+  fullDescription: |
+    Fun-CosyVoice3-0.5B OpenAI-compatible TTS. Zero-shot clone, 9 languages,
+    18 Chinese dialects including Cantonese. In-cluster http://cosyvoice3one:8000.
+    Register a voice or use /v1/audio/speech/clone with a reference WAV.

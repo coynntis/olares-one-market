@@ -1,0 +1,7 @@
+metadata:
+  description: Nemotron-Labs Audex 30B-A3B — unified audio+speech multimodal MoE via vLLM on Olares One
+  title: Nemotron Audex 30B One
+spec:
+  fullDescription: |
+    NVIDIA Nemotron-Labs-Audex-30B-A3B — unified audio-text MoE on Olares One.
+    Text reasoning + audio understanding via vLLM v0.20.0-cu129. See upgrade notes for TTS/S2S caveats.

@@ -1,0 +1,99 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  locateanything3bone: 1
+  locateanything3bonecli: 1
+metadata:
+  name: locateanything3bone
+  icon: https://cdn.olares.com/images/2026/08/1563b04b8376b3551cc60ce928b3a6cf.png
+  description: LocateAnything-3B via ghcr.io/coynntis/locate-anything:0.1.2 (Gradio + REST)
+  title: LocateAnything 3B One
+  version: 1.0.27
+  categories:
+    - AI
+sharedEntrances:
+  - name: locateanything3bone
+    host: sharedentrances-locateanything3bone
+    port: 0
+    title: LocateAnything 3B API
+    icon: https://cdn.olares.com/images/2026/08/1563b04b8376b3551cc60ce928b3a6cf.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: locateanything3bonecli
+    port: 8080
+    host: locateanything3bonecli
+    title: LocateAnything 3B
+    icon: https://cdn.olares.com/images/2026/08/1563b04b8376b3551cc60ce928b3a6cf.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.27
+  featuredImage: https://cdn.olares.com/images/2026/08/9f1c6a985da6badffbb13549c97212af.png
+  fullDescription: |
+    NVIDIA LocateAnything-3B on Olares One (RTX 5090M): visual grounding with Parallel Box Decoding.
+
+    Uses pre-built image ghcr.io/coynntis/locate-anything:0.1.2 (MagiAttention v1.1.1, MAGI_ATTENTION_KERNEL_BACKEND=fa4, flash_attn_cute).
+    First start downloads nvidia/LocateAnything-3B (~8GB) via Hugging Face.
+
+    Private ghcr: uses OLARES_USER_GITHUB_TOKEN (read:packages) as imagePullSecret automatically.
+    Or make the package Public on GitHub Packages.
+
+    Fallback: set deps.bootstrapOnDevice true in values to compile on-device (see BUILD.md).
+  developer: NVIDIA
+  website: https://huggingface.co/nvidia/LocateAnything-3B
+  sourceCode: https://github.com/coynntis/olares-one-market/tree/main/locateanything3bone
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: NVIDIA License (non-commercial research)
+      url: https://huggingface.co/nvidia/LocateAnything-3B
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '17'
+      requiredMemory: 6Gi
+      limitedMemory: 65Gi
+      requiredDisk: 35Gi
+      limitedDisk: 80Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+        v1.0.24: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.23: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

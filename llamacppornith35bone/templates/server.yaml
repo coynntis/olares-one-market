@@ -1,0 +1,292 @@
+{{- $llmCtx := .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" }}
+{{- $llmMaxOut := .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" }}
+{{- $llmApiKey := .Values.olaresEnv.LLM_API_KEY | default "" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamacpp-ornith35b-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_URL: "https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B-GGUF/resolve/main/ornith-1.0-35b-Q4_K_M.gguf"
+  MODEL_FILE: "ornith-1.0-35b-Q4_K_M.gguf"
+  # Exact HF size (deepreinforce-ai/Ornith-1.0-35B-GGUF tree/main) — reject truncated cache
+  MODEL_BYTES: "21166757760"
+  MODEL_ALIAS: "ornith-1.0-35b"
+  CONTEXT_SIZE: "65536"
+  N_GPU_LAYERS: "99"
+  THREADS: "16"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: llamacppornith35bone
+  name: llamacppornith35bone
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.llamacppornith35bone.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: llamacppornith35bone
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: llamacppornith35bone
+    spec:
+      {{- $token := .Values.olaresEnv.GITHUB_TOKEN | trim -}}
+      {{- if $token }}
+      imagePullSecrets:
+        - name: llamacppornith35bone-ghcr
+      {{- end }}
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+        - name: model-downloader
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - '-c'
+            - |
+              log() { echo "$(date -Iseconds) [ornith35b:init] $*"; }
+              SHARED_DIR="/shared-models/llms"
+              MODELS_DIR="/models"
+              mkdir -p "$SHARED_DIR" "$MODELS_DIR"
+              find_comfy_llms() {
+                local name="$1" src
+                [ -n "$name" ] || return 1
+                [ -d /comfyui-llms ] || return 1
+                src="$(find /comfyui-llms -maxdepth 4 -type f -name "$name" 2>/dev/null | head -n 1)"
+                [ -n "$src" ] && [ -f "$src" ] || return 1
+                printf '%s\n' "$src"
+              }
+              link_from_comfy_llms() {
+                local dest="$1" name src
+                name="$(basename "$dest")"
+                [ -n "$name" ] || return 1
+                src="$(find_comfy_llms "$name")" || return 1
+                if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+                  return 1
+                fi
+                echo "[comfy-reuse] $src → $dest (symlink, skip redownload)" >&2
+                rm -f "$dest"
+                ln -sfn "$src" "$dest"
+                return 0
+              }
+              MODEL_PATH="$SHARED_DIR/${MODEL_FILE}"
+              if type link_from_comfy_llms >/dev/null 2>&1; then
+                link_from_comfy_llms "$MODEL_PATH" || true
+              fi
+              EXPECTED_BYTES="${MODEL_BYTES:-21166757760}"
+              size_ok() {
+                f="$1"
+                [ -f "$f" ] || return 1
+                sz=$(wc -c < "$f" | tr -d ' ')
+                [ "$sz" = "$EXPECTED_BYTES" ]
+              }
+              if [ -f "$MODELS_DIR/${MODEL_FILE}" ] && [ ! -f "$MODEL_PATH" ]; then
+                log "migrating model from per-app cache"
+                mv "$MODELS_DIR/${MODEL_FILE}" "$MODEL_PATH"
+              fi
+              if size_ok "$MODEL_PATH"; then
+                log "model already downloaded ($(wc -c < "$MODEL_PATH" | tr -d ' ') bytes): $MODEL_PATH"
+                ls -lh "$MODEL_PATH"
+              else
+                if [ -f "$MODEL_PATH" ]; then
+                  sz=$(wc -c < "$MODEL_PATH" | tr -d ' ')
+                  log "corrupt/incomplete model (${sz} bytes, want ${EXPECTED_BYTES}) — removing and re-downloading"
+                  rm -f "$MODEL_PATH" "$MODEL_PATH.tmp"
+                fi
+                log "downloading model from $MODEL_URL"
+                if [ -n "$HF_TOKEN" ]; then
+                  wget --header="Authorization: Bearer $HF_TOKEN" -O "$MODEL_PATH.tmp" "$MODEL_URL"
+                else
+                  wget -O "$MODEL_PATH.tmp" "$MODEL_URL"
+                fi
+                if ! size_ok "$MODEL_PATH.tmp"; then
+                  sz=$(wc -c < "$MODEL_PATH.tmp" 2>/dev/null | tr -d ' ')
+                  log "download size mismatch (${sz:-missing} != ${EXPECTED_BYTES}); leaving .tmp for debug"
+                  exit 1
+                fi
+                mv "$MODEL_PATH.tmp" "$MODEL_PATH"
+                log "download complete"
+                ls -lh "$MODEL_PATH"
+              fi
+          env:
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-ornith35b-env
+          resources:
+            limits:
+              cpu: "2"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+      containers:
+        - name: llamacpp-server
+          image: "docker.io/aamsellem/buun-llama-cpp:87c351d2"
+          command: ["/app/llama-server"]
+          args:
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8080"
+            - "--model"
+            - "/shared-models/llms/$(MODEL_FILE)"
+            - "--alias"
+            - "$(MODEL_ALIAS)"
+            - "--ctx-size"
+{{- if $llmCtx }}
+            - {{ $llmCtx | quote }}
+{{- else }}
+            - "$(CONTEXT_SIZE)"
+{{- end }}
+            - "--n-gpu-layers"
+            - "$(N_GPU_LAYERS)"
+            - "--threads"
+            - "$(THREADS)"
+            - "--cache-type-k"
+            - "turbo4"
+            - "--cache-type-v"
+            - "turbo4"
+            - "--batch-size"
+            - "512"
+            - "--ubatch-size"
+            - "512"
+            - "--parallel"
+            - "1"
+            - "--flash-attn"
+            - "auto"
+            - "--op-offload"
+            - "--jinja"
+            - "--slot-save-path"
+            - "/cache"
+            - "--no-context-shift"
+{{- if $llmMaxOut }}
+            - "--n-predict"
+            - {{ $llmMaxOut | quote }}
+{{- end }}
+{{- if $llmApiKey }}
+            - "--api-key"
+            - {{ $llmApiKey | quote }}
+{{- end }}
+          env:
+            - name: GGML_CUDA_GRAPH_OPT
+              value: "1"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+          envFrom:
+            - configMapRef:
+                name: llamacpp-ornith35b-env
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/comfyui-llms"
+              name: comfyui-llms
+            - mountPath: "/cache"
+              name: cache
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+        - name: comfyui-llms
+          hostPath:
+            path: "{{ .Values.userspace.appCommon }}/comfyui/model/llms"
+            type: DirectoryOrCreate
+        - name: cache
+          emptyDir: {}
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppornith35bone
+  name: llamacppornith35bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacpp"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: llamacppornith35bone
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: llamacppornith35bone
+  name: sharedentrances-llamacppornith35bone
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "llamacppornith35bone"
+      port: 80
+      targetPort: 8080
+  selector:
+    io.kompose.service: llamacppornith35bone

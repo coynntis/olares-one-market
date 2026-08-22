@@ -1,0 +1,12 @@
+metadata:
+  description: "EXPERIMENTAL — prefer llamacppqwen36a3bone. SNDR FP8 35B cannot do MTP K=5 on 1x24GB"
+  title: SNDR Qwen36 35B One
+spec:
+  fullDescription: |
+    Prefer llamacppqwen36a3bone (Unsloth MTP GGUF, ~243 t/s, vision, turbo4 KV, MTP n=5).
+    Prefer sndrqwen3627bone (INT4+MTP K=4) if you need SNDR/vLLM tooling on 24GB.
+
+    Official SNDR prod-qwen3.6-35b-balanced is TP=2 + MTP K=5.
+    On RTX 5090M 24GB, FP8 + MTP K=5 OOMs. This chart: TP=1, no MTP, 8K ctx — experimental TQ only.
+
+    Upstream: https://github.com/Sandermage/sndr_core_engine

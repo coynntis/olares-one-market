@@ -1,0 +1,94 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacppqwen3635ba3btq34sone: 1
+  llamacppqwen3635ba3btq34soncli: 1
+metadata:
+  name: llamacppqwen3635ba3btq34sone
+  icon: https://cdn.olares.com/images/2026/08/4e9d0422fb098bef4969445dab10d052.png
+  description: Qwen3.6-35B-A3B Vision TQ3_4S via llama.cpp-tq3 on Olares One
+  title: Qwen36 35B A3B Vision TQ34S
+  version: 1.0.24
+  categories:
+    - AI
+sharedEntrances:
+  - name: llamacppqwen3635ba3btq34sone
+    host: sharedentrances-llamacppqwen3635ba3btq34sone
+    port: 0
+    title: Qwen36 35B Vision TQ34S API
+    icon: https://cdn.olares.com/images/2026/08/4e9d0422fb098bef4969445dab10d052.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacppqwen3635ba3btq34soncli
+    port: 8080
+    host: llamacppqwen3635ba3btq34soncli
+    title: Qwen36 35B Vision TQ34S
+    icon: https://cdn.olares.com/images/2026/08/4e9d0422fb098bef4969445dab10d052.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.24
+  featuredImage: https://cdn.olares.com/images/2026/08/8ad63d1262652f6e1b8aa03e386f2f73.png
+  fullDescription: |
+    Qwen3.6-35B-A3B-TQ3_4S served with turbo-tan/llama.cpp-tq3 on Olares One.
+    Multimodal vision via BF16 mmproj and OpenAI-compatible image_url requests.
+    128K context window (131072 tokens).
+    On first launch, downloads from Hugging Face:
+    - Qwen3.6-35B-A3B-TQ3_4S.gguf
+    - mmproj-BF16.gguf
+    - chat_template.jinja from froggeric/Qwen-Fixed-Chat-Templates (separate download; not embedded in GGUF).
+    Server builds turbo-tan/llama.cpp-tq3 with CUDA and starts llama-server on port 8080.
+    Build workspace persisted under appData to avoid full re-clone each restart.
+  developer: coynntis
+  website: https://github.com/coynntis/olares-one-market
+  sourceCode: https://github.com/coynntis/olares-one-market
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: MIT
+      url: https://github.com/turbo-tan/llama.cpp-tq3/blob/main/LICENSE
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '11'
+      requiredMemory: 3Gi
+      limitedMemory: 25Gi
+      requiredDisk: 20Gi
+      limitedDisk: 50Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+  upgradeDescription: |2
+    v1.0.22: llama.cpp defaults — drop --mlock; ensure GGML_CUDA_GRAPH_OPT=1 + --op-offload.
+        v1.0.19: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.18: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

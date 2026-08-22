@@ -1,0 +1,7 @@
+metadata:
+  description: VoxCPM2 TTS — multilingual tokenizer-free speech synthesis
+  title: VoxCPM2 TTS One
+spec:
+  fullDescription: |
+    openbmb/VoxCPM2 — 30-language TTS with optional voice clone. ~4-6 GB VRAM.
+    Alternative to cosyvoice2yueone for multilingual; pair with sensevoiceone + vllmgemma4e4bone.

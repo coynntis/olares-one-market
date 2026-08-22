@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.8"
+description: DeepSeek-V4-Flash-0731 GGUF — Unsloth IQ2_XXS + cpu-moe (DSpark off by default)
+name: llamacppdsv4flash0731one
+type: application
+version: 1.0.8

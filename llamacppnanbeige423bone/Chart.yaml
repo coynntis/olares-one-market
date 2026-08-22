@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.4"
+description: Nanbeige4.2-3B Q8_0 — looped transformer agent model via Nanbeige llama.cpp
+name: llamacppnanbeige423bone
+type: application
+version: 1.0.4

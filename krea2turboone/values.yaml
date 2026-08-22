@@ -1,0 +1,39 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  KREA_MODEL_ID: 'krea/Krea-2-Turbo'
+  KREA_QUANT: 'nvfp4'
+  # sage3 = install SA3 + monkeypatch Diffusers sageattn (soft fallback SA2)
+  KREA_ATTENTION: 'sage3'
+  KREA_SAGE3: '1'
+  # Blackwell sm_120 + torch2.11+cu130 + cp312 (JahJedi SA2).
+  SAGEATTENTION_PIP_SPEC: 'https://huggingface.co/JahJedi/sageattention-flashattn-blackwell-cu130-torch211-cp312/resolve/main/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl'
+  # Soft SA3 experiment (sntdismas wheel for torch2.11+cu130+cp312).
+  SAGEATTN3_PIP_SPEC: 'https://huggingface.co/sntdismas/Sageattention-3-torch2.11.0-cu130-py312-Blackwell/resolve/main/sageattn3-1.0.0-cp312-cp312-linux_x86_64.whl'
+  KREA_NUNCHAKU_MODEL_ID: 'OzzyGT/Krea_2_Turbo_nunchaku_lite_nvfp4'
+  KREA_TRY_FULL_GPU: '1'
+  KREA_EXTRA_LORAS: ''
+  # Optional PyPI mirror for faster uv downloads (e.g. https://pypi.tuna.tsinghua.edu.cn/simple).
+  # Auto-set to Tsinghua when HF_ENDPOINT looks like a China HF mirror.
+  UV_INDEX_URL: ''
+  PIP_INDEX_URL: ''
+  UV_CONCURRENT_DOWNLOADS: '32'
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+image:
+  repository: pytorch/pytorch
+  # 2.11+cu130: JahJedi sageattention 2.2 sm_120 + nunchaku-lite-kernels + SA3 wheel.
+  # 2.12 has no nunchaku-lite kernel variant → IndexError → BF16 OOM on 24GB.
+  tag: 2.11.0-cuda13.0-cudnn9-devel
+workloads:
+  krea2turboone:
+    replicaCount: 1
+  krea2turboonecli:
+    replicaCount: 1

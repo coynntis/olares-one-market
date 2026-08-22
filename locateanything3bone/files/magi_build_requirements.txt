@@ -1,0 +1,7 @@
+# MagiAttention v1.0.5: setup.py imports magi_attention during FFA prebuild, but upstream
+# requirements.txt only lists build tooling (versioningit, nvshmem, etc.). These are
+# required for that import chain (comm/functional/common/jit).
+debugpy
+einops
+jinja2
+filelock

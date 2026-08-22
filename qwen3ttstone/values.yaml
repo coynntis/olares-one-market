@@ -1,7 +1,17 @@
-admin: ""
+admin: ''
 bfl:
-  username: ""
+  username: ''
 userspace:
-  appData: ""
-  appCache: ""
-  userData: ""
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+workloads:
+  qwen3ttstone:
+    replicaCount: 1
+  qwen3ttstonecli:
+    replicaCount: 1

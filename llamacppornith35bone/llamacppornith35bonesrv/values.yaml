@@ -1,0 +1,5 @@
+{}
+olaresEnv:
+  GITHUB_TOKEN: ""
+  GHCR_USER: ""
+  HF_TOKEN: ""

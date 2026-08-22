@@ -1,0 +1,2 @@
+gradio>=5.0.0
+imageio[ffmpeg]>=2.34.0

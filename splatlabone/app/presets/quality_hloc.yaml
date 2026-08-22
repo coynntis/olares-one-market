@@ -1,0 +1,9 @@
+name: quality_hloc
+title: Quality + HLoc (experimental)
+status: experimental
+stages:
+  sfm: glomap
+  geometry: none
+  matching: hloc
+  representation: 3dgs
+  densification: default_adc

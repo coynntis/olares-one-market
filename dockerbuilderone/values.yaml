@@ -1,0 +1,24 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+builder:
+  pytorchImage: pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel
+  kanikoImage: docker.io/martizih/kaniko:v1.27.5-debug
+  port: 8080
+  # Kaniko compile uses nvcc+stubs (no device). GPU on pod is optional; keep 1 if you
+  # want CUDA libs/HAMI available — RAM/liveness matter more for long builds.
+  gpuCount: 1
+workloads:
+  dockerbuilderone:
+    replicaCount: 1
+  dockerbuilderonecli:
+    replicaCount: 1

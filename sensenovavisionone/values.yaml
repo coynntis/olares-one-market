@@ -1,0 +1,26 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  HF_REPO_ID: 'sensenova/SenseNova-Vision-7B-MoT'
+  UV_INDEX_URL: ''
+  PIP_INDEX_URL: ''
+  UV_CONCURRENT_DOWNLOADS: '32'
+  SENSENOVA_DTYPE: 'nf4'
+  SENSENOVA_MAX_MEM_PER_GPU: '20GiB'
+  SENSENOVA_DEVICE: 'cuda'
+  LOAD_LAZY: '0'
+image:
+  repository: pytorch/pytorch
+  tag: 2.12.0-cuda13.0-cudnn9-devel
+workloads:
+  sensenovavisionone:
+    replicaCount: 1
+  sensenovavisiononecli:
+    replicaCount: 1

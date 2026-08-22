@@ -1,0 +1,9 @@
+name: dense_tracks
+title: Dense-SfM tracks (experimental)
+status: experimental
+stages:
+  sfm: glomap
+  geometry: none
+  matching: dense_sfm
+  representation: 3dgs
+  densification: default_adc

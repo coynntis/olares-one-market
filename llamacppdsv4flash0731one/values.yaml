@@ -1,0 +1,28 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  LLM_CONTEXT_WINDOW: ''
+  LLM_MAX_OUTPUT_TOKENS: ''
+  LLM_API_KEY: ''
+  ENABLE_CPU_MOE: '1'
+  N_CPU_MOE: ''
+  N_GPU_LAYERS: ''
+  DSV4_QUANT: 'iq2_xxs'
+  ENABLE_DSPARK: ''
+  ENABLE_NO_MMAP: ''
+  OVERRIDE_TENSORS: ''
+workloads:
+  llamacppdsv4flash0731one:
+    replicaCount: 1
+  llamacppdsv4flash0731onecli:
+    replicaCount: 1

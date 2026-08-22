@@ -1,0 +1,134 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: cosyvoice3one
+  name: cosyvoice3one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.cosyvoice3one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: cosyvoice3one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: cosyvoice3one
+    spec:
+      {{- $token := .Values.olaresEnv.GITHUB_TOKEN | default "" | trim -}}
+      {{- $repo := .Values.image.repository | default "" -}}
+      {{- if and $token (hasPrefix "ghcr.io/" $repo) }}
+      imagePullSecrets:
+        - name: cosyvoice3one-ghcr
+      {{- end }}
+      initContainers:
+        - name: fix-shared-speech-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /shared-models/speech/huggingface /shared-models/speech/modelscope /shared-models/llms
+              chmod -R 777 /shared-models
+              echo "$(date -Iseconds) [cosyvoice3one] shared speech dirs ready"
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: cosyvoice3
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          env:
+            - name: HF_HOME
+              value: "/shared-models/speech/huggingface"
+            - name: HUGGINGFACE_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: TRANSFORMERS_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: HF_HUB_CACHE
+              value: "/shared-models/speech/huggingface"
+            - name: MODEL_DIR
+              value: "FunAudioLLM/Fun-CosyVoice3-0.5B-2512"
+            - name: FP16
+              value: "true"
+            - name: HF_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              value: {{ .Values.olaresEnv.HF_TOKEN | default "" | quote }}
+            {{- if .Values.olaresEnv.HF_ENDPOINT }}
+            - name: HF_ENDPOINT
+              value: {{ .Values.olaresEnv.HF_ENDPOINT | quote }}
+            {{- end }}
+          ports:
+            - containerPort: 8080
+              name: api
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 10
+            periodSeconds: 60
+            failureThreshold: 5
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 16Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+            - mountPath: "/root/.cache/models"
+              name: shared-models
+              subPath: speech/cosyvoice3
+      volumes:
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: cosyvoice3one
+  name: cosyvoice3one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "cosyvoice3"
+      port: 8000
+      targetPort: 8080
+  selector:
+    io.kompose.service: cosyvoice3one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: cosyvoice3one
+  name: sharedentrances-cosyvoice3one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "cosyvoice3one"
+      port: 80
+      targetPort: 8080
+  selector:
+    io.kompose.service: cosyvoice3one

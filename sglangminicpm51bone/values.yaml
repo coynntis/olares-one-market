@@ -1,0 +1,24 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+sglang:
+  contextLength: '8192'
+  memFractionStatic: '0.35'
+  maxRunningRequests: '1'
+  maxTotalTokens: '12288'
+  chunkedPrefillSize: '2048'
+  disableRadixCache: true
+workloads:
+  sglangminicpm51bone:
+    replicaCount: 1
+  sglangminicpm51bonecli:
+    replicaCount: 1

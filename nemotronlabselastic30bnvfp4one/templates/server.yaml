@@ -1,0 +1,185 @@
+{{- $llmCtx := .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" }}
+{{- $llmMaxOut := .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" }}
+{{- $llmApiKey := .Values.olaresEnv.LLM_API_KEY | default "" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nemotron-nvfp4-env
+  namespace: "{{ .Release.Namespace }}"
+data:
+  MODEL_NAME: "nvidia/NVIDIA-Nemotron-Labs-3-Elastic-30B-A3B-NVFP4"
+  MODEL_ALIAS: "nemotron-elastic-30b"
+  MAX_MODEL_LEN: "4096"
+  GPU_MEMORY_UTILIZATION: "0.95"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: nemotronlabselastic30bnvfp4one
+  name: nemotronlabselastic30bnvfp4one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.nemotronlabselastic30bnvfp4one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: nemotronlabselastic30bnvfp4one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: nemotronlabselastic30bnvfp4one
+    spec:
+      initContainers:
+        - name: fix-shared-llms-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - -c
+            - mkdir -p /shared-models/llms/huggingface && chmod -R 777 /shared-models && echo shared-llms-dir-ready
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: "/shared-models"
+              name: shared-models
+      containers:
+        - name: vllm-server
+          image: "vllm/vllm-openai:v0.22.1-x86_64-cu129-ubuntu2404"
+          command:
+            - "vllm"
+            - "serve"
+          args:
+            - "$(MODEL_NAME)"
+            - "--served-model-name"
+            - "$(MODEL_ALIAS)"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+            - "--max-model-len"
+{{- if $llmCtx }}
+            - {{ $llmCtx | quote }}
+{{- else }}
+            - "$(MAX_MODEL_LEN)"
+{{- end }}
+            - "--gpu-memory-utilization"
+            - "$(GPU_MEMORY_UTILIZATION)"
+            - "--max-num-seqs"
+            - "1"
+            - "--trust-remote-code"
+            - "--download-dir"
+            - "/shared-models/llms/huggingface"
+            - "--dtype"
+            - "auto"
+            - "--compilation-config"
+            - '{"cudagraph_mode": 1, "max_cudagraph_capture_size": 4, "cudagraph_capture_sizes": [1, 2, 4]}'
+{{- if $llmApiKey }}
+            - "--api-key"
+            - {{ $llmApiKey | quote }}
+{{- end }}
+{{- if $llmMaxOut }}
+            - "--override-generation-config"
+            - {{ printf "{\"max_tokens\":%s}" $llmMaxOut | quote }}
+{{- end }}
+          envFrom:
+            - configMapRef:
+                name: nemotron-nvfp4-env
+          env:
+            - name: HF_HOME
+              value: "/shared-models/llms/huggingface"
+            - name: LLM_CONTEXT_WINDOW
+              value: {{ .Values.olaresEnv.LLM_CONTEXT_WINDOW | default "" | quote }}
+            - name: LLM_MAX_OUTPUT_TOKENS
+              value: {{ .Values.olaresEnv.LLM_MAX_OUTPUT_TOKENS | default "" | quote }}
+            - name: LLM_API_KEY
+              value: {{ .Values.olaresEnv.LLM_API_KEY | default "" | quote }}
+            {{- if .Values.olaresEnv.HF_ENDPOINT }}
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            {{- end }}
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN | default "" }}"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            # HAMi memory limit override to give the model + graphs headroom
+            - name: CUDA_DEVICE_MEMORY_LIMIT_0
+              value: "30000m"
+          ports:
+            - containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 900
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 240
+          resources:
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: 500m
+              memory: 2Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/shared-models"
+              name: shared-models
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: shared-models
+          hostPath:
+            path: "/olares/share/ai/model"
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: nemotronlabselastic30bnvfp4one
+  name: nemotronlabselastic30bnvfp4one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "vllm"
+      port: 8000
+      targetPort: 8000
+  selector:
+    io.kompose.service: nemotronlabselastic30bnvfp4one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: nemotronlabselastic30bnvfp4one
+  name: sharedentrances-nemotronlabselastic30bnvfp4one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "nemotronlabselastic30bnvfp4one"
+      port: 80
+      targetPort: 8000
+  selector:
+    io.kompose.service: nemotronlabselastic30bnvfp4one

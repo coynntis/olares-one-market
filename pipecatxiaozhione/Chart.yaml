@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "0.5.16"
+description: Pipecat voice bridge compatible with xiaozhi-esp32 WebSocket protocol
+name: pipecatxiaozhione
+type: application
+version: 0.5.16

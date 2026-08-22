@@ -1,0 +1,12 @@
+metadata:
+  title: Agents-A1 Vision One
+  description: Agents-A1 MoE agentic VLM — fast vision + long context on Olares One
+
+spec:
+  fullDescription: |
+    InternScience Agents-A1 MoE agentic vision-language model served via llama.cpp — optimized for Olares One.
+    Multimodal: accepts images via OpenAI-compatible vision API (image_url format).
+    RTX 5090M (24GB) + 96GB DDR5 + Core Ultra 9 275HX.
+    Q4_K_M quantization (21.2GB) + mmproj. buun-llama-cpp with --mmproj-gpu-swap.
+    Downloads model + mmproj on first launch (~22GB). 128K default context, q8_0/turbo4 KV.
+    OpenAI-compatible API on port 8080.

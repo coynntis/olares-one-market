@@ -1,0 +1,11 @@
+metadata:
+  title: Qwen36 27B Long Context
+  description: "Qwen3.6 27B longest context — 74 t/s / 86.7% accept @ full 262K (unsloth UD-Q3_K_XL + buun draft-mtp)"
+
+spec:
+  fullDescription: |
+    Qwen3.6 27B with Multi-Token Prediction (MTP) speculative decoding via buun-llama-cpp:87c351d2.
+    Target: unsloth/Qwen3.6-27B-MTP-GGUF Qwen3.6-27B-UD-Q3_K_XL.gguf (14.8 GB, Unsloth Dynamic Q3_K_XL with MTP head).
+    Config: full 262K context, asymmetric q8_0/turbo4 KV, draft-mtp n=3, froggeric chat template, --reasoning off.
+    Validated 2026-05-21: 74.28 t/s AVG, 86.7% draft acceptance, full 262K native context on Olares One.
+    Longest-context Qwen3.6 27B dense path. OpenAI-compatible API on port 8000 via nginx client proxy on port 8080.

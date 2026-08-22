@@ -1,0 +1,22 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  HF_REPO_ID: 'robbyant/lingbot-vla-v2-6b'
+  UV_INDEX_URL: ''
+  PIP_INDEX_URL: ''
+  UV_CONCURRENT_DOWNLOADS: '32'
+image:
+  repository: pytorch/pytorch
+  tag: 2.12.0-cuda13.0-cudnn9-devel
+workloads:
+  lingbotvlaone:
+    replicaCount: 1
+  lingbotvlaonecli:
+    replicaCount: 1

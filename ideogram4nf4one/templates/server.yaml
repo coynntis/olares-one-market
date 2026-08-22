@@ -1,0 +1,205 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: ideogram4nf4one
+  name: ideogram4nf4one
+  namespace: "{{ .Release.Namespace }}"
+  annotations:
+    applications.app.bytetrade.io/gpu-inject: "true"
+spec:
+  replicas: {{ .Values.workloads.ideogram4nf4one.replicaCount }}
+  selector:
+    matchLabels:
+      io.kompose.service: ideogram4nf4one
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.network/chrome-default: "true"
+        io.kompose.service: ideogram4nf4one
+    spec:
+      initContainers:
+        - name: volume-perms
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              set -eux
+              chmod -R 777 /models /workspace /output || true
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+          securityContext:
+            runAsUser: 0
+      containers:
+        - name: ideogram4-gradio
+          {{- $repo := .Values.image.repository | trim -}}
+          {{- if $repo }}
+          image: {{ printf "%s:%s" $repo (.Values.image.tag | default "latest") | quote }}
+          {{- else }}
+          image: "pytorch/pytorch:2.12.0-cuda13.0-cudnn9-devel"
+          {{- end }}
+          command:
+            - "bash"
+            - "-lc"
+          args:
+            - |
+              set -euo pipefail
+              APP_DIR="/workspace/ideogram4nf4one"
+              mkdir -p "$APP_DIR" /output/gradio
+              cp /app-src/app.py "$APP_DIR/app.py"
+              cp /app-src/requirements.txt "$APP_DIR/requirements.txt"
+              cd "$APP_DIR"
+
+              # PyTorch image ships torch under conda. Prefer that — PATH may hit
+              # /usr/bin/python3 (PEP 668, no ensurepip) and break installs.
+              # Do NOT create a fresh .venv: empty env loses base torch; debian
+              # python3-venv often missing. Wipe stale half-venvs from old boots.
+              rm -rf "$APP_DIR/.venv"
+              if [ -x /opt/conda/bin/python ]; then
+                PY=/opt/conda/bin/python
+              elif [ -x /opt/conda/bin/python3 ]; then
+                PY=/opt/conda/bin/python3
+              else
+                PY="$(command -v python3 || command -v python)"
+              fi
+              echo "[ideogram] python=$PY"
+              "$PY" -c "import torch; print('[ideogram] torch', torch.__version__, 'cuda', torch.version.cuda)"
+
+              # --break-system-packages: required on Debian PEP 668; harmless on conda.
+              # Diffusers comes from GitHub zip (requirements.txt) — no git binary needed.
+              PIP_EXTRA=(--break-system-packages --no-cache-dir)
+              "$PY" -m pip install "${PIP_EXTRA[@]}" --upgrade pip
+              "$PY" -m pip install "${PIP_EXTRA[@]}" -r requirements.txt
+              exec "$PY" app.py
+          env:
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: HF_TOKEN
+              value: "{{ .Values.olaresEnv.HF_TOKEN }}"
+            - name: HF_ENDPOINT
+              value: "{{ .Values.olaresEnv.HF_ENDPOINT }}"
+            - name: IDEOGRAM_API_KEY
+              value: "{{ .Values.olaresEnv.IDEOGRAM_API_KEY }}"
+            - name: IDEOGRAM_ATTENTION_BACKEND
+              # Ideogram uses dense attn_mask — flash/_native_flash break.
+              # Diffusers name is `native` (PyTorch SDPA), not `sdpa`.
+              value: "_native_efficient"
+            - name: IDEOGRAM_MODEL_ID
+              value: "ideogram-ai/ideogram-4-nf4-diffusers"
+            - name: IDEOGRAM_INSTANT_REPO
+              value: "fal/ideogram-v4-instant"
+            - name: IDEOGRAM_COMPONENTS_REPO
+              value: "ideogram-ai/ideogram-4-nf4-diffusers"
+            # fal Instant README pin (TE/VAE/scheduler).
+            - name: IDEOGRAM_COMPONENTS_REVISION
+              value: "1874bc70267ba2c823a7239e1d70dd308c8d64dc"
+            - name: IDEOGRAM_MAX_SEQ_LEN_INSTANT
+              value: "512"
+            - name: IDEOGRAM_VRAM_OFFLOAD_GB
+              value: "25"
+            - name: DIFFUSERS_ENABLE_HUB_KERNELS
+              value: "yes"
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: TORCHDYNAMO_DISABLE
+              value: "1"
+            - name: GRADIO_TEMP_DIR
+              value: "/output/gradio"
+            - name: SERVER_PORT
+              value: "7860"
+            - name: LOG_LEVEL
+              value: "INFO"
+          ports:
+            - containerPort: 7860
+          startupProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 15
+            failureThreshold: 1200
+          livenessProbe:
+            tcpSocket:
+              port: 7860
+            initialDelaySeconds: 180
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            limits:
+              cpu: "12"
+              memory: 48Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - mountPath: "/models"
+              name: models
+            - mountPath: "/workspace"
+              name: workspace
+            - mountPath: "/output"
+              name: output
+            - mountPath: "/dev/shm"
+              name: dshm
+            - mountPath: "/app-src"
+              name: app-source
+      volumes:
+        - name: models
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/models"
+            type: DirectoryOrCreate
+        - name: workspace
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate
+        - name: output
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/output"
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+        - name: app-source
+          configMap:
+            name: ideogram4nf4one-source
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: ideogram4nf4one
+  name: ideogram4nf4one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "gradio"
+      port: 7860
+      targetPort: 7860
+  selector:
+    io.kompose.service: ideogram4nf4one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: ideogram4nf4one
+  name: sharedentrances-ideogram4nf4one
+  namespace: "{{ .Release.Namespace }}"
+spec:
+  ports:
+    - name: "ideogram4nf4one"
+      port: 80
+      targetPort: 7860
+  selector:
+    io.kompose.service: ideogram4nf4one

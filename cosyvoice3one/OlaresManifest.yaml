@@ -1,0 +1,141 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  cosyvoice3one: 1
+  cosyvoice3onecli: 1
+metadata:
+  name: cosyvoice3one
+  icon: https://cdn.olares.com/images/2026/08/dad98643e695a9942d3724416ae33e99.png
+  description: Fun-CosyVoice3-0.5B TTS — 9 languages, 18 Chinese dialects including Cantonese — Olares One
+  title: CosyVoice3 TTS One
+  version: 1.0.0
+  categories:
+    - TTS
+  bento:
+    family: other
+    size_label: CosyVoice3
+    badge: tts
+    hero:
+      value: TTS
+      label: text-to-speech
+    specs:
+      - label: model
+        value: 0.5B
+      - label: dialects
+        value: '18'
+    capabilities:
+      tool_calling: false
+      vision: false
+      audio: true
+      mtp:
+        enabled: false
+    stack: Fun-CosyVoice3 · FastAPI
+sharedEntrances:
+  - name: cosyvoice3one
+    host: sharedentrances-cosyvoice3one
+    port: 0
+    title: CosyVoice3 TTS API
+    icon: https://cdn.olares.com/images/2026/08/dad98643e695a9942d3724416ae33e99.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: cosyvoice3onecli
+    port: 8080
+    host: cosyvoice3onecli
+    title: CosyVoice3 TTS One
+    icon: https://cdn.olares.com/images/2026/08/dad98643e695a9942d3724416ae33e99.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.0
+  featuredImage: https://cdn.olares.com/images/2026/08/6229687099c23fd6554d79746933b488.png
+  upgradeDescription: |
+    v1.0.0: Fun-CosyVoice3-0.5B via ghcr.io/hsiang-han/cosyvoice3-api — OpenAI /v1/audio/speech,
+    zero-shot clone, 9 languages + 18 Chinese dialects (Cantonese). CUDA 12.8 / RTX 5090M.
+  fullDescription: |
+    Fun-CosyVoice3-0.5B (FunAudioLLM) — multilingual zero-shot TTS with 18 Chinese dialects
+    including Cantonese (粤语). Optimized for Olares One (RTX 5090M 24GB).
+
+    ===== HOW TO USE =====
+
+    In-cluster: http://cosyvoice3one:8000
+    Shared entrance: http://<route-id>.shared.olares.com
+    App entrance (proxy): port 8080
+
+    --- OpenAI-compatible speech ---
+
+    curl -X POST http://cosyvoice3one:8000/v1/audio/speech \
+      -H "Content-Type: application/json" \
+      -d '{"input":"你好，欢迎使用 CosyVoice3。","voice":"<registered-voice>","response_format":"wav"}' \
+      -o out.wav
+
+    Model has NO built-in preset voices. Register a 3s+ reference clip first, or use clone:
+
+    curl -X POST http://cosyvoice3one:8000/v1/audio/speech/clone \
+      -F "text=你好啊，食咗饭未啊？" \
+      -F "voice=@./cantonese_ref.wav" \
+      -o yue.wav
+
+    --- Cantonese ---
+
+    Pass Cantonese text with a Cantonese reference voice for best results.
+    Instruct/dialect modes follow CosyVoice3 docs (18 Chinese dialects).
+
+    First boot downloads ~10GB model to shared HF cache
+    /olares/share/ai/model/speech/huggingface (reused by other speech apps).
+    Image: ghcr.io/hsiang-han/cosyvoice3-api (CUDA 12.8, Blackwell OK).
+    Set HF_ENDPOINT=https://hf-mirror.com in China if needed.
+  developer: FunAudioLLM / hsiang-han
+  website: https://funaudiollm.github.io/cosyvoice3/
+  sourceCode: https://github.com/FunAudioLLM/CosyVoice
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '1'
+      limitedCpu: '9'
+      requiredMemory: 3Gi
+      limitedMemory: 17Gi
+      requiredDisk: 15Gi
+      limitedDisk: 40Gi
+      requiredGPUMemory: 4Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: GITHUB_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_TOKEN
+  - envName: GHCR_USER
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_GITHUB_USERNAME
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system

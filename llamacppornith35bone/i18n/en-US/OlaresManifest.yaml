@@ -1,0 +1,8 @@
+metadata:
+  description: "Ornith 1.0 35B Q4_K_M via llama.cpp — dense reasoning for Olares One"
+  title: Ornith 35B One
+spec:
+  fullDescription: |
+    Ornith 1.0 35B dense reasoning model — Q4_K_M (~21.2 GB) on RTX 5090M.
+    Default 64K context, turbo4/turbo4 KV cache, llama.cpp b8740. Olares 1.12.6+ v3 shared app.
+    OpenAI-compatible API on port 8080.

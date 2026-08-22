@@ -1,0 +1,17 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+workloads:
+  dflashqwen3627bone:
+    replicaCount: 1
+  dflashqwen3627bonecli:
+    replicaCount: 1

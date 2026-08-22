@@ -1,0 +1,10 @@
+metadata:
+  description: Tess-4-27B-NVFP4 vision + agentic reasoning via vLLM — Qwen3.6 multimodal on Olares One
+  title: Tess-4-27B NVFP4 One
+spec:
+  fullDescription: |
+    Tess-4-27B-NVFP4 — agentic, thinking-native vision-language model by Migel Tissera (Qwen3.6-27B base).
+    Served via vLLM v0.22.1 on Olares One (RTX 5090M, 96 GB DDR5).
+
+    Native vision + weight-scaled reasoning + tool use. ~19 GB NVFP4 fits fully on 24 GB GPU.
+    Default 64K context. OpenAI-compatible API on port 8000.

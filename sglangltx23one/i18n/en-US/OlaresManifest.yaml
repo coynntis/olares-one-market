@@ -1,0 +1,9 @@
+metadata:
+  title: SGLang LTX-2-3 One
+  description: "LTX-2.3 via SGLang Diffusion — layerwise DiT offload for 24GB T2V"
+
+spec:
+  fullDescription: |
+    SGLang Diffusion serving Lightricks/LTX-2.3 on Olares One.
+    Defaults: dit-layerwise-offload (transformer + text_encoder) + VAE tiling/CPU offload.
+    Sibling Gradio FP8 distilled app: ltx23one.

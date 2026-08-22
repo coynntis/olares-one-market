@@ -1,0 +1,183 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  llamacpplagunas21one: 1
+  llamacpplagunas21onecli: 1
+metadata:
+  name: llamacpplagunas21one
+  icon: https://cdn.olares.com/images/2026/08/95a75879af027962e62025aa5256e880.png
+  description: EXPERIMENTAL Laguna S 2.1 Q4_K_M — cpu-moe (DFlash off by default)
+  title: Laguna S 2-1 One
+  version: 1.0.16
+  categories:
+    - LLM Chat
+    - AI Agents
+  bento:
+    family: laguna
+    size_label: 118B-A8B
+    badge: experimental
+    hero:
+      value: ~96 GB
+      label: Q4_K_M + cpu-moe
+    specs:
+      - label: context
+        value: 16K
+      - label: vram
+        value: hybrid
+    capabilities:
+      tool_calling: true
+      vision: false
+      audio: false
+    stack: poolside llama.cpp · cpu-moe · no DFlash default
+sharedEntrances:
+  - name: llamacpplagunas21one
+    host: sharedentrances-llamacpplagunas21one
+    port: 0
+    title: Laguna S21 API
+    icon: https://cdn.olares.com/images/2026/08/95a75879af027962e62025aa5256e880.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: llamacpplagunas21onecli
+    port: 8080
+    host: llamacpplagunas21onecli
+    title: Laguna S 2-1 One
+    icon: https://cdn.olares.com/images/2026/08/95a75879af027962e62025aa5256e880.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.16
+  featuredImage: https://cdn.olares.com/images/2026/08/433ac5f846d86ce5846bdb8a2a8b2c90.png
+  upgradeDescription: |
+    v1.0.16: Poolside re-uploaded Q4_K_M — exact size 68248759648 → 96031829760 (~96.0 GB). ComfyUI Common already has the new file; reuse symlink now matches. Disk req 80Gi→110Gi.
+    v1.0.15: ComfyUI reuse must match exact GGUF bytes — never wget -c a .part larger than exact (416 Range).
+    v1.0.14: reuse GGUFs already in Common/comfyui/model/llms (and subdirs) via symlink — official ComfyUI migrates External/ai/model/llms there; skip redownload.
+    v1.0.12: default PP batch 2048 / ubatch 1024 (helps prefill with cpu-moe+op-offload; TG unchanged).
+    v1.0.11: DFlash OFF by default — on cpu-moe hybrid draft accept ~9% → ~4.9 t/s (worse than ~15 t/s plain).
+      batch 2048→512. Keep ENABLE_DFLASH=1 only if logs show accept >>50%.
+    v1.0.10: cpu-moe throughput — THREADS 20→22, server CPU limit 16→22 / request 2→8 (275HX 24 cores; was capped below thread count).
+    v1.0.9: init verify speed — stop wc -c on 68GB GGUF (read whole file each boot); use stat -c%s + .ok stamp.
+    v1.0.8: keep mmap + full --cpu-moe; ENABLE_DFLASH=1 default (Laguna has no MTP). Optional ENABLE_NO_MMAP / N_CPU_MOE knobs only.
+    v1.0.7: speed — --no-mmap (fix ~5GB RSS / page-fault TG), default --n-cpu-moe 40 (spare VRAM for experts),
+      ENABLE_DFLASH=1 (Laguna has no MTP; DFlash is the draft path), batch 2048. Expect RSS ~70GB after load.
+    v1.0.6: default → official Poolside laguna-s-2.1-Q4_K_M.gguf (~68.2 GB). Optional ENABLE_DFLASH=1 for +2.2 GB drafter. Unsloth IQ4 shards remain via LAGUNA_QUANT=iq4_xs.
+    v1.0.5: fix invalid split file name — drop broken Abiray Laguna-S-2.1-IQ4_XS.gguf; default Unsloth UD-IQ4_XS 3-shard (~57.5 GB). Point -m at -00001-of-00003. Update poolside Q4_K_M exact size 68248759648.
+    v1.0.4: fix poolside laguna cmake — speculative.cpp uses std::isfinite without #include <cmath> (cf7fe540); patch after checkout. BUILD_JOBS default 8→4; on fail re-run llama-common -j1 for clear error.
+    v1.0.3: fix cmake UI embed — use ggml-org/llama-ui latest dist.tar.gz (SvelteKit), not b9596 flat bundle.js.
+    v1.0.2: fix chartrepo accelerator lint — requiredCpu 1→3, requiredMemory 8Gi→9Gi (server req 2/8Gi + client 10m/64Mi).
+    v1.0.1: default quant Q2_K_XL → IQ4_XS (~62.7 GB Abiray) — better quality, still fits 96GB RAM with cpu-moe better than full Q4_K_M (~75 GB). Set LAGUNA_QUANT=q4_k_m for official Poolside Q4 if you have headroom; q2_k_xl remains fallback if RAM thrash.
+    v1.0.0: experimental GGUF try — Unsloth UD-Q2_K_XL + --cpu-moe hybrid on poolside llama.cpp @ laguna.
+  fullDescription: |
+    EXPERIMENTAL — Laguna S 2.1 (117.6B total / 8.5B activated MoE) on Olares One via GGUF
+    hybrid offload. Official NVFP4 (~71 GB) targets ~128 GB unified (Spark / Mac Studio).
+
+      Weights (default): Poolside laguna-s-2.1-Q4_K_M.gguf (~96.0 GB official)
+        experts Q4_K (imatrix), signal path Q8_0 — from poolside/Laguna-S-2.1-GGUF
+        Abiray IQ4_XS broken (split.count=2, single file) — do not use
+      Runtime: nvidia/cuda:13.1.0-devel builds poolsideai/llama.cpp @ 04b2b72 (branch laguna)
+      Hybrid: --cpu-moe (all routed experts in RAM via mmap) + -ngl 99 (attn/shared on GPU)
+      Spec: ENABLE_DFLASH=0 (default) — on cpu-moe, DFlash often low accept (~9%) and slows TG.
+        Set ENABLE_DFLASH=1 only if slot logs show draft acceptance >>50%.
+      Default ctx 16384 (raise via LLM_CONTEXT_WINDOW; native GGUF meta is 262144)
+      Sampling (Poolside): temp 0.7 top_p 0.95
+      Batch 2048 / ubatch 1024 (PP); mmap kept; --threads 22; CPU limit 22
+
+    Editable experiment knobs (Settings → Application):
+      LAGUNA_QUANT: q4_k_m (default official) | iq4_xs | q2_k_xl | iq2_m | iq3_xxs
+      ENABLE_CPU_MOE: 1 (default) — full --cpu-moe when N_CPU_MOE empty
+      N_CPU_MOE: optional — if set, --n-cpu-moe N (some experts on GPU); leave empty for full CPU experts
+      ENABLE_NO_MMAP: 1 only if you want forced RAM load (higher RSS; try if TG still page-faults)
+      N_GPU_LAYERS: override -ngl (default 99)
+      OVERRIDE_TENSORS: extra -ot patterns (comma-separated name=buft)
+      ENABLE_DFLASH: 0 (default) — optional; check draft acceptance in logs
+
+    Expectation: hybrid MoE ~15 t/s class without DFlash on One. Not a full-GPU speed chart.
+
+    License: OpenMDW-1.1. HF token recommended (large download).
+  developer: Poolside
+  website: https://huggingface.co/poolside/Laguna-S-2.1-GGUF
+  sourceCode: https://github.com/poolsideai/llama.cpp
+  submitter: coynntis
+  locale:
+    - en-US
+  license:
+    - text: OpenMDW-1.1
+      url: https://openmdw.ai/
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      # Σ: server 8cpu/8Gi req + 22/88Gi lim; client 10m/64Mi req + 500m/500Mi lim
+      requiredCpu: '9'
+      limitedCpu: '23'
+      requiredMemory: 9Gi
+      limitedMemory: 90Gi
+      requiredDisk: 110Gi
+      limitedDisk: 200Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+  appCommon: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: ENABLE_CPU_MOE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: N_CPU_MOE
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: N_GPU_LAYERS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LAGUNA_QUANT
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: ENABLE_DFLASH
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: ENABLE_NO_MMAP
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: OVERRIDE_TENSORS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

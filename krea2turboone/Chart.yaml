@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.24"
+description: Krea-2-Turbo text-to-image Gradio + REST for Olares One
+name: krea2turboone
+type: application
+version: 1.0.24

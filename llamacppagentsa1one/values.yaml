@@ -1,0 +1,31 @@
+admin: ''
+bfl:
+  username: ''
+userspace:
+  appData: ''
+  appCache: ''
+  userData: ''
+  appCommon: ''
+olaresEnv:
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  LLM_CONTEXT_WINDOW: ''
+  LLM_MAX_OUTPUT_TOKENS: ''
+  LLM_API_KEY: ''
+  LLM_BATCH_SIZE: ''
+  LLM_UBATCH_SIZE: ''
+  LLM_CACHE_TYPE_K: ''
+  LLM_CACHE_TYPE_V: ''
+  LLM_PARALLEL: ''
+  LLM_REASONING: ''
+  LLM_CHAT_TEMPLATE_SOURCE: ''
+  LLM_CHAT_TEMPLATE_URL: ''
+  LLM_ENABLE_THINKING: ''
+  LLM_PRESERVE_THINKING: ''
+workloads:
+  llamacppagentsa1one:
+    replicaCount: 1
+  llamacppagentsa1onecli:
+    replicaCount: 1

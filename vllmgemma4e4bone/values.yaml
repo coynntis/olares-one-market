@@ -1,0 +1,10 @@
+workloads:
+  vllmgemma4e4bone:
+    replicaCount: 1
+  vllmgemma4e4bonecli:
+    replicaCount: 1
+olaresEnv:
+  HF_TOKEN: ''
+  HF_ENDPOINT: ''
+  GITHUB_TOKEN: ''
+  GHCR_USER: ''

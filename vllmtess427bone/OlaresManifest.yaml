@@ -1,0 +1,135 @@
+---
+olaresManifest.version: 0.12.0
+olaresManifest.type: app
+apiVersion: v3
+workloadReplicas:
+  vllmtess427bone: 1
+  vllmtess427bonecli: 1
+metadata:
+  name: vllmtess427bone
+  icon: https://cdn.olares.com/images/2026/08/af0046dd195ee62c3be5e8c36054912d.png
+  description: Tess-4-27B vision + agentic reasoning via vLLM — Qwen3.6 multimodal on Olares One
+  title: Tess-4-27B Vision One
+  version: 1.0.6
+  categories:
+    - Vision
+    - AI Agents
+    - LLM Chat
+  bento:
+    family: tess
+    size_label: 27B
+    badge: agentic vision
+    hero:
+      value: 64K ctx
+      label: thinking native
+    specs:
+      - label: context
+        value: 32K
+      - label: vram
+        value: 24 GB
+    capabilities:
+      tool_calling: true
+      vision: true
+      audio: false
+      mtp:
+        enabled: false
+    stack: vLLM v0.22 · NVFP4 · Qwen3.6 VLM
+sharedEntrances:
+  - name: vllmtess427bone
+    host: sharedentrances-vllmtess427bone
+    port: 0
+    title: Tess-4-27B Vision API
+    icon: https://cdn.olares.com/images/2026/08/af0046dd195ee62c3be5e8c36054912d.png
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: vllmtess427bonecli
+    port: 8080
+    host: vllmtess427bonecli
+    title: Tess-4-27B Vision
+    icon: https://cdn.olares.com/images/2026/08/af0046dd195ee62c3be5e8c36054912d.png
+    openMethod: window
+    authLevel: internal
+spec:
+  versionName: 1.0.6
+  featuredImage: https://cdn.olares.com/images/2026/08/6ab7a40d79d7cfa7f3491f61c46e63dc.png
+  upgradeDescription: |2
+        v1.0.3: bump spec.accelerator to cover server + client container resource sums (v3 lint).
+    v1.0.2: migrate to apiVersion v3 shared chart (Olares 1.12.6+). Flatten server+client; workloadReplicas; no OLARES_USER_* in templates.
+    v1.0.1: switch to **Tess-4-27B-NVFP4** (~19 GB) — full GPU on 24GB, no CPU offload. Default 64K ctx, NVFP4 CUDA graphs, hermes tool + qwen3 reasoning parsers.
+    v1.0.0: initial BF16 chart with --cpu-offload-gb 28 (deprecated path).
+  fullDescription: |
+    Tess-4-27B-NVFP4 — agentic, thinking-native vision-language model by Migel Tissera (Qwen3.6-27B base).
+    RTX 5090M (24 GB GDDR7, sm_120 Blackwell) + 96 GB DDR5 + Core Ultra 9 275HX.
+
+    Capabilities:
+    - Native vision input (image_url via OpenAI-compatible API)
+    - Weight-scaled reasoning with explicit thinking blocks
+    - Agentic tool use (--enable-auto-tool-choice, hermes parser)
+    - NVFP4 W4A4 (~19 GB vs 52 GB BF16) — fits fully on GPU
+
+    Stack:
+    - Image: vllm/vllm-openai:v0.22.1-x86_64-cu129-ubuntu2404 (pinned, cu129 on CUDA 13.2)
+    - Model: migtissera/Tess-4-27B-NVFP4 (compressed-tensors NVFP4, llm-compressor)
+    - --dtype auto, PIECEWISE CUDA graphs, --max-num-seqs 64 (Qwen3.5 hybrid mamba cache)
+    - Default max_model_len: 65536 (override via LLM_CONTEXT_WINDOW)
+    - Fast-ready launcher: /health 200 immediately; readiness gates on /v1/models
+
+    Optional EAGLE3 draft: migtissera/Tess-4-27B-EAGLE3 (future chart).
+
+    First launch downloads ~19 GB. Set OLARES_USER_HUGGINGFACE_TOKEN in Settings if needed.
+  developer: aamsellem
+  website: https://huggingface.co/migtissera/Tess-4-27B-NVFP4
+  sourceCode: https://github.com/aamsellem/olares-one-market
+  submitter: aamsellem
+  locale:
+    - en-US
+  license:
+    - text: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+  supportArch:
+    - amd64
+  onlyAdmin: true
+  accelerator:
+    - mode: nvidia
+      requiredCpu: '2'
+      limitedCpu: '13'
+      requiredMemory: 5Gi
+      limitedMemory: 49Gi
+      requiredDisk: 25Gi
+      limitedDisk: 35Gi
+      requiredGPUMemory: 1Gi
+      limitedGPUMemory: 24Gi
+permission:
+  appData: true
+envs:
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: HF_ENDPOINT
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+  - envName: HF_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+options:
+  shared: true
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      version: '>=1.12.6-0'
+      type: system
+  LLMGatewaySupported: true

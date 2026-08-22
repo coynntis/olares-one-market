@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: "1.0.22"
+description: Multi-engine web search MCP server for Olares One agents and apps
+name: openwebsearchone
+type: application
+version: 1.0.22

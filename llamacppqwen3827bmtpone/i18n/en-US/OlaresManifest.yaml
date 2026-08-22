@@ -1,0 +1,22 @@
+metadata:
+  title: Qwen38 27B MTP Vision One
+  description: "Qwen3.8 27B MTP + Vision — Unsloth UD-Q3 default, optional abliterated 12GB / Q4 / Ridge"
+
+spec:
+  fullDescription: |
+    Qwen3.8-27B dense VLM with embedded MTP speculative decoding.
+
+    Variants via QWEN38_VARIANT:
+      - ud_q3_k_xl (default) — Unsloth Dynamic 3.0
+      - abliterated — soyaakinohara 3.69bpw ~12GB MTP (uncensored)
+      - ud_q4_k_m / ud_q4_k_xl — heavier Unsloth
+      - ridge_3_7bpw — Empero Ridge optional
+
+    Thinking defaults to reasoning_effort=medium (override LLM_REASONING_EFFORT).
+    Sampling (Unsloth): thinking temp=1.0/top_p=0.95; instruct temp=0.7/top_p=0.8 when LLM_REASONING=off.
+    MTP: default embedded (GGUF baked). LLM_MTP_SOURCE=draft loads Unsloth MTP file as DFlash but caps ctx to 65K (196K draft KV OOMs on 24GB).
+    Abliterated: ctx 196608, KV q8_0/turbo4, draft n=3 (no multi-GPU tensor-split on One).
+    Stack: buun-llama-cpp + selectable GGUF + mmproj-BF16 + mmproj-gpu-swap.
+    OpenAI API via nginx client proxy and sharedEntrances.
+
+    Note: Unsloth agentic output caps (reasoning 262K / final 131K) exceed practical 24GB KV — use LLM_MAX_OUTPUT_TOKENS / client max_tokens as needed. Native ctx up to 262144 via LLM_CONTEXT_WINDOW.
