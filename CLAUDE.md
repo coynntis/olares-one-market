@@ -84,8 +84,6 @@ npm run dev              # Build + wrangler dev (localhost:8787)
 npm run deploy           # Build + wrangler deploy (Cloudflare)
 ```
 
-Deployed at: `https://orales-one-market.coynntis.workers.dev`
-
 The build script:
 - Scans the repo root for directories containing both `Chart.yaml` and `OlaresManifest.yaml`
 - Strips Helm template directives (`{{if}}`, `{{else}}`, `{{end}}`) before YAML parsing — keeps the admin/if branch, drops else branch
@@ -445,7 +443,7 @@ Alternative backend for models not well-suited to GGUF quantization. Uses BF16 n
 ## TODO
 
 - [x] ~~Investigate chart `.tgz` download mechanism~~ — resolved: `{BaseURL}/api/v1/applications/{appName}/chart?fileName={chartName}`
-- [x] ~~Deploy to Cloudflare~~ — live at `https://orales-one-market.coynntis.workers.dev`
+- [x] ~~Deploy to Cloudflare~~ — `npm run deploy` (use your own worker URL as market source)
 - [x] ~~Test with actual Olares device as market source~~ — working, all metadata displays correctly
 - [x] ~~Custom-compiled llama.cpp~~ — NOT worth it. CPU has no AVX-512/AMX (Arrow Lake-HX). Generic image already uses AVX2+FMA. No docker on Olares One (only containerd).
 - [ ] Add GitHub Action for auto-deploy on push

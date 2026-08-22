@@ -17,7 +17,6 @@ ICONS_DIR = ROOT / "icons"
 FEATURED_DIR = ROOT / "featured"
 ICON_SIZE = 256
 FEATURED_W, FEATURED_H = 1440, 900
-MARKET_BASE = "https://orales-one-market.coynntis.workers.dev"
 
 # Hugging Face–style pipeline tags (canonical id → short pill label)
 PIPELINE_LABELS: dict[str, str] = {

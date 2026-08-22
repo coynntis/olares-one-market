@@ -43,7 +43,8 @@ injectSensenovavisionConfigmap();
 // Scan app charts from this repo's root
 const APPS_REPO = path.resolve(__dirname, '..');
 const OUTPUT = path.resolve(__dirname, '../src/catalog.json');
-const MARKET_BASE = 'https://orales-one-market.coynntis.workers.dev';
+/** Set when you deploy your own worker (optional). Used for local featured/*.png URLs only. */
+const MARKET_BASE = (process.env.MARKET_BASE_URL || '').replace(/\/$/, '');
 
 // --- Helpers ---
 
@@ -212,7 +213,7 @@ function scanApps() {
       doc: spec.doc || '',
       website: spec.website || '',
       featuredImage: spec.featuredImage
-        || (fs.existsSync(path.join(APPS_REPO, 'featured', `${appName}.png`))
+        || (MARKET_BASE && fs.existsSync(path.join(APPS_REPO, 'featured', `${appName}.png`))
           ? `${MARKET_BASE}/featured/${appName}.png`
           : ''),
       sourceCode: spec.sourceCode || '',

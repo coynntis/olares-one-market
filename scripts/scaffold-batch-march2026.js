@@ -10,7 +10,6 @@ const REPO = path.resolve(__dirname, '..');
 const TEMPLATE_SRC = path.join(REPO, 'shared/chat_templates/qwen-fixed-chat-template.jinja');
 const TEMPLATE_HF_URL =
   'https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja';
-const MARKET_ICON = 'https://orales-one-market.coynntis.workers.dev/icons';
 
 function walk(dir, fn) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {

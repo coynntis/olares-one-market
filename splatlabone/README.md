@@ -87,7 +87,7 @@ Backend source baked at image build (`docker/fetch_backends.py`). Weights prefet
 
 ## Install on Olares
 
-1. Market source: `https://orales-one-market.coynntis.workers.dev`
+1. Add your deployed worker URL as a market source (see repo root README).
 2. Build image via **dockerbuilderone MCP** — [docker/README.md](docker/README.md)
 3. Install chart; set `OLARES_USER_GITHUB_TOKEN` (ghcr pull)
 4. Optional: `OLARES_USER_HUGGINGFACE_TOKEN` for gated weights

@@ -1,6 +1,6 @@
 # Create Helm Chart for Olares One
 
-Create a complete Helm chart for a model app optimized for Olares One, ready to import in Studio.
+Create a complete Helm chart for a model app optimized for Olares One, ready for Market admin install.
 
 ## Argument: $ARGUMENTS
 
@@ -17,22 +17,89 @@ The argument should describe what to build:
 - Entrance title: max 30 chars, only `[a-z0-9A-Z-\s]`, NO parentheses
 - Proxy image: `beclab/aboveos-bitnami-openresty:1.25.3-2`
 - Olares dependency: `>=1.12.3-0`
+- **All entrances** (including MCP): `authLevel: internal` — never `public`
+- Subchart / entrance names: **max 30 chars**
 
-## Chart Structure for Olares One apps
+## New App Defaults (MUST include — see CLAUDE.md)
 
-These are **simple single-user apps** (no shared/admin split like official beclab/apps).
-No Helm template conditionals needed — single deployment, single service.
+Every new chart **must** ship with these from day one:
+
+### Shared entrance (server/client split)
 
 ```
 <app-name>/
-├── Chart.yaml
-├── OlaresManifest.yaml
+├── Chart.yaml                    ← umbrella, lists subCharts
+├── OlaresManifest.yaml           ← sharedEntrances + envs + subCharts
 ├── values.yaml
 ├── owners
 ├── .helmignore
 ├── i18n/en-US/OlaresManifest.yaml
-└── templates/
-    └── deployment.yaml    ← ConfigMap + Deployment + Service
+├── templates/
+│   ├── keep
+│   └── clientproxy.yaml          ← lint safety net (Deployment name == app name)
+├── <app-name>/                   ← client subchart (nginx proxy)
+│   ├── Chart.yaml
+│   ├── values.yaml
+│   └── templates/clientproxy.yaml
+└── <app-name>srv/                ← server subchart (GPU, shared)
+    ├── Chart.yaml
+    ├── values.yaml               ← must include olaresEnv: {}
+    └── templates/deployment.yaml
+```
+
+Manifest requirements:
+- `subCharts`: server `shared: true` + client (no `shared` on client)
+- `sharedEntrances`: `host: sharedentrances-<app>`, `port: 0` (integer), `invisible: true`, `authLevel: internal`
+- `options.apiTimeout: 0`
+- Non-admin: mandatory self-dependency on client chart
+
+Reference: `llamacppqwen36beellamaone/`. Scripts: `scripts/split-server-client.js`, `scripts/align-shared-apps.js`.
+
+**Do NOT use Studio devbox** for v2 shared apps — use Market admin install.
+
+### User env vars (Settings → Application)
+
+**LLM serving apps** (llama.cpp / vLLM / SGLang text) — add to `envs:`:
+
+```yaml
+  - envName: LLM_CONTEXT_WINDOW
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_MAX_OUTPUT_TOKENS
+    required: false
+    editable: true
+    applyOnChange: true
+  - envName: LLM_API_KEY
+    required: false
+    editable: true
+    applyOnChange: true
+```
+
+Wire in server deployment; fall back to ConfigMap defaults when unset. See `scripts/add-llm-serving-envs.js` for backend-specific patterns.
+
+| Env | llama.cpp | vLLM | SGLang |
+|-----|-----------|------|--------|
+| Context | `--ctx-size` | `--max-model-len` | `--context-length` |
+| Max output | `--n-predict` | `--override-generation-config` | per-request (no server default) |
+| API key | `--api-key` | `--api-key` | `--api-key` |
+
+### Hugging Face token
+
+If the app downloads from HF, add:
+
+```yaml
+  - envName: OLARES_USER_HUGGINGFACE_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+```
+
+Server deployment:
+```yaml
+- name: HF_TOKEN
+  value: {{ .Values.olaresEnv.OLARES_USER_HUGGINGFACE_TOKEN | default "" | quote }}
 ```
 
 ## Steps
@@ -40,49 +107,45 @@ No Helm template conditionals needed — single deployment, single service.
 1. **Determine app name**: lowercase alphanumeric, no hyphens/underscores. Convention:
    - llama.cpp: `llamacpp<model><quant>one` (e.g., `llamacppqwen36a3bone`)
    - vLLM: `vllm<model>one`
-   - KTransformers: `kt<model>one`
+   - SGLang: `sglang<model>one`
 
-2. **Create directory structure** with all files.
+2. **Create server/client split structure** (see above). Use `llamacppqwen36beellamaone/` as template.
 
-3. **Chart.yaml**: Standard Helm v2 chart, version starts at `1.0.0`.
+3. **Chart.yaml**: Umbrella v2 chart with `dependencies` on both subcharts. Version starts at `1.0.0`.
 
-4. **OlaresManifest.yaml**: Use the template from existing app (`llamacppqwen36a3bone/`) as reference. Key fields:
+4. **OlaresManifest.yaml**: Key fields:
    - Resource requirements based on model size + backend needs
-   - Icon URL: `https://orales-one-market.aamsellem.workers.dev/icons/<app-name>.png`
-   - Categories: `AI`
-   - Developer: `aamsellem`
-   - Website/sourceCode: `https://github.com/aamsellem/olares-one-market`
+   - Icon URL: CDN URL from `npm run generate:icons` (see `scripts/apps-icons.json`), or placeholder until uploaded
+   - Categories: `AI` / `LLM Chat` as appropriate
+   - Developer: `coynntis`
+   - **sharedEntrances + envs + apiTimeout: 0** (defaults section above)
    - License URL: use `ggml-org` (NOT `ggerganov`) for llama.cpp
 
-5. **templates/deployment.yaml**: Contains:
-   - **ConfigMap**: model URL, file name, all tunable parameters (if needed)
-   - **InitContainer for permissions**: ALWAYS add an initContainer that runs `chmod -R 777 <volume-mount>` for hostPath volumes. Non-root containers cannot write to hostPath dirs created by K8s. Do NOT use `chown` with hardcoded UIDs — container user UID varies by image.
-   - **InitContainer for model download** (if needed): downloads model on first run (wget/curl), caches to persistent volume
-   - **InitContainer for extra binaries** (if needed): Use `docker.io/alpine:3.20` to download static binaries (e.g., ffmpeg from johnvansickle.com) into an emptyDir shared volume. Do NOT install packages in the main container (OPA blocks `runAsUser: 0` with untrusted registries). Do NOT use scratch-based images (no shell). Static binaries avoid glibc incompatibilities.
-   - **Main container**: the inference server with all optimized args
-   - **Probes**: startup (long timeout for model loading + download), liveness
-   - **Resources**: CPU/memory limits matching OlaresManifest
+5. **Server templates/deployment.yaml** (`<app>srv/`):
+   - Wrapped in admin guard: `{{- if and .Values.admin .Values.bfl.username (eq .Values.admin .Values.bfl.username) }}`
+   - **ConfigMap**: model URL, file name, default context size, tunable parameters
+   - **InitContainer for permissions**: `chmod -R 777 <volume-mount>` for hostPath volumes
+   - **InitContainer for model download** (if needed): wget/curl to persistent volume
+   - **Main container**: inference server with optimized args + **LLM env fallbacks** + **HF_TOKEN**
+   - **Probes**: startup (long timeout), liveness
    - **GPU annotation**: `applications.app.bytetrade.io/gpu-inject: "true"`
-   - **Volume**: hostPath to `{{ .Values.userspace.appData }}/<subdir>`
-   - **OPA security constraints**: Olares has an OPA webhook that blocks `runAsUser: 0` + untrusted registries (ghcr.io, quay.io). Trusted: `docker.io/`, `beclab/`. Use trusted images for initContainers that need root.
+   - **sharedentrances Service** on server Deployment
 
-6. **values.yaml**: Minimal (Olares injects `userspace`, `domain`, etc.)
+6. **Client templates/clientproxy.yaml**: nginx → `http://<backend>.<serverChart>-shared:<port>`. SSE headers (`proxy_buffering off`, etc.).
 
-7. **i18n/en-US/OlaresManifest.yaml**: Localized metadata and spec.
+7. **values.yaml**: `olaresEnv: {}` in server subchart.
 
-8. **owners**: `aamsellem`
+8. **i18n/en-US/OlaresManifest.yaml**: Localized metadata.
 
-9. **.helmignore**: Exclude `docker/`, `*.tgz`, `.DS_Store`
+9. **owners**: `coynntis`
 
-10. **Ask user for icon** or generate placeholder. Place in `icons/<app-name>.png`.
+10. **Package**: `npm run build` (or `node scripts/package-charts.js`)
 
-11. **Package**: `helm package <app-name> -d charts/`
-
-12. **Report**: Show chart structure, file sizes, and suggest: "Run `/test-on-device <app-name>` to test in Studio."
+11. **Report**: chart structure, versions, suggest Market admin install.
 
 ## Reference
 
-Use `llamacppqwen36a3bone/` as the template for all new apps. Read it to understand the exact format, then adapt for the new model/backend.
+Use `llamacppqwen36beellamaone/` as the gold-standard template.
 
 ### llama.cpp optimized args (battle-tested on Olares One)
 
@@ -97,14 +160,14 @@ Use `llamacppqwen36a3bone/` as the template for all new apps. Read it to underst
 Env: `GGML_CUDA_GRAPH_OPT=1`
 
 ### Docker images (pinned)
-- llama.cpp: `ghcr.io/ggml-org/llama.cpp:server-cuda-b<N>` — ALWAYS verify the tag exists on ghcr.io before deploying (not every build gets a Docker image). Current known good: **b8284**.
+- llama.cpp: `ghcr.io/ggml-org/llama.cpp:server-cuda13-b<N>` — verify tag exists on ghcr.io
 - vLLM: `vllm/vllm-openai:v<version>`
-- KTransformers: `approachingai/ktransformers:latest` (use serve env)
+- SGLang: `lmsysorg/sglang:dev-cu13`
 
-### Important: verify Docker image exists before deploying
+### Verify Docker image exists before deploying
 ```bash
 TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:ggml-org/llama.cpp:pull" | jq -r '.token')
-curl -s -o /dev/null -w "%{http_code}" "https://ghcr.io/v2/ggml-org/llama.cpp/manifests/server-cuda-b<N>" \
+curl -s -o /dev/null -w "%{http_code}" "https://ghcr.io/v2/ggml-org/llama.cpp/manifests/server-cuda13-b<N>" \
   -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.oci.image.index.v1+json"
 # 200 = exists, 404 = does not exist
 ```
